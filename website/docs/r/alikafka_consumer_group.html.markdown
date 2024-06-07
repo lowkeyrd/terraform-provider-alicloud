@@ -14,7 +14,7 @@ Provides an ALIKAFKA consumer group resource, see [What is alikafka consumer gro
 -> **NOTE:** Available since v1.56.0.
 
 -> **NOTE:**  Only the following regions support create alikafka consumer group.
-[`cn-hangzhou`,`cn-beijing`,`cn-shenzhen`,`cn-shanghai`,`cn-qingdao`,`cn-hongkong`,`cn-huhehaote`,`cn-zhangjiakou`,`cn-chengdu`,`cn-heyuan`,`ap-southeast-1`,`ap-southeast-3`,`ap-southeast-5`,`ap-south-1`,`ap-northeast-1`,`eu-central-1`,`eu-west-1`,`us-west-1`,`us-east-1`]
+[`cn-hangzhou`,`cn-beijing`,`cn-shenzhen`,`cn-shanghai`,`cn-qingdao`,`cn-hongkong`,`cn-huhehaote`,`cn-zhangjiakou`,`cn-chengdu`,`cn-heyuan`,`ap-southeast-1`,`ap-southeast-3`,`ap-southeast-5`,`ap-northeast-1`,`eu-central-1`,`eu-west-1`,`us-west-1`,`us-east-1`]
 
 ## Example Usage
 
@@ -22,7 +22,12 @@ Basic Usage
 
 ```terraform
 variable "name" {
-  default = "tf_example"
+  default = "tf-example"
+}
+
+resource "random_integer" "default" {
+  min = 10000
+  max = 99999
 }
 
 data "alicloud_zones" "default" {
@@ -39,14 +44,19 @@ resource "alicloud_vswitch" "default" {
   zone_id    = data.alicloud_zones.default.zones[0].id
 }
 
+resource "alicloud_security_group" "default" {
+  vpc_id = alicloud_vpc.default.id
+}
+
 resource "alicloud_alikafka_instance" "default" {
-  name          = var.name
-  partition_num = "50"
-  disk_type     = "1"
-  disk_size     = "500"
-  deploy_type   = "5"
-  io_max        = "20"
-  vswitch_id    = alicloud_vswitch.default.id
+  name           = "${var.name}-${random_integer.default.result}"
+  partition_num  = "50"
+  disk_type      = "1"
+  disk_size      = "500"
+  deploy_type    = "5"
+  io_max         = "20"
+  vswitch_id     = alicloud_vswitch.default.id
+  security_group = alicloud_security_group.default.id
 }
 
 resource "alicloud_alikafka_consumer_group" "default" {

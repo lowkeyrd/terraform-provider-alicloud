@@ -393,19 +393,37 @@ resource "alicloud_oss_bucket" "bucket-accelerate" {
 }
 ```
 
+Set bucket resource group id
+
+```terraform
+resource "random_integer" "default" {
+  max = 99999
+  min = 10000
+}
+
+data "alicloud_resource_manager_resource_groups" "default" {
+  name_regex = "default"
+}
+
+resource "alicloud_oss_bucket" "bucket-accelerate" {
+  bucket            = "terraform-example-${random_integer.default.result}"
+  resource_group_id = data.alicloud_resource_manager_resource_groups.default.groups.0.id
+}
+```
+
 ## Argument Reference
 
 The following arguments are supported:
 
 * `bucket` - (Optional, ForceNew) The name of the bucket. If omitted, Terraform will assign a random and unique name.
-* `acl` - (Optional) The [canned ACL](https://www.alibabacloud.com/help/doc-detail/31898.htm) to apply. Can be "private", "public-read" and "public-read-write". Defaults to "private".
+* `acl` - (Optional, Computed, Deprecated since 1.220.0) The [canned ACL](https://www.alibabacloud.com/help/doc-detail/31898.htm) to apply. Can be "private", "public-read" and "public-read-write". This property has been deprecated since 1.220.0, please use the resource `alicloud_oss_bucket_acl` instead.
 * `cors_rule` - (Optional) A rule of  [Cross-Origin Resource Sharing](https://www.alibabacloud.com/help/doc-detail/31903.htm). The items of core rule are no more than 10 for every OSS bucket. See [`cors_rule`](#cors_rule) below.
 * `website` - (Optional) A website configuration. See [`website`](#website) below.
 * `logging` - (Optional) A Settings of [bucket logging](https://www.alibabacloud.com/help/doc-detail/31900.htm). See [`logging`](#logging) below.
 * `logging_isenable` - (Optional, Deprecated from 1.37.0.) The flag of using logging enable container. Defaults true.
-* `referer_config` - (Optional) The configuration of [referer](https://www.alibabacloud.com/help/doc-detail/31901.htm). See [`referer_config`](#referer_config) below.
+* `referer_config` - (Optional, Deprecated since 1.220.0) The configuration of [referer](https://www.alibabacloud.com/help/doc-detail/31901.htm). This property has been deprecated since 1.220.0, please use the resource `alicloud_oss_bucket_referer` instead. See [`referer_config`](#referer_config) below.
 * `lifecycle_rule` - (Optional) A configuration of [object lifecycle management](https://www.alibabacloud.com/help/doc-detail/31904.htm). See [`lifecycle_rule`](#lifecycle_rule) below.
-* `policy` - (Optional, Available since 1.41.0) Json format text of bucket policy [bucket policy management](https://www.alibabacloud.com/help/doc-detail/100680.htm).
+* `policy` - (Optional, Available since 1.41.0, Deprecated since 1.220.0) Json format text of bucket policy [bucket policy management](https://www.alibabacloud.com/help/doc-detail/100680.htm). This property has been deprecated since 1.220.0, please use the resource `alicloud_oss_bucket_policy` instead.
 * `storage_class` - (Optional, ForceNew) The [storage class](https://www.alibabacloud.com/help/doc-detail/51374.htm) to apply. Can be "Standard", "IA", "Archive", "ColdArchive" and "DeepColdArchive". Defaults to "Standard". "ColdArchive" is available since 1.203.0. "DeepColdArchive" is available since 1.209.0.
 * `redundancy_type` - (Optional, ForceNew, Available since 1.91.0) The [redundancy type](https://www.alibabacloud.com/help/doc-detail/90589.htm) to enable. Can be "LRS", and "ZRS". Defaults to "LRS".
 * `server_side_encryption_rule` - (Optional, Available since 1.45.0) A configuration of server-side encryption. See [`server_side_encryption_rule`](#server_side_encryption_rule) below.
@@ -415,6 +433,8 @@ The following arguments are supported:
 * `transfer_acceleration` - (Optional, Available since 1.123.1) A transfer acceleration status of a bucket. See [`transfer_acceleration`](#transfer_acceleration) below.
 * `lifecycle_rule_allow_same_action_overlap` - (Optional, Available since 1.208.1) A boolean that indicates lifecycle rules allow prefix overlap.
 * `access_monitor` - (Optional, Available since 1.208.1) A access monitor status of a bucket. See [`access_monitor`](#access_monitor) below.
+* `resource_group_id` - (Optional, Available since 1.219.0) The ID of the resource group to which the bucket belongs.
+
 
 ### `cors_rule`
 

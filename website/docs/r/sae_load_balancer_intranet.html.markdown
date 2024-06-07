@@ -20,6 +20,10 @@ For information about Serverless App Engine (SAE) Load Balancer Intranet Attachm
 Basic Usage
 
 ```terraform
+provider "alicloud" {
+  region = "cn-hangzhou"
+}
+
 variable "name" {
   default = "tf-example"
 }
@@ -58,7 +62,7 @@ resource "alicloud_sae_namespace" "default" {
 
 resource "alicloud_sae_application" "default" {
   app_description   = var.name
-  app_name          = var.name
+  app_name          = "${var.name}-${random_integer.default.result}"
   namespace_id      = alicloud_sae_namespace.default.id
   image_url         = "registry-vpc.cn-hangzhou.aliyuncs.com/lxepoo/apache-php5"
   package_type      = "Image"

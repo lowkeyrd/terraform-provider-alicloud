@@ -6,7 +6,7 @@ import (
 	"regexp"
 	"time"
 
-	roacs "github.com/alibabacloud-go/cs-20151215/v3/client"
+	roacs "github.com/alibabacloud-go/cs-20151215/v5/client"
 	"github.com/alibabacloud-go/tea/tea"
 
 	util "github.com/alibabacloud-go/tea-utils/service"
@@ -444,7 +444,8 @@ func resourceAlicloudCSServerlessKubernetesRead(d *schema.ResourceData, meta int
 	}
 
 	vswitchIds := []string{}
-	resources, _ := rosClient.DescribeClusterResources(tea.String(d.Id()))
+	request := &roacs.DescribeClusterResourcesRequest{}
+	resources, _ := rosClient.DescribeClusterResources(tea.String(d.Id()), request)
 	for _, resource := range resources.Body {
 		if tea.StringValue(resource.ResourceType) == "VSWITCH" {
 			vswitchIds = append(vswitchIds, tea.StringValue(resource.InstanceId))
@@ -545,7 +546,7 @@ func resourceAlicloudCSServerlessKubernetesUpdate(d *schema.ResourceData, meta i
 	// upgrade cluster version
 	err := UpgradeAlicloudKubernetesCluster(d, meta)
 	if err != nil {
-		return WrapErrorf(err, DefaultErrorMsg, d.Id(), "UpgradeClusterVersion", DenverdinoAliyungo)
+		return WrapError(err)
 	}
 
 	if err := modifyKubernetesCluster(d, meta); err != nil {
@@ -568,7 +569,19 @@ func resourceAlicloudCSServerlessKubernetesDelete(d *schema.ResourceData, meta i
 		args.RetainResources = tea.StringSlice(expandStringList(v.([]interface{})))
 	}
 
-	_, err = client.DeleteCluster(tea.String(d.Id()), args)
+	wait := incrementalWait(3*time.Second, 3*time.Second)
+	err = resource.Retry(5*time.Minute, func() *resource.RetryError {
+		_, err = client.DeleteCluster(tea.String(d.Id()), args)
+		if err != nil {
+			if NeedRetry(err) {
+				wait()
+				return resource.RetryableError(err)
+			}
+			return resource.NonRetryableError(err)
+		}
+		return nil
+	})
+
 	if err != nil {
 		if IsExpectedErrors(err, []string{"ErrorClusterNotFound"}) {
 			return nil

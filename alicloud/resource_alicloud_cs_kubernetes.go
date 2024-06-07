@@ -10,7 +10,7 @@ import (
 	"strings"
 	"time"
 
-	roacs "github.com/alibabacloud-go/cs-20151215/v3/client"
+	roacs "github.com/alibabacloud-go/cs-20151215/v5/client"
 	"github.com/alibabacloud-go/tea/tea"
 
 	"github.com/hashicorp/terraform-plugin-sdk/helper/validation"
@@ -321,7 +321,6 @@ func resourceAlicloudCSKubernetes() *schema.Resource {
 					Type:         schema.TypeString,
 					ValidateFunc: validation.StringMatch(regexp.MustCompile(`^vsw-[a-z0-9]*$`), "should start with 'vsw-'."),
 				},
-				MaxItems: 10,
 			},
 			// Flannel network
 			"pod_cidr": {
@@ -603,9 +602,8 @@ func resourceAlicloudCSKubernetes() *schema.Resource {
 				},
 			},
 			"slb_id": {
-				Type:       schema.TypeString,
-				Computed:   true,
-				Deprecated: "Field 'slb_id' has been deprecated from provider version 1.9.2. New field 'slb_internet' replaces it.",
+				Type:     schema.TypeString,
+				Computed: true,
 			},
 			"slb_internet": {
 				Type:     schema.TypeString,
@@ -805,6 +803,24 @@ func resourceAlicloudCSKubernetes() *schema.Resource {
 					Type: schema.TypeString,
 				},
 			},
+			"delete_options": {
+				Type:     schema.TypeList,
+				Optional: true,
+				Elem: &schema.Resource{
+					Schema: map[string]*schema.Schema{
+						"resource_type": {
+							Type:         schema.TypeString,
+							Optional:     true,
+							ValidateFunc: validation.StringInSlice([]string{"SLB", "ALB", "SLS_Data", "SLS_ControlPlane", "PrivateZone"}, false),
+						},
+						"delete_mode": {
+							Type:         schema.TypeString,
+							Optional:     true,
+							ValidateFunc: validation.StringInSlice([]string{"delete", "retain"}, false),
+						},
+					},
+				},
+			},
 		},
 	}
 }
@@ -959,7 +975,11 @@ func resourceAlicloudCSKubernetesUpdate(d *schema.ResourceData, meta interface{}
 
 	d.SetPartial("tags")
 
-	UpgradeAlicloudKubernetesCluster(d, meta)
+	err := UpgradeAlicloudKubernetesCluster(d, meta)
+	if err != nil {
+		return WrapError(err)
+	}
+
 	d.Partial(false)
 	return resourceAlicloudCSKubernetesRead(d, meta)
 }
@@ -1276,7 +1296,20 @@ func resourceAlicloudCSKubernetesRead(d *schema.ResourceData, meta interface{}) 
 		}
 	}
 
-	kubeConfig, err := csClient.DescribeClusterKubeConfigWithExpiration(d.Id(), 0)
+	var kubeConfig *roacs.DescribeClusterUserKubeconfigResponseBody
+	wait := incrementalWait(3*time.Second, 3*time.Second)
+	err = resource.Retry(5*time.Minute, func() *resource.RetryError {
+		kubeConfig, err = csClient.DescribeClusterKubeConfigWithExpiration(d.Id(), 0)
+		if err != nil {
+			if NeedRetry(err) {
+				wait()
+				return resource.RetryableError(err)
+			}
+			return resource.NonRetryableError(err)
+		}
+		return nil
+	})
+
 	if err != nil {
 		log.Printf("[ERROR] Failed to get kubeconfig due to %++v", err)
 	} else {
@@ -1318,8 +1351,29 @@ func resourceAlicloudCSKubernetesDelete(d *schema.ResourceData, meta interface{}
 	if v := d.Get("retain_resources"); len(v.([]interface{})) > 0 {
 		args.RetainResources = tea.StringSlice(expandStringList(v.([]interface{})))
 	}
+	if v, ok := d.GetOk("delete_options"); ok && len(v.([]interface{})) > 0 {
+		for _, vv := range v.([]interface{}) {
+			if options, ok := vv.(map[string]interface{}); ok {
+				args.DeleteOptions = append(args.DeleteOptions, &roacs.DeleteClusterRequestDeleteOptions{
+					DeleteMode:   tea.String(options["delete_mode"].(string)),
+					ResourceType: tea.String(options["resource_type"].(string)),
+				})
+			}
+		}
+	}
 
-	_, err = client.DeleteCluster(tea.String(d.Id()), args)
+	wait := incrementalWait(3*time.Second, 3*time.Second)
+	err = resource.Retry(5*time.Minute, func() *resource.RetryError {
+		_, err = client.DeleteCluster(tea.String(d.Id()), args)
+		if err != nil {
+			if NeedRetry(err) {
+				wait()
+				return resource.RetryableError(err)
+			}
+			return resource.NonRetryableError(err)
+		}
+		return nil
+	})
 	if err != nil {
 		if IsExpectedErrors(err, []string{"ErrorClusterNotFound"}) {
 			return nil
@@ -1747,41 +1801,27 @@ func flattenMaintenanceWindowConfig(config *cs.MaintenanceWindow) (m []map[strin
 	return
 }
 
-func modifyMaintenanceWindow(d *schema.ResourceData, meta interface{}, mw cs.MaintenanceWindow) error {
-	client := meta.(*connectivity.AliyunClient)
-	invoker := NewInvoker()
-
-	var response interface{}
-	var requestInfo cs.ModifyClusterArgs
-
-	requestInfo.MaintenanceWindow = mw
-
-	if err := invoker.Run(func() error {
-		_, err := client.WithCsClient(func(csClient *cs.Client) (interface{}, error) {
-			return nil, csClient.ModifyCluster(d.Id(), &requestInfo)
-		})
-		return err
-	}); err != nil && !IsExpectedErrors(err, []string{"ErrorModifyMaintenanceWindowFailed"}) {
-		return WrapErrorf(err, DefaultErrorMsg, d.Id(), "ModifyCluster", DenverdinoAliyungo)
-	}
-	if debugOn() {
-		requestMap := make(map[string]interface{})
-		requestMap["ClusterId"] = d.Id()
-		requestMap["maintenance_window"] = requestInfo.DeletionProtection
-		addDebug("ModifyCluster", response, requestInfo, requestMap)
-	}
-	d.SetPartial("maintenance_window")
-
-	return nil
-}
-
 // getApiServerSlbID gets cluster's API server SLB ID.
 func getApiServerSlbID(d *schema.ResourceData, meta interface{}) (string, error) {
 	rosClient, err := meta.(*connectivity.AliyunClient).NewRoaCsClient()
 	if err != nil {
 		return "", err
 	}
-	clusterResources, err := rosClient.DescribeClusterResources(tea.String(d.Id()))
+	var clusterResources *roacs.DescribeClusterResourcesResponse
+	wait := incrementalWait(3*time.Second, 3*time.Second)
+	err = resource.Retry(5*time.Minute, func() *resource.RetryError {
+		request := &roacs.DescribeClusterResourcesRequest{}
+		clusterResources, err = rosClient.DescribeClusterResources(tea.String(d.Id()), request)
+		if err != nil {
+			if NeedRetry(err) {
+				wait()
+				return resource.RetryableError(err)
+			}
+			return resource.NonRetryableError(err)
+		}
+		return nil
+	})
+
 	if err != nil {
 		return "", err
 	}
@@ -1872,7 +1912,20 @@ func fetchMasterNodes(d *schema.ResourceData, meta interface{}) []map[string]int
 			PageNumber: tea.String(strconv.Itoa(num)),
 			PageSize:   tea.String(strconv.Itoa(size)),
 		}
-		response, err := csClient.DescribeClusterNodes(tea.String(d.Id()), request)
+		var response *roacs.DescribeClusterNodesResponse
+		wait := incrementalWait(3*time.Second, 3*time.Second)
+		err = resource.Retry(5*time.Minute, func() *resource.RetryError {
+			response, err = csClient.DescribeClusterNodes(tea.String(d.Id()), request)
+			if err != nil {
+				if NeedRetry(err) {
+					wait()
+					return resource.RetryableError(err)
+				}
+				return resource.NonRetryableError(err)
+			}
+			return nil
+		})
+
 		if err != nil {
 			return nil
 		}
@@ -1907,7 +1960,20 @@ func fetchWorkerNodes(d *schema.ResourceData, meta interface{}) []map[string]int
 	if err != nil {
 		return nil
 	}
-	response, err := csClient.DescribeClusterNodePools(tea.String(d.Id()))
+	var response *roacs.DescribeClusterNodePoolsResponse
+	wait := incrementalWait(3*time.Second, 3*time.Second)
+	err = resource.Retry(5*time.Minute, func() *resource.RetryError {
+		response, err = csClient.DescribeClusterNodePools(tea.String(d.Id()), &roacs.DescribeClusterNodePoolsRequest{})
+		if err != nil {
+			if NeedRetry(err) {
+				wait()
+				return resource.RetryableError(err)
+			}
+			return resource.NonRetryableError(err)
+		}
+		return nil
+	})
+
 	if err != nil {
 		return nil
 	}
@@ -1933,7 +1999,20 @@ func fetchWorkerNodes(d *schema.ResourceData, meta interface{}) []map[string]int
 			PageSize:   tea.String(strconv.Itoa(size)),
 			NodepoolId: tea.String(nodepoolId),
 		}
-		response, err := csClient.DescribeClusterNodes(tea.String(d.Id()), request)
+		var response *roacs.DescribeClusterNodesResponse
+		wait = incrementalWait(3*time.Second, 3*time.Second)
+		err = resource.Retry(5*time.Minute, func() *resource.RetryError {
+			response, err = csClient.DescribeClusterNodes(tea.String(d.Id()), request)
+			if err != nil {
+				if NeedRetry(err) {
+					wait()
+					return resource.RetryableError(err)
+				}
+				return resource.NonRetryableError(err)
+			}
+			return nil
+		})
+
 		if err != nil {
 			return nil
 		}

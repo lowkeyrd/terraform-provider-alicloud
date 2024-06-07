@@ -122,6 +122,13 @@ func hasLocalEndpoint() bool {
 	return len(data) > 0
 }
 
+func LoadRegionalEndpoint(region string, serviceCode string) string {
+	if region == "" || serviceCode == "" {
+		return ""
+	}
+	return fmt.Sprintf("%s.%s.aliyuncs.com", serviceCode, region)
+}
+
 func loadEndpoint(region string, serviceCode ServiceCode) string {
 	endpoint := strings.TrimSpace(os.Getenv(fmt.Sprintf("%s_ENDPOINT", string(serviceCode))))
 	if endpoint != "" {
@@ -251,6 +258,7 @@ func (client *AliyunClient) describeEndpointForService(serviceCode string) (stri
 	locationClient.AppendUserAgent(Terraform, client.config.TerraformVersion)
 	locationClient.AppendUserAgent(Provider, providerVersion)
 	locationClient.AppendUserAgent(Module, client.config.ConfigurationSource)
+	locationClient.AppendUserAgent(TerraformTraceId, client.config.TerraformTraceId)
 	wait := incrementalWait(3*time.Second, 5*time.Second)
 	var endpointResult string
 	err = resource.Retry(2*time.Minute, func() *resource.RetryError {
@@ -302,7 +310,7 @@ const (
 	OpenFcService                  = "fc-open.cn-hangzhou.aliyuncs.com"
 	OpenAckService                 = "cs.aliyuncs.com"
 	OpenPrivateLinkService         = "privatelink.cn-hangzhou.aliyuncs.com"
-	OpenBrainIndustrialService     = "brain-industrial-share.cn-hangzhou.aliyuncs.com"
+	OpenBrainIndustrialService     = "brain-industrial.cn-hangzhou.aliyuncs.com"
 	OpenIotService                 = "iot.aliyuncs.com"
 	OpenVsService                  = "vs.cn-shanghai.aliyuncs.com"
 	OpenCrService                  = "cr.cn-hangzhou.aliyuncs.com"

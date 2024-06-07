@@ -16,45 +16,25 @@ import (
 	"github.com/hashicorp/terraform-plugin-sdk/helper/validation"
 )
 
-func resourceAlicloudAlikafkaInstance() *schema.Resource {
+func resourceAliCloudAlikafkaInstance() *schema.Resource {
 	return &schema.Resource{
-		Create: resourceAlicloudAlikafkaInstanceCreate,
-		Read:   resourceAlicloudAlikafkaInstanceRead,
-		Update: resourceAlicloudAlikafkaInstanceUpdate,
-		Delete: resourceAlicloudAlikafkaInstanceDelete,
+		Create: resourceAliCloudAlikafkaInstanceCreate,
+		Read:   resourceAliCloudAlikafkaInstanceRead,
+		Update: resourceAliCloudAlikafkaInstanceUpdate,
+		Delete: resourceAliCloudAlikafkaInstanceDelete,
 		Importer: &schema.ResourceImporter{
 			State: schema.ImportStatePassthrough,
 		},
 		Timeouts: &schema.ResourceTimeout{
-			Create: schema.DefaultTimeout(30 * time.Minute),
+			Create: schema.DefaultTimeout(60 * time.Minute),
 			Update: schema.DefaultTimeout(120 * time.Minute),
 			Delete: schema.DefaultTimeout(30 * time.Minute),
 		},
 		Schema: map[string]*schema.Schema{
-			"name": {
-				Type:         schema.TypeString,
-				Optional:     true,
-				Computed:     true,
-				ValidateFunc: validation.StringLenBetween(3, 64),
-			},
-			"topic_quota": {
-				Type:     schema.TypeInt,
-				Optional: true,
-				Computed: true,
-				DiffSuppressFunc: func(k, old, new string, d *schema.ResourceData) bool {
-					o, _ := strconv.Atoi(old)
-					partitionNum := d.Get("partition_num").(int)
-					if o > 0 {
-						return o-1000 == partitionNum
-					}
-					return false
-				},
-				Deprecated: "Attribute 'topic_quota' has been deprecated since 1.194.0 and it will be removed in the next future. Using new attribute 'partition_num' instead.",
-			},
-			"partition_num": {
-				Type:         schema.TypeInt,
-				Optional:     true,
-				AtLeastOneOf: []string{"partition_num", "topic_quota"},
+			"vswitch_id": {
+				Type:     schema.TypeString,
+				Required: true,
+				ForceNew: true,
 			},
 			"disk_type": {
 				Type:     schema.TypeInt,
@@ -70,10 +50,41 @@ func resourceAlicloudAlikafkaInstance() *schema.Resource {
 				Required:     true,
 				ValidateFunc: validation.IntInSlice([]int{4, 5}),
 			},
+			"partition_num": {
+				Type:         schema.TypeInt,
+				Optional:     true,
+				AtLeastOneOf: []string{"partition_num", "topic_quota"},
+			},
+			"topic_quota": {
+				Type:     schema.TypeInt,
+				Optional: true,
+				Computed: true,
+				DiffSuppressFunc: func(k, old, new string, d *schema.ResourceData) bool {
+					o, _ := strconv.Atoi(old)
+					partitionNum := d.Get("partition_num").(int)
+					if o > 0 {
+						return o-1000 == partitionNum
+					}
+					return false
+				},
+				Deprecated: "Attribute `topic_quota` has been deprecated since 1.194.0 and it will be removed in the next future. Using new attribute `partition_num` instead.",
+			},
 			"io_max": {
 				Type:     schema.TypeInt,
 				Optional: true,
 				Computed: true,
+			},
+			"io_max_spec": {
+				Type:         schema.TypeString,
+				Optional:     true,
+				Computed:     true,
+				ExactlyOneOf: []string{"io_max", "io_max_spec"},
+			},
+			"name": {
+				Type:         schema.TypeString,
+				Optional:     true,
+				Computed:     true,
+				ValidateFunc: validation.StringLenBetween(3, 64),
 			},
 			"paid_type": {
 				Type:         schema.TypeString,
@@ -94,15 +105,15 @@ func resourceAlicloudAlikafkaInstance() *schema.Resource {
 					return d.Get("deploy_type").(int) == 5
 				},
 			},
+			"resource_group_id": {
+				Type:     schema.TypeString,
+				Optional: true,
+				Computed: true,
+			},
 			"security_group": {
 				Type:     schema.TypeString,
 				Optional: true,
 				Computed: true,
-				ForceNew: true,
-			},
-			"vswitch_id": {
-				Type:     schema.TypeString,
-				Required: true,
 				ForceNew: true,
 			},
 			"service_version": {
@@ -134,31 +145,57 @@ func resourceAlicloudAlikafkaInstance() *schema.Resource {
 				Computed: true,
 				ForceNew: true,
 			},
+			"selected_zones": {
+				Type:     schema.TypeList,
+				Optional: true,
+				Elem:     &schema.Schema{Type: schema.TypeString},
+			},
+			"tags": tagsSchema(),
 			"end_point": {
 				Type:     schema.TypeString,
+				Computed: true,
+			},
+			"topic_num_of_buy": {
+				Type:     schema.TypeInt,
+				Computed: true,
+			},
+			"topic_used": {
+				Type:     schema.TypeInt,
+				Computed: true,
+			},
+			"topic_left": {
+				Type:     schema.TypeInt,
+				Computed: true,
+			},
+			"partition_used": {
+				Type:     schema.TypeInt,
+				Computed: true,
+			},
+			"partition_left": {
+				Type:     schema.TypeInt,
+				Computed: true,
+			},
+			"group_used": {
+				Type:     schema.TypeInt,
+				Computed: true,
+			},
+			"group_left": {
+				Type:     schema.TypeInt,
+				Computed: true,
+			},
+			"is_partition_buy": {
+				Type:     schema.TypeInt,
 				Computed: true,
 			},
 			"status": {
 				Type:     schema.TypeInt,
 				Computed: true,
 			},
-			"tags": tagsSchema(),
-			"selected_zones": {
-				Type:     schema.TypeList,
-				Optional: true,
-				Elem:     &schema.Schema{Type: schema.TypeString},
-			},
-			"io_max_spec": {
-				Type:         schema.TypeString,
-				Optional:     true,
-				Computed:     true,
-				ExactlyOneOf: []string{"io_max", "io_max_spec"},
-			},
 		},
 	}
 }
 
-func resourceAlicloudAlikafkaInstanceCreate(d *schema.ResourceData, meta interface{}) error {
+func resourceAliCloudAlikafkaInstanceCreate(d *schema.ResourceData, meta interface{}) error {
 	client := meta.(*connectivity.AliyunClient)
 	alikafkaService := AlikafkaService{client}
 	vpcService := VpcService{client}
@@ -172,26 +209,39 @@ func resourceAlicloudAlikafkaInstanceCreate(d *schema.ResourceData, meta interfa
 	createOrderResponse := make(map[string]interface{})
 	createOrderReq := make(map[string]interface{})
 	createOrderReq["RegionId"] = client.RegionId
+
 	if v, ok := d.GetOk("partition_num"); ok {
 		createOrderReq["PartitionNum"] = v
 	} else if v, ok := d.GetOk("topic_quota"); ok {
 		createOrderReq["TopicQuota"] = v
 	}
+
 	createOrderReq["DiskType"] = d.Get("disk_type")
+
 	createOrderReq["DiskSize"] = d.Get("disk_size")
+
 	createOrderReq["DeployType"] = d.Get("deploy_type")
+
 	if v, ok := d.GetOk("io_max"); ok {
 		createOrderReq["IoMax"] = v
 	}
+
 	if v, ok := d.GetOk("io_max_spec"); ok {
 		createOrderReq["IoMaxSpec"] = v
 	}
+
 	if v, ok := d.GetOk("spec_type"); ok {
 		createOrderReq["SpecType"] = v
 	}
+
 	if v, ok := d.GetOkExists("eip_max"); ok {
 		createOrderReq["EipMax"] = v
 	}
+
+	if v, ok := d.GetOk("resource_group_id"); ok {
+		createOrderReq["ResourceGroupId"] = v
+	}
+
 	if v, ok := d.GetOk("paid_type"); ok {
 		switch v.(string) {
 		case "PostPaid":
@@ -278,7 +328,7 @@ func resourceAlicloudAlikafkaInstanceCreate(d *schema.ResourceData, meta interfa
 		startInstanceReq["KMSKeyId"] = v
 	}
 	if v, ok := d.GetOk("selected_zones"); ok {
-		startInstanceReq["SelectedZones"] = convertListToJsonString(v.([]interface{}))
+		startInstanceReq["SelectedZones"] = formatSelectedZonesReq(v.([]interface{}))
 	}
 
 	err = resource.Retry(client.GetRetryTimeout(d.Timeout(schema.TimeoutCreate)), func() *resource.RetryError {
@@ -306,10 +356,10 @@ func resourceAlicloudAlikafkaInstanceCreate(d *schema.ResourceData, meta interfa
 		return WrapErrorf(err, IdMsg, d.Id())
 	}
 
-	return resourceAlicloudAlikafkaInstanceUpdate(d, meta)
+	return resourceAliCloudAlikafkaInstanceUpdate(d, meta)
 }
 
-func resourceAlicloudAlikafkaInstanceRead(d *schema.ResourceData, meta interface{}) error {
+func resourceAliCloudAlikafkaInstanceRead(d *schema.ResourceData, meta interface{}) error {
 	client := meta.(*connectivity.AliyunClient)
 	alikafkaService := AlikafkaService{client}
 	object, err := alikafkaService.DescribeAliKafkaInstance(d.Id())
@@ -328,6 +378,7 @@ func resourceAlicloudAlikafkaInstanceRead(d *schema.ResourceData, meta interface
 	d.Set("deploy_type", object["DeployType"])
 	d.Set("io_max", object["IoMax"])
 	d.Set("eip_max", object["EipMax"])
+	d.Set("resource_group_id", object["ResourceGroupId"])
 	d.Set("vpc_id", object["VpcId"])
 	d.Set("vswitch_id", object["VSwitchId"])
 	d.Set("zone_id", object["ZoneId"])
@@ -348,8 +399,17 @@ func resourceAlicloudAlikafkaInstanceRead(d *schema.ResourceData, meta interface
 	if err != nil {
 		return WrapError(err)
 	}
+
 	d.Set("topic_quota", quota["TopicQuota"])
 	d.Set("partition_num", quota["PartitionNumOfBuy"])
+	d.Set("topic_num_of_buy", quota["TopicNumOfBuy"])
+	d.Set("topic_used", quota["TopicUsed"])
+	d.Set("topic_left", quota["TopicLeft"])
+	d.Set("partition_used", quota["PartitionUsed"])
+	d.Set("partition_left", quota["PartitionLeft"])
+	d.Set("group_used", quota["GroupUsed"])
+	d.Set("group_left", quota["GroupLeft"])
+	d.Set("is_partition_buy", quota["IsPartitionBuy"])
 
 	tags, err := alikafkaService.DescribeTags(d.Id(), nil, TagResourceInstance)
 	if err != nil {
@@ -361,7 +421,7 @@ func resourceAlicloudAlikafkaInstanceRead(d *schema.ResourceData, meta interface
 	return nil
 }
 
-func resourceAlicloudAlikafkaInstanceUpdate(d *schema.ResourceData, meta interface{}) error {
+func resourceAliCloudAlikafkaInstanceUpdate(d *schema.ResourceData, meta interface{}) error {
 	client := meta.(*connectivity.AliyunClient)
 	alikafkaService := AlikafkaService{client}
 	conn, err := client.NewAlikafkaClient()
@@ -374,9 +434,10 @@ func resourceAlicloudAlikafkaInstanceUpdate(d *schema.ResourceData, meta interfa
 	if err := alikafkaService.setInstanceTags(d, TagResourceInstance); err != nil {
 		return WrapError(err)
 	}
+
 	if d.IsNewResource() {
 		d.Partial(false)
-		return resourceAlicloudAlikafkaInstanceRead(d, meta)
+		return resourceAliCloudAlikafkaInstanceRead(d, meta)
 	}
 
 	// Process change instance name.
@@ -475,18 +536,23 @@ func resourceAlicloudAlikafkaInstanceUpdate(d *schema.ResourceData, meta interfa
 		update = true
 	}
 	request["DiskSize"] = d.Get("disk_size")
+
 	if d.HasChange("io_max") {
 		update = true
+
+		if v, ok := d.GetOk("io_max"); ok {
+			request["IoMax"] = v
+		}
 	}
-	if v, ok := d.GetOk("io_max"); ok {
-		request["IoMax"] = v
-	}
+
 	if d.HasChange("io_max_spec") {
 		update = true
+
+		if v, ok := d.GetOk("io_max_spec"); ok {
+			request["IoMaxSpec"] = v
+		}
 	}
-	if v, ok := d.GetOk("io_max_spec"); ok {
-		request["IoMaxSpec"] = v
-	}
+
 	if d.HasChange("spec_type") {
 		update = true
 	}
@@ -523,19 +589,10 @@ func resourceAlicloudAlikafkaInstanceUpdate(d *schema.ResourceData, meta interfa
 			addDebug(action, raw, request)
 			return nil
 		})
-		if err != nil {
-			return WrapErrorf(err, DataDefaultErrorMsg, "alicloud_alikafka_instances", action, AlibabaCloudSdkGoERROR)
-		}
 
 		if err != nil {
 			return WrapErrorf(err, DefaultErrorMsg, d.Id(), action, AlibabaCloudSdkGoERROR)
 		}
-		d.SetPartial("partition_num")
-		d.SetPartial("disk_size")
-		d.SetPartial("io_max")
-		d.SetPartial("io_max_spec")
-		d.SetPartial("spec_type")
-		d.SetPartial("eip_max")
 
 		stateConf := BuildStateConf([]string{}, []string{"5"}, d.Timeout(schema.TimeoutUpdate), 5*time.Second, alikafkaService.AliKafkaInstanceStateRefreshFunc(d.Id(), "ServiceStatus", []string{}))
 		if _, err := stateConf.WaitForState(); err != nil {
@@ -546,10 +603,14 @@ func resourceAlicloudAlikafkaInstanceUpdate(d *schema.ResourceData, meta interfa
 		if _, err := stateConf.WaitForState(); err != nil {
 			return WrapErrorf(err, IdMsg, d.Id())
 		}
-		stateConf = BuildStateConf([]string{}, []string{fmt.Sprint(d.Get("io_max"))}, d.Timeout(schema.TimeoutUpdate), 0*time.Second, alikafkaService.AliKafkaInstanceStateRefreshFunc(d.Id(), "IoMax", []string{}))
-		if _, err := stateConf.WaitForState(); err != nil {
-			return WrapErrorf(err, IdMsg, d.Id())
+
+		if d.HasChange("io_max") {
+			stateConf = BuildStateConf([]string{}, []string{fmt.Sprint(d.Get("io_max"))}, d.Timeout(schema.TimeoutUpdate), 0*time.Second, alikafkaService.AliKafkaInstanceStateRefreshFunc(d.Id(), "IoMax", []string{}))
+			if _, err := stateConf.WaitForState(); err != nil {
+				return WrapErrorf(err, IdMsg, d.Id())
+			}
 		}
+
 		stateConf = BuildStateConf([]string{}, []string{fmt.Sprint(d.Get("eip_max"))}, d.Timeout(schema.TimeoutUpdate), 0*time.Second, alikafkaService.AliKafkaInstanceStateRefreshFunc(d.Id(), "EipMax", []string{}))
 		if _, err := stateConf.WaitForState(); err != nil {
 			return WrapErrorf(err, IdMsg, d.Id())
@@ -559,6 +620,13 @@ func resourceAlicloudAlikafkaInstanceUpdate(d *schema.ResourceData, meta interfa
 		if _, err := stateConf.WaitForState(); err != nil {
 			return WrapErrorf(err, IdMsg, d.Id())
 		}
+
+		d.SetPartial("partition_num")
+		d.SetPartial("disk_size")
+		d.SetPartial("io_max")
+		d.SetPartial("io_max_spec")
+		d.SetPartial("spec_type")
+		d.SetPartial("eip_max")
 	}
 
 	if d.HasChange("service_version") {
@@ -645,11 +713,51 @@ func resourceAlicloudAlikafkaInstanceUpdate(d *schema.ResourceData, meta interfa
 		d.SetPartial("config")
 	}
 
+	update = false
+	changeResourceGroupReq := map[string]interface{}{
+		"RegionId":   client.RegionId,
+		"ResourceId": d.Id(),
+	}
+
+	if d.HasChange("resource_group_id") {
+		update = true
+	}
+	if v, ok := d.GetOk("resource_group_id"); ok {
+		changeResourceGroupReq["NewResourceGroupId"] = v
+	}
+
+	if update {
+		action := "ChangeResourceGroup"
+
+		runtime := util.RuntimeOptions{}
+		runtime.SetAutoretry(true)
+		wait := incrementalWait(3*time.Second, 3*time.Second)
+		err = resource.Retry(client.GetRetryTimeout(d.Timeout(schema.TimeoutUpdate)), func() *resource.RetryError {
+			response, err = conn.DoRequest(StringPointer(action), nil, StringPointer("POST"), StringPointer("2019-09-16"), StringPointer("AK"), nil, changeResourceGroupReq, &runtime)
+			if err != nil {
+				if NeedRetry(err) {
+					wait()
+					return resource.RetryableError(err)
+				}
+				return resource.NonRetryableError(err)
+			}
+			return nil
+		})
+		addDebug(action, response, changeResourceGroupReq)
+
+		if err != nil {
+			return WrapErrorf(err, DefaultErrorMsg, d.Id(), action, AlibabaCloudSdkGoERROR)
+		}
+
+		d.SetPartial("resource_group_id")
+	}
+
 	d.Partial(false)
-	return resourceAlicloudAlikafkaInstanceRead(d, meta)
+
+	return resourceAliCloudAlikafkaInstanceRead(d, meta)
 }
 
-func resourceAlicloudAlikafkaInstanceDelete(d *schema.ResourceData, meta interface{}) error {
+func resourceAliCloudAlikafkaInstanceDelete(d *schema.ResourceData, meta interface{}) error {
 	client := meta.(*connectivity.AliyunClient)
 	alikafkaService := AlikafkaService{client}
 
@@ -724,4 +832,36 @@ func resourceAlicloudAlikafkaInstanceDelete(d *schema.ResourceData, meta interfa
 	}
 
 	return nil
+}
+
+func formatSelectedZonesReq(configured []interface{}) string {
+	doubleList := make([][]interface{}, len(configured))
+	for i, v := range configured {
+		doubleList[i] = []interface{}{v}
+	}
+
+	if len(doubleList) < 1 {
+		return ""
+	}
+
+	if len(doubleList) == 1 {
+		return "[[\"" + doubleList[0][0].(string) + "\"],[]]"
+	}
+
+	result := "[["
+
+	for i := 0; i < len(doubleList); i++ {
+		switch i {
+		case len(doubleList) - 2:
+			result += "\"" + doubleList[i][0].(string) + "\""
+		case len(doubleList) - 1:
+			result += "],[\"" + doubleList[i][0].(string) + "\"]"
+		default:
+			result += "\"" + doubleList[i][0].(string) + "\","
+		}
+	}
+
+	result += "]"
+
+	return result
 }

@@ -15,7 +15,7 @@ For information about Cloud Connect Network Grant and how to use it, see [What i
 
 -> **NOTE:** Available since v1.63.0.
 
--> **NOTE:** Only the following regions support create Cloud Connect Network Grant. [`cn-shanghai`, `cn-shanghai-finance-1`, `cn-hongkong`, `ap-southeast-1`, `ap-southeast-2`, `ap-southeast-3`, `ap-southeast-5`, `ap-northeast-1`, `eu-central-1`]
+-> **NOTE:** Only the following regions support create Cloud Connect Network Grant. [`cn-shanghai`, `cn-shanghai-finance-1`, `cn-hongkong`, `ap-southeast-1`, `ap-southeast-3`, `ap-southeast-5`, `ap-northeast-1`, `eu-central-1`]
 
 ## Example Usage
 
@@ -25,7 +25,7 @@ Basic Usage
 variable "name" {
   default = "tf-example"
 }
-variable "cen_uid" {
+variable "another_uid" {
   default = 123456789
 }
 
@@ -39,7 +39,7 @@ provider "alicloud" {
   region = "cn-hangzhou"
   alias  = "cen_account"
   assume_role {
-    role_arn = "acs:ram::${var.cen_uid}:role/terraform-example-assume-role"
+    role_arn = "acs:ram::${var.another_uid}:role/terraform-example-assume-role"
   }
 }
 
@@ -69,7 +69,7 @@ resource "alicloud_cloud_connect_network_grant" "default" {
   provider = alicloud.default
   ccn_id   = alicloud_cloud_connect_network.default.id
   cen_id   = alicloud_cen_instance.cen.id
-  cen_uid  = var.cen_uid
+  cen_uid  = var.another_uid
 }
 ```
 ## Argument Reference

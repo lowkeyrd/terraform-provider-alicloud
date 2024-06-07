@@ -220,6 +220,7 @@ func parseResourceDocs(resourceName, docsPath string, isResource bool, resourceA
 								backIndex--
 								if strings.Contains(subAttributeName, ".") {
 									subAttributeName = strings.TrimSuffix(strings.TrimSuffix(subAttributeName, parts[len(parts)-1]), ".")
+									parts = parts[:len(parts)-1]
 								} else {
 									subAttributeName = ""
 								}
@@ -281,9 +282,6 @@ func parseMatchLine(words []string, phase, rootName string) *ResourceAttribute {
 		if strings.Contains(words[2], "Deprecated") {
 			result.Deprecated = "Deprecated since"
 		}
-		if strings.Contains(words[2], "Removed") {
-			result.Removed = "Removed since"
-		}
 		return &result
 	}
 	if phase == "Attribute" && len(words) >= 3 {
@@ -292,8 +290,8 @@ func parseMatchLine(words []string, phase, rootName string) *ResourceAttribute {
 		} else {
 			result.Name = words[1]
 		}
-		if strings.Contains(words[2], "Removed") {
-			result.Removed = "Removed since"
+		if strings.Contains(words[2], "Deprecated") {
+			result.Deprecated = "Deprecated since"
 		}
 		//result["Description"] = words[2]
 		return &result
@@ -312,13 +310,16 @@ func consistencyCheck(resourceName string, resourceAttributeFromDocs map[string]
 
 	// the number of the schema field + 1(id) should equal to the number defined in document
 	resourceAttributes := make(map[string]ResourceAttribute)
-	getResourceAttributes("", resourceAttributes, resourceSchemaDefined)
+	getResourceAttributes("", resourceAttributes, resourceSchemaDefined, "")
 
 	for attributeKey, attributeValue := range resourceAttributes {
 		if _, ok := skippedSchemaKeys[attributeKey]; ok {
 			continue
 		}
 		attributeDocsValue, ok := resourceAttributeFromDocs[attributeKey]
+		if attributeValue.Removed != "" {
+			continue
+		}
 		if !ok {
 			isConsistent = false
 			log.Errorf("'%v' is not found in the docs", attributeKey)
@@ -327,13 +328,6 @@ func consistencyCheck(resourceName string, resourceAttributeFromDocs map[string]
 			if attributeDocsValue.Deprecated == "" {
 				isConsistent = false
 				log.Errorf("'%v' should be marked as Deprecated in the document description", attributeKey)
-			}
-			continue
-		}
-		if attributeValue.Removed != "" {
-			if attributeDocsValue.Removed == "" {
-				isConsistent = false
-				log.Errorf("'%v' should be marked as Removed in the document description", attributeKey)
 			}
 			continue
 		}
@@ -359,10 +353,15 @@ func consistencyCheck(resourceName string, resourceAttributeFromDocs map[string]
 	return isConsistent
 }
 
-func getResourceAttributes(rootName string, resourceAttributeMap map[string]ResourceAttribute, resourceSchema map[string]*schema.Schema) {
+func getResourceAttributes(rootName string, resourceAttributeMap map[string]ResourceAttribute, resourceSchema map[string]*schema.Schema, rootRemoved string) {
 	for key, value := range resourceSchema {
 		if rootName != "" {
 			key = rootName + "." + key
+		}
+
+		var thisRemoved = value.Removed
+		if len(thisRemoved) == 0 && len(rootRemoved) != 0 {
+			thisRemoved = rootRemoved
 		}
 
 		if _, ok := resourceAttributeMap[key]; !ok {
@@ -374,7 +373,7 @@ func getResourceAttributes(rootName string, resourceAttributeMap map[string]Reso
 				ForceNew:   value.ForceNew,
 				Default:    fmt.Sprint(value.Default),
 				Deprecated: value.Deprecated,
-				Removed:    value.Removed,
+				Removed:    thisRemoved,
 			}
 		}
 		if value.Type == schema.TypeSet || value.Type == schema.TypeList {
@@ -386,7 +385,16 @@ func getResourceAttributes(rootName string, resourceAttributeMap map[string]Reso
 				vv := resourceAttributeMap[key]
 				vv.ElemType = "Object"
 				resourceAttributeMap[key] = vv
-				getResourceAttributes(key, resourceAttributeMap, value.Elem.(*schema.Resource).Schema)
+				getResourceAttributes(key, resourceAttributeMap, value.Elem.(*schema.Resource).Schema, thisRemoved)
+			}
+		}
+		if value.Type == schema.TypeMap {
+			if _, ok := value.Elem.(*schema.Resource); ok {
+				vv := resourceAttributeMap[key]
+				vv.ElemType = "Object"
+				resourceAttributeMap[key] = vv
+				getResourceAttributes(key, resourceAttributeMap, value.Elem.(*schema.Resource).Schema, thisRemoved)
+
 			}
 		}
 	}

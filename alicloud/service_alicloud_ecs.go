@@ -274,16 +274,19 @@ func (s *EcsService) DescribeSecurityGroup(id string) (group ecs.DescribeSecurit
 	request := ecs.CreateDescribeSecurityGroupAttributeRequest()
 	request.SecurityGroupId = id
 	request.RegionId = s.client.RegionId
+
 	raw, err := s.client.WithEcsClient(func(ecsClient *ecs.Client) (interface{}, error) {
 		return ecsClient.DescribeSecurityGroupAttribute(request)
 	})
+	addDebug(request.GetActionName(), raw, request.RpcRequest, request)
+
 	if err != nil {
 		if IsExpectedErrors(err, []string{"InvalidSecurityGroupId.NotFound"}) {
 			err = WrapErrorf(err, NotFoundMsg, AlibabaCloudSdkGoERROR)
 		}
 		return
 	}
-	addDebug(request.GetActionName(), raw, request.RpcRequest, request)
+
 	response, _ := raw.(*ecs.DescribeSecurityGroupAttributeResponse)
 	if response.SecurityGroupId != id {
 		err = WrapErrorf(Error(GetNotFoundMessage("Security Group", id)), NotFoundMsg, ProviderERROR, response.RequestId)
@@ -372,6 +375,7 @@ func (s *EcsService) DescribeSecurityGroupRule(id string) (rule ecs.Permission, 
 		if strings.ToLower(string(ru.IpProtocol)) == ipProtocol && ru.PortRange == portRange {
 
 			var cidr string
+			var prefixListId string
 			if direction == string(DirectionIngress) {
 				if cidr = ru.SourceCidrIp; cidr == "" {
 					cidr = ru.SourceGroupId
@@ -379,6 +383,7 @@ func (s *EcsService) DescribeSecurityGroupRule(id string) (rule ecs.Permission, 
 				if cidr == "" {
 					cidr = ru.Ipv6SourceCidrIp
 				}
+				prefixListId = ru.SourcePrefixListId
 			}
 
 			if direction == string(DirectionEgress) {
@@ -388,9 +393,10 @@ func (s *EcsService) DescribeSecurityGroupRule(id string) (rule ecs.Permission, 
 				if cidr == "" {
 					cidr = ru.Ipv6DestCidrIp
 				}
+				prefixListId = ru.DestPrefixListId
 			}
 
-			if cidr == cidr_ip && strings.ToLower(string(ru.Policy)) == policy && ru.Priority == strconv.Itoa(priority) {
+			if (cidr == cidr_ip || prefixListId == cidr_ip) && strings.ToLower(string(ru.Policy)) == policy && ru.Priority == strconv.Itoa(priority) {
 				return ru, nil
 			}
 		}
@@ -839,52 +845,88 @@ func (s *EcsService) DescribeNetworkInterface(id string) (networkInterface ecs.N
 }
 
 func (s *EcsService) DescribeEcsNetworkInterfaceAttachment(id string) (object map[string]interface{}, err error) {
-	parts, err := ParseResourceId(id, 2)
-
 	var response map[string]interface{}
+	action := "DescribeNetworkInterfaces"
+
 	conn, err := s.client.NewEcsClient()
 	if err != nil {
 		return nil, WrapError(err)
 	}
-	action := "DescribeNetworkInterfaces"
+
+	parts, err := ParseResourceId(id, 2)
+	if err != nil {
+		return nil, WrapError(err)
+	}
+
 	request := map[string]interface{}{
 		"RegionId":           s.client.RegionId,
 		"NetworkInterfaceId": []string{parts[0]},
-		"InstanceId":         parts[1],
+		"MaxResults":         PageSizeXLarge,
 	}
-	runtime := util.RuntimeOptions{}
-	runtime.SetAutoretry(true)
-	wait := incrementalWait(3*time.Second, 3*time.Second)
-	err = resource.Retry(5*time.Minute, func() *resource.RetryError {
-		response, err = conn.DoRequest(StringPointer(action), nil, StringPointer("POST"), StringPointer("2014-05-26"), StringPointer("AK"), nil, request, &runtime)
-		if err != nil {
-			if NeedRetry(err) {
-				wait()
-				return resource.RetryableError(err)
+
+	idExist := false
+	for {
+		runtime := util.RuntimeOptions{}
+		runtime.SetAutoretry(true)
+		wait := incrementalWait(3*time.Second, 3*time.Second)
+		err = resource.Retry(5*time.Minute, func() *resource.RetryError {
+			response, err = conn.DoRequest(StringPointer(action), nil, StringPointer("POST"), StringPointer("2014-05-26"), StringPointer("AK"), nil, request, &runtime)
+			if err != nil {
+				if NeedRetry(err) {
+					wait()
+					return resource.RetryableError(err)
+				}
+				return resource.NonRetryableError(err)
 			}
-			return resource.NonRetryableError(err)
-		}
+			return nil
+		})
 		addDebug(action, response, request)
-		return nil
-	})
-	if err != nil {
-		if IsExpectedErrors(err, []string{"InvalidEcsId.NotFound", "InvalidEniId.NotFound", "InvalidSecurityGroupId.NotFound", "InvalidVSwitchId.NotFound"}) {
-			return object, WrapErrorf(Error(GetNotFoundMessage("ECS:NetworkInterface", id)), NotFoundMsg, ProviderERROR, fmt.Sprint(response["RequestId"]))
+
+		if err != nil {
+			if IsExpectedErrors(err, []string{"InvalidEcsId.NotFound", "InvalidEniId.NotFound", "InvalidSecurityGroupId.NotFound", "InvalidVSwitchId.NotFound"}) {
+				return object, WrapErrorf(Error(GetNotFoundMessage("Ecs:NetworkInterfaceAttachment", id)), NotFoundMsg, ProviderERROR, fmt.Sprint(response["RequestId"]))
+			}
+			return object, WrapErrorf(err, DefaultErrorMsg, id, action, AlibabaCloudSdkGoERROR)
 		}
-		return object, WrapErrorf(err, DefaultErrorMsg, id, action, AlibabaCloudSdkGoERROR)
-	}
-	v, err := jsonpath.Get("$.NetworkInterfaceSets.NetworkInterfaceSet", response)
-	if err != nil {
-		return object, WrapErrorf(err, FailedGetAttributeMsg, id, "$.NetworkInterfaceSets.NetworkInterfaceSet", response)
-	}
-	if len(v.([]interface{})) < 1 {
-		return object, WrapErrorf(Error(GetNotFoundMessage("ECS", id)), NotFoundWithResponse, response)
-	} else {
-		if v.([]interface{})[0].(map[string]interface{})["NetworkInterfaceId"].(string) != parts[0] {
-			return object, WrapErrorf(Error(GetNotFoundMessage("ECS", id)), NotFoundWithResponse, response)
+
+		resp, err := jsonpath.Get("$.NetworkInterfaceSets.NetworkInterfaceSet", response)
+		if err != nil {
+			return object, WrapErrorf(err, FailedGetAttributeMsg, id, "$.NetworkInterfaceSets.NetworkInterfaceSet", response)
+		}
+
+		if v, ok := resp.([]interface{}); !ok || len(v) < 1 {
+			return object, WrapErrorf(Error(GetNotFoundMessage("Ecs:NetworkInterfaceAttachment", id)), NotFoundWithResponse, response)
+		}
+
+		for _, v := range resp.([]interface{}) {
+			if fmt.Sprint(v.(map[string]interface{})["Type"]) == "Member" || fmt.Sprint(v.(map[string]interface{})["Type"]) == "slave" {
+				if attachment, ok := v.(map[string]interface{})["Attachment"]; ok {
+					attachmentArg := attachment.(map[string]interface{})
+
+					if fmt.Sprint(v.(map[string]interface{})["NetworkInterfaceId"]) == parts[0] && fmt.Sprint(attachmentArg["InstanceId"]) == parts[1] {
+						idExist = true
+						return v.(map[string]interface{}), nil
+					}
+				}
+			}
+
+			if fmt.Sprint(v.(map[string]interface{})["NetworkInterfaceId"]) == parts[0] && fmt.Sprint(v.(map[string]interface{})["InstanceId"]) == parts[1] {
+				idExist = true
+				return v.(map[string]interface{}), nil
+			}
+		}
+
+		if nextToken, ok := response["NextToken"].(string); ok && nextToken != "" {
+			request["NextToken"] = nextToken
+		} else {
+			break
 		}
 	}
-	object = v.([]interface{})[0].(map[string]interface{})
+
+	if !idExist {
+		return object, WrapErrorf(Error(GetNotFoundMessage("Ecs:NetworkInterfaceAttachment", id)), NotFoundWithResponse, response)
+	}
+
 	return object, nil
 }
 
@@ -2253,6 +2295,7 @@ func (s *EcsService) EcsNetworkInterfaceStateRefreshFunc(id string, failStates [
 				return object, fmt.Sprint(object["Status"]), WrapError(Error(FailedToReachTargetStatus, fmt.Sprint(object["Status"])))
 			}
 		}
+
 		return object, fmt.Sprint(object["Status"]), nil
 	}
 }

@@ -10,7 +10,6 @@ import (
 	"github.com/aliyun/terraform-provider-alicloud/alicloud/connectivity"
 	"github.com/hashicorp/terraform-plugin-sdk/helper/resource"
 	"github.com/hashicorp/terraform-plugin-sdk/helper/schema"
-	"github.com/hashicorp/terraform-plugin-sdk/helper/validation"
 )
 
 func resourceAliCloudAlbListener() *schema.Resource {
@@ -59,7 +58,7 @@ func resourceAliCloudAlbListener() *schema.Resource {
 						"tracing_sample": {
 							Type:         schema.TypeInt,
 							Optional:     true,
-							ValidateFunc: validation.IntBetween(1, 10000),
+							ValidateFunc: IntBetween(1, 10000),
 						},
 						"tracing_type": {
 							Type:     schema.TypeString,
@@ -97,7 +96,7 @@ func resourceAliCloudAlbListener() *schema.Resource {
 							Type:         schema.TypeString,
 							Optional:     true,
 							Computed:     true,
-							ValidateFunc: validation.StringInSlice([]string{"White", "Black"}, false),
+							ValidateFunc: StringInSlice([]string{"White", "Black"}, false),
 						},
 					},
 				},
@@ -159,24 +158,24 @@ func resourceAliCloudAlbListener() *schema.Resource {
 				Type:         schema.TypeInt,
 				Optional:     true,
 				Computed:     true,
-				ValidateFunc: validation.IntBetween(1, 60),
+				ValidateFunc: IntBetween(1, 60),
 			},
 			"listener_description": {
 				Type:         schema.TypeString,
 				Optional:     true,
-				ValidateFunc: validation.StringMatch(regexp.MustCompile(`^([^\x00-\xff]|[\w.,;/@-]){2,256}$`), "\t\nThe description of the listener.\n\nThe description must be 2 to 256 characters in length. The name can contain only the characters in the following string: /^([^\\x00-\\xff]|[\\w.,;/@-]){2,256}$/."),
+				ValidateFunc: StringMatch(regexp.MustCompile(`^([^\x00-\xff]|[\w.,;/@-]){2,256}$`), "\t\nThe description of the listener.\n\nThe description must be 2 to 256 characters in length. The name can contain only the characters in the following string: /^([^\\x00-\\xff]|[\\w.,;/@-]){2,256}$/."),
 			},
 			"listener_port": {
 				Type:         schema.TypeInt,
 				Required:     true,
 				ForceNew:     true,
-				ValidateFunc: validation.IntBetween(1, 65535),
+				ValidateFunc: IntBetween(1, 65535),
 			},
 			"listener_protocol": {
 				Type:         schema.TypeString,
 				Required:     true,
 				ForceNew:     true,
-				ValidateFunc: validation.StringInSlice([]string{"HTTP", "HTTPS", "QUIC"}, false),
+				ValidateFunc: StringInSlice([]string{"HTTP", "HTTPS", "QUIC"}, false),
 			},
 			"load_balancer_id": {
 				Type:     schema.TypeString,
@@ -212,7 +211,7 @@ func resourceAliCloudAlbListener() *schema.Resource {
 				Type:         schema.TypeInt,
 				Optional:     true,
 				Computed:     true,
-				ValidateFunc: validation.IntBetween(1, 180),
+				ValidateFunc: IntBetween(1, 180),
 			},
 			"security_policy_id": {
 				Type:     schema.TypeString,
@@ -225,11 +224,12 @@ func resourceAliCloudAlbListener() *schema.Resource {
 					return true
 				},
 			},
+			"tags": tagsSchema(),
 			"status": {
 				Type:         schema.TypeString,
 				Optional:     true,
 				Computed:     true,
-				ValidateFunc: validation.StringInSlice([]string{"Running", "Stopped"}, false),
+				ValidateFunc: StringInSlice([]string{"Running", "Stopped"}, false),
 			},
 			"x_forwarded_for_config": {
 				Type:          schema.TypeSet,
@@ -271,6 +271,14 @@ func resourceAliCloudAlbListener() *schema.Resource {
 							Type:     schema.TypeBool,
 							Optional: true,
 							Computed: true,
+						},
+						"x_forwarded_for_client_source_ips_enabled": {
+							Type:     schema.TypeBool,
+							Optional: true,
+						},
+						"x_forwarded_for_client_source_ips_trusted": {
+							Type:     schema.TypeString,
+							Optional: true,
 						},
 						"x_forwarded_for_client_cert_subject_dn_alias": {
 							Type:     schema.TypeString,
@@ -492,6 +500,8 @@ func resourceAliCloudAlbListenerCreate(d *schema.ResourceData, meta interface{})
 			xforwardedForConfigMap["XForwardedForClientCertFingerprintEnabled"] = xforwardedForConfigArg["x_forwarded_for_client_cert_finger_print_enabled"]
 			xforwardedForConfigMap["XForwardedForClientCertSubjectDNAlias"] = xforwardedForConfigArg["x_forwarded_for_client_cert_subject_dn_alias"]
 			xforwardedForConfigMap["XForwardedForClientCertSubjectDNEnabled"] = xforwardedForConfigArg["x_forwarded_for_client_cert_subject_dn_enabled"]
+			xforwardedForConfigMap["XForwardedForClientSourceIpsEnabled"] = xforwardedForConfigArg["x_forwarded_for_client_source_ips_enabled"]
+			xforwardedForConfigMap["XForwardedForClientSourceIpsTrusted"] = xforwardedForConfigArg["x_forwarded_for_client_source_ips_trusted"]
 			xforwardedForConfigMap["XForwardedForClientSrcPortEnabled"] = xforwardedForConfigArg["x_forwarded_for_client_src_port_enabled"]
 			xforwardedForConfigMap["XForwardedForEnabled"] = xforwardedForConfigArg["x_forwarded_for_enabled"]
 			xforwardedForConfigMap["XForwardedForProtoEnabled"] = xforwardedForConfigArg["x_forwarded_for_proto_enabled"]
@@ -537,7 +547,7 @@ func resourceAliCloudAlbListenerRead(d *schema.ResourceData, meta interface{}) e
 	albService := AlbService{client}
 	object, err := albService.DescribeAlbListener(d.Id())
 	if err != nil {
-		if NotFoundError(err) {
+		if !d.IsNewResource() && NotFoundError(err) {
 			log.Printf("[DEBUG] Resource alicloud_alb_listener albService.DescribeAlbListener Failed!!! %s", err)
 			d.SetId("")
 			return nil
@@ -674,6 +684,8 @@ func resourceAliCloudAlbListenerRead(d *schema.ResourceData, meta interface{}) e
 		xforwardedForConfigMap["x_forwarded_for_client_cert_finger_print_enabled"] = xforwardedForConfig.(map[string]interface{})["XForwardedForClientCertFingerprintEnabled"]
 		xforwardedForConfigMap["x_forwarded_for_client_cert_subject_dn_alias"] = xforwardedForConfig.(map[string]interface{})["XForwardedForClientCertSubjectDNAlias"]
 		xforwardedForConfigMap["x_forwarded_for_client_cert_subject_dn_enabled"] = xforwardedForConfig.(map[string]interface{})["XForwardedForClientCertSubjectDNEnabled"]
+		xforwardedForConfigMap["x_forwarded_for_client_source_ips_enabled"] = xforwardedForConfig.(map[string]interface{})["XForwardedForClientSourceIpsEnabled"]
+		xforwardedForConfigMap["x_forwarded_for_client_source_ips_trusted"] = xforwardedForConfig.(map[string]interface{})["XForwardedForClientSourceIpsTrusted"]
 		xforwardedForConfigMap["x_forwarded_for_client_src_port_enabled"] = xforwardedForConfig.(map[string]interface{})["XForwardedForClientSrcPortEnabled"]
 		xforwardedForConfigMap["x_forwarded_for_enabled"] = xforwardedForConfig.(map[string]interface{})["XForwardedForEnabled"]
 		xforwardedForConfigMap["x_forwarded_for_proto_enabled"] = xforwardedForConfig.(map[string]interface{})["XForwardedForProtoEnabled"]
@@ -682,6 +694,14 @@ func resourceAliCloudAlbListenerRead(d *schema.ResourceData, meta interface{}) e
 		xforwardedForConfigSli = append(xforwardedForConfigSli, xforwardedForConfigMap)
 		d.Set("x_forwarded_for_config", xforwardedForConfigSli)
 	}
+
+	listTagResourcesObject, err := albService.ListTagResources(d.Id(), "listener")
+	if err != nil {
+		return WrapError(err)
+	}
+
+	d.Set("tags", tagsToMap(listTagResourcesObject))
+
 	return nil
 }
 
@@ -690,6 +710,14 @@ func resourceAliCloudAlbListenerUpdate(d *schema.ResourceData, meta interface{})
 	albService := AlbService{client}
 	var response map[string]interface{}
 	d.Partial(true)
+
+	if d.HasChange("tags") {
+		if err := albService.SetResourceTags(d, "listener"); err != nil {
+			return WrapError(err)
+		}
+
+		d.SetPartial("tags")
+	}
 
 	update := false
 	request := map[string]interface{}{
@@ -874,6 +902,8 @@ func resourceAliCloudAlbListenerUpdate(d *schema.ResourceData, meta interface{})
 				xforwardedForConfigMap["XForwardedForClientCertFingerprintEnabled"] = xforwardedForConfigArg["x_forwarded_for_client_cert_finger_print_enabled"]
 				xforwardedForConfigMap["XForwardedForClientCertSubjectDNAlias"] = xforwardedForConfigArg["x_forwarded_for_client_cert_subject_dn_alias"]
 				xforwardedForConfigMap["XForwardedForClientCertSubjectDNEnabled"] = xforwardedForConfigArg["x_forwarded_for_client_cert_subject_dn_enabled"]
+				xforwardedForConfigMap["XForwardedForClientSourceIpsEnabled"] = xforwardedForConfigArg["x_forwarded_for_client_source_ips_enabled"]
+				xforwardedForConfigMap["XForwardedForClientSourceIpsTrusted"] = xforwardedForConfigArg["x_forwarded_for_client_source_ips_trusted"]
 				xforwardedForConfigMap["XForwardedForClientSrcPortEnabled"] = xforwardedForConfigArg["x_forwarded_for_client_src_port_enabled"]
 				xforwardedForConfigMap["XForwardedForEnabled"] = xforwardedForConfigArg["x_forwarded_for_enabled"]
 				xforwardedForConfigMap["XForwardedForProtoEnabled"] = xforwardedForConfigArg["x_forwarded_for_proto_enabled"]
@@ -883,9 +913,7 @@ func resourceAliCloudAlbListenerUpdate(d *schema.ResourceData, meta interface{})
 
 			updateListenerAttributeReq["XForwardedForConfig"] = xforwardedForConfigMap
 		}
-	}
-
-	if !d.IsNewResource() && d.HasChange("xforwarded_for_config") {
+	} else if !d.IsNewResource() && d.HasChange("xforwarded_for_config") {
 		update = true
 		if v, ok := d.GetOk("xforwarded_for_config"); ok {
 			xforwardedForConfigMap := map[string]interface{}{}

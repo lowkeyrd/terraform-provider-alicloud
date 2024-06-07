@@ -15,13 +15,14 @@ For information about Global Accelerator (GA) Endpoint Group and how to use it, 
 
 -> **NOTE:** Available since v1.113.0.
 
--> **NOTE:** Listeners that use different protocols support different types of endpoint groups:
+-> **NOTE:** Listeners that use different protocols support different types of Endpoint Groups:
 
-* For a TCP or UDP listener, you can create only one default endpoint group. 
-* For an HTTP or HTTPS listener, you can create one default endpoint group and one virtual endpoint group. By default, you can create only one virtual endpoint group. 
-  * A default endpoint group refers to the endpoint group that you configure when you create an HTTP or HTTPS listener. 
-  * A virtual endpoint group refers to the endpoint group that you can create on the Endpoint Group page after you create a listener.
-* After you create a virtual endpoint group for an HTTP or HTTPS listener, you can create a forwarding rule and associate the forwarding rule with the virtual endpoint group. Then, the HTTP or HTTPS listener forwards requests with different destination domain names or paths to the default or virtual endpoint group based on the forwarding rule. This way, you can use one Global Accelerator (GA) instance to accelerate access to multiple domain names or paths. For more information about how to create a forwarding rule, see [Manage forwarding rules](https://www.alibabacloud.com/help/en/doc-detail/204224.htm).
+* For a `TCP` listener, if you want to create a `virtual` Endpoint Group, please ensure that the `default` Endpoint Group of the same region has been created.
+* For a `UDP` listener, you can only create `default` Endpoint Group.
+* For an `HTTP` or `HTTPS` listener, you can create one `default` Endpoint Group and multiple `virtual` Endpoint Group.
+* After you create a `virtual` endpoint group for an `HTTP` or `HTTPS` listener, you can create a forwarding rule and associate the forwarding rule with the `virtual` endpoint group. Then, the `HTTP` or `HTTPS` listener forwards requests with different destination domain names or paths to the `default` or `virtual` Endpoint Group based on the forwarding rule. This way, you can use one Global Accelerator (GA) instance to accelerate access to multiple domain names or paths. For more information about how to create a forwarding rule, see [Manage forwarding rules](https://www.alibabacloud.com/help/en/doc-detail/204224.htm).
+
+-> **WARN:** There is a serious bug in the `traffic_percentage` of the `alicloud_ga_endpoint_group` before version 1.211.1, while the value of `traffic_percentage` has not been explicitly specified in the Terraform code, Terraform will set `traffic_percentage` to `0`. This behavior will cause your instance traffic to drop to zero. So, please use provider greater than or equal to version `1.211.1`.
 
 ## Example Usage
 
@@ -100,13 +101,20 @@ The following arguments are supported:
 * `listener_id` - (Required, ForceNew) The ID of the listener that is associated with the endpoint group.
 * `endpoint_group_region` - (Required, ForceNew) The ID of the region where the endpoint group is deployed.
 * `endpoint_group_type` - (Optional, ForceNew) The endpoint group type. Default value: `default`. Valid values: `default`, `virtual`.
--> **NOTE:** Only the listening instance of HTTP or HTTPS protocol supports the creation of virtual terminal node group.
+-> **NOTE:** Currently, only `HTTP` or `HTTPS` protocol listener can directly create a `virtual` Endpoint Group. If it is `TCP` protocol listener, and you want to create a `virtual` Endpoint Group, please ensure that the `default` Endpoint Group has been created.
 * `endpoint_request_protocol` - (Optional) The endpoint request protocol. Valid values: `HTTP`, `HTTPS`.
 -> **NOTE:** This item is only supported when creating terminal node group for listening instance of HTTP or HTTPS protocol. For the listening instance of HTTP protocol, the back-end service protocol supports and only supports HTTP.
-* `health_check_interval_seconds` - (Optional, Int) The interval between two consecutive health checks. Unit: seconds.
+* `health_check_enabled` - (Optional, Bool, Available since v1.215.0) Specifies whether to enable the health check feature. Valid values:
+  - `true`: Enables the health check feature.
+  - `false`: Disables the health check feature.
 * `health_check_path` - (Optional) The path specified as the destination of the targets for health checks.
 * `health_check_port` - (Optional, Int) The port that is used for health checks.
-* `health_check_protocol` - (Optional) The protocol that is used to connect to the targets for health checks. Valid values: `http`, `https`, `tcp`.
+* `health_check_protocol` - (Optional) The protocol that is used to connect to the targets for health checks. Valid values:
+  - `TCP` or `tcp`: TCP protocol.
+  - `HTTP` or `http`: HTTP protocol.
+  - `HTTPS` or `https`: HTTPS protocol.
+-> **NOTE:** From version 1.223.0, `health_check_protocol` can be set to `TCP`, `HTTP`, `HTTPS`.
+* `health_check_interval_seconds` - (Optional, Int) The interval between two consecutive health checks. Unit: seconds.
 * `threshold_count` - (Optional, Int) The number of consecutive failed heath checks that must occur before the endpoint is deemed unhealthy. Default value: `3`.
 * `traffic_percentage` - (Optional, Int) The weight of the endpoint group when the corresponding listener is associated with multiple endpoint groups.
 * `name` - (Optional) The name of the endpoint group.
@@ -116,16 +124,9 @@ The following arguments are supported:
 -> **NOTE:** Port mapping is only supported when creating terminal node group for listening instance of HTTP or HTTPS protocol. The listening port in the port map must be consistent with the listening port of the current listening instance.
 * `tags` - (Optional, Available since v1.207.1) A mapping of tags to assign to the resource.
 
-### `port_overrides`
-
-The port_overrides supports the following: 
-
-* `endpoint_port` - (Optional, Int) Forwarding port.
-* `listener_port` - (Optional, Int) Listener port.
-
 ### `endpoint_configurations`
 
-The endpoint_configurations supports the following: 
+The endpoint_configurations supports the following:
 
 * `endpoint` - (Required) The IP address or domain name of Endpoint N in the endpoint group.
 * `type` - (Required) The type of Endpoint N in the endpoint group. Valid values:
@@ -134,9 +135,9 @@ The endpoint_configurations supports the following:
   - `PublicIp`: an Alibaba Cloud public IP address.
   - `ECS`: an Alibaba Cloud Elastic Compute Service (ECS) instance.
   - `SLB`: an Alibaba Cloud Server Load Balancer (SLB) instance.
--> **NOTE:** When the terminal node type is ECS or SLB, if the service association role does not exist, the system will automatically create a service association role named aliyunserviceroleforgavpcndpoint.
+    -> **NOTE:** When the terminal node type is ECS or SLB, if the service association role does not exist, the system will automatically create a service association role named aliyunserviceroleforgavpcndpoint.
 * `weight` - (Required, Int) The weight of Endpoint N in the endpoint group. Valid values: `0` to `255`.
--> **NOTE:** If the weight of a terminal node is set to 0, global acceleration will terminate the distribution of traffic to the terminal node. Please be careful.
+  -> **NOTE:** If the weight of a terminal node is set to 0, global acceleration will terminate the distribution of traffic to the terminal node. Please be careful.
 * `enable_proxy_protocol` - (Optional, Bool, Available since v1.207.1) Specifies whether to preserve client IP addresses by using the ProxyProtocol module. Default Value: `false`. Valid values:
   - `true`: preserves client IP addresses by using the ProxyProtocol module.
   - `false`: does not preserve client IP addresses by using the ProxyProtocol module.
@@ -144,12 +145,19 @@ The endpoint_configurations supports the following:
   - `true`: Client IP addresses are reserved.
   - `false`: Client IP addresses are not reserved.
 
+### `port_overrides`
+
+The port_overrides supports the following: 
+
+* `endpoint_port` - (Optional, Int) Forwarding port.
+* `listener_port` - (Optional, Int) Listener port.
+
 ## Attributes Reference
 
 The following attributes are exported:
 
 * `id` - The resource ID in terraform of Endpoint Group.
-* `endpoint_group_ip_list` - (Available since v1.213.0) The active endpoint IP addresses of the endpoint group.
+* `endpoint_group_ip_list` - (Available since v1.213.0) The active endpoint IP addresses of the endpoint group. `endpoint_group_ip_list` will change with the growth of network traffic. You can run `terraform apply` to query the latest CIDR blocks and IP addresses.
 * `status` - The status of the endpoint group.
 
 ## Timeouts
@@ -157,7 +165,7 @@ The following attributes are exported:
 The `timeouts` block allows you to specify [timeouts](https://www.terraform.io/docs/configuration-0-11/resources.html#timeouts) for certain actions:
 
 * `create` - (Defaults to 15 mins) Used when create the Endpoint Group.
-* `update` - (Defaults to 2 mins) Used when update the Endpoint Group.
+* `update` - (Defaults to 3 mins) Used when update the Endpoint Group.
 * `delete` - (Defaults to 10 mins) Used when delete the Endpoint Group.
 
 ## Import

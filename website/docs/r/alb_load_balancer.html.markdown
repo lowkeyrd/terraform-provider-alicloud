@@ -82,7 +82,7 @@ The following arguments are supported:
 * `load_balancer_name` - (Optional) The name of the resource.
 * `modification_protection_config` - (Optional, Computed) Modify the Protection Configuration. See [`modification_protection_config`](#modification_protection_config) below.
 * `resource_group_id` - (Optional, Computed) The ID of the resource group.
-* `tags` - (Optional, Map) The tag of the resource.
+* `tags` - (Optional, Computed, Map) The tag of the resource.
 * `vpc_id` - (Required, ForceNew) The ID of the virtual private cloud (VPC) where the SLB instance is deployed.
 * `zone_mappings` - (Required) The zones and vSwitches. You must specify at least two zones. See [`zone_mappings`](#zone_mappings) below.
 
@@ -95,7 +95,7 @@ The access_log_config supports the following:
 ### `load_balancer_billing_config`
 
 The load_balancer_billing_config supports the following:
-* `pay_type` - (Required, ForceNew) Pay Type.
+* `pay_type` - (Required, ForceNew) Pay Type. Valid values: `PayAsYouGo`. **Note:** provider changes the payment type to `PayAsYouGo`, while the actual parameter on api is `PostPay`.
 
 ### `modification_protection_config`
 

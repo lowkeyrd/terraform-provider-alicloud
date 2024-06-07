@@ -12,8 +12,6 @@ import (
 	"github.com/aliyun/alibaba-cloud-sdk-go/sdk/requests"
 
 	util "github.com/alibabacloud-go/tea-utils/service"
-	"github.com/hashicorp/terraform-plugin-sdk/helper/validation"
-
 	"github.com/aliyun/alibaba-cloud-sdk-go/services/ess"
 	"github.com/aliyun/terraform-provider-alicloud/alicloud/connectivity"
 	"github.com/hashicorp/terraform-plugin-sdk/helper/resource"
@@ -66,8 +64,8 @@ func resourceAlicloudEssScalingConfiguration() *schema.Resource {
 			"instance_type": {
 				Type:          schema.TypeString,
 				Optional:      true,
-				ValidateFunc:  validation.StringMatch(regexp.MustCompile(`^ecs\..*`), "prefix must be 'ecs.'"),
-				ConflictsWith: []string{"instance_types"},
+				ValidateFunc:  StringMatch(regexp.MustCompile(`^ecs\..*`), "prefix must be 'ecs.'"),
+				ConflictsWith: []string{"instance_types", "instance_type_override"},
 			},
 			"instance_types": {
 				Type: schema.TypeList,
@@ -75,7 +73,7 @@ func resourceAlicloudEssScalingConfiguration() *schema.Resource {
 					Type: schema.TypeString,
 				},
 				Optional:      true,
-				ConflictsWith: []string{"instance_type"},
+				ConflictsWith: []string{"instance_type", "instance_type_override"},
 				MaxItems:      int(MaxScalingConfigurationInstanceTypes),
 			},
 			"io_optimized": {
@@ -110,7 +108,7 @@ func resourceAlicloudEssScalingConfiguration() *schema.Resource {
 				Type:         schema.TypeString,
 				Optional:     true,
 				Default:      PayByBandwidth,
-				ValidateFunc: validation.StringInSlice([]string{"PayByBandwidth", "PayByTraffic"}, false),
+				ValidateFunc: StringInSlice([]string{"PayByBandwidth", "PayByTraffic"}, false),
 			},
 			"internet_max_bandwidth_in": {
 				Type:     schema.TypeInt,
@@ -120,12 +118,12 @@ func resourceAlicloudEssScalingConfiguration() *schema.Resource {
 			"internet_max_bandwidth_out": {
 				Type:         schema.TypeInt,
 				Optional:     true,
-				ValidateFunc: validation.IntBetween(0, 100),
+				ValidateFunc: IntBetween(0, 1024),
 			},
 			"credit_specification": {
 				Type:     schema.TypeString,
 				Optional: true,
-				ValidateFunc: validation.StringInSlice([]string{
+				ValidateFunc: StringInSlice([]string{
 					string(CreditSpecificationStandard),
 					string(CreditSpecificationUnlimited),
 				}, false),
@@ -134,12 +132,12 @@ func resourceAlicloudEssScalingConfiguration() *schema.Resource {
 				Type:         schema.TypeString,
 				Optional:     true,
 				Default:      DiskCloudEfficiency,
-				ValidateFunc: validation.StringInSlice([]string{"cloud", "ephemeral_ssd", "cloud_ssd", "cloud_essd", "cloud_efficiency"}, false),
+				ValidateFunc: StringInSlice([]string{"cloud", "ephemeral_ssd", "cloud_ssd", "cloud_essd", "cloud_efficiency"}, false),
 			},
 			"system_disk_size": {
 				Type:         schema.TypeInt,
 				Optional:     true,
-				ValidateFunc: validation.IntBetween(20, 500),
+				ValidateFunc: IntBetween(20, 500),
 			},
 			"system_disk_name": {
 				Type:     schema.TypeString,
@@ -165,7 +163,7 @@ func resourceAlicloudEssScalingConfiguration() *schema.Resource {
 						"category": {
 							Type:         schema.TypeString,
 							Optional:     true,
-							ValidateFunc: validation.StringInSlice([]string{"all", "cloud", "ephemeral_ssd", "cloud_essd", "cloud_efficiency", "cloud_ssd", "local_disk"}, false),
+							ValidateFunc: StringInSlice([]string{"all", "cloud", "ephemeral_ssd", "cloud_essd", "cloud_efficiency", "cloud_ssd", "local_disk"}, false),
 						},
 						"snapshot_id": {
 							Type:     schema.TypeString,
@@ -255,7 +253,7 @@ func resourceAlicloudEssScalingConfiguration() *schema.Resource {
 				Type:         schema.TypeString,
 				Optional:     true,
 				Default:      "ESS-Instance",
-				ValidateFunc: validation.StringLenBetween(2, 128),
+				ValidateFunc: StringLenBetween(2, 128),
 			},
 
 			"override": {
@@ -324,6 +322,24 @@ func resourceAlicloudEssScalingConfiguration() *schema.Resource {
 					},
 				},
 			},
+			"instance_type_override": {
+				Optional:      true,
+				Type:          schema.TypeSet,
+				ConflictsWith: []string{"instance_type", "instance_types"},
+				MaxItems:      int(MaxScalingConfigurationInstanceTypes),
+				Elem: &schema.Resource{
+					Schema: map[string]*schema.Schema{
+						"instance_type": {
+							Type:     schema.TypeString,
+							Optional: true,
+						},
+						"weighted_capacity": {
+							Type:     schema.TypeInt,
+							Optional: true,
+						},
+					},
+				},
+			},
 			"instance_pattern_info": {
 				Optional: true,
 				Type:     schema.TypeSet,
@@ -332,7 +348,26 @@ func resourceAlicloudEssScalingConfiguration() *schema.Resource {
 						"instance_family_level": {
 							Type:         schema.TypeString,
 							Optional:     true,
-							ValidateFunc: validation.StringInSlice([]string{"EntryLevel", "EnterpriseLevel", "CreditEntryLevel"}, false),
+							ValidateFunc: StringInSlice([]string{"EntryLevel", "EnterpriseLevel", "CreditEntryLevel"}, false),
+						},
+						"burstable_performance": {
+							Type:         schema.TypeString,
+							Optional:     true,
+							Computed:     true,
+							ValidateFunc: StringInSlice([]string{"Exclude", "Include", "Required"}, false),
+						},
+						"excluded_instance_types": {
+							Type:     schema.TypeList,
+							Elem:     &schema.Schema{Type: schema.TypeString},
+							Optional: true,
+						},
+						"architectures": {
+							Type: schema.TypeList,
+							Elem: &schema.Schema{
+								Type:         schema.TypeString,
+								ValidateFunc: StringInSlice([]string{"X86", "Heterogeneous", "BareMental", "Arm", "SuperComputeCluster"}, false),
+							},
+							Optional: true,
 						},
 						"cores": {
 							Type:     schema.TypeInt,
@@ -369,8 +404,9 @@ func resourceAliyunEssScalingConfigurationCreate(d *schema.ResourceData, meta in
 	}
 	instanceType := d.Get("instance_type").(string)
 	instanceTypes := d.Get("instance_types").([]interface{})
-	if instanceType == "" && (instanceTypes == nil || len(instanceTypes) == 0) {
-		return WrapError(Error("instance_type or instance_types must be assigned"))
+	instanceTypeOverrides := d.Get("instance_type_override").(*schema.Set).List()
+	if instanceType == "" && (instanceTypes == nil || len(instanceTypes) == 0) && (instanceTypeOverrides == nil || len(instanceTypeOverrides) == 0) {
+		return WrapError(Error("instance_type or instance_types or instance_type_override must be assigned"))
 	}
 	request["ImageId"] = d.Get("image_id")
 	request["ScalingGroupId"] = d.Get("scaling_group_id")
@@ -404,6 +440,21 @@ func resourceAliyunEssScalingConfigurationCreate(d *schema.ResourceData, meta in
 		types = append(types, instanceType)
 	}
 	request["InstanceTypes"] = types
+
+	if instanceTypeOverrides != nil && len(instanceTypeOverrides) != 0 {
+		instanceTypeOverridesMaps := make([]map[string]interface{}, 0)
+		for _, rew := range instanceTypeOverrides {
+			instanceTypeOverridesMap := make(map[string]interface{})
+			item := rew.(map[string]interface{})
+			if instanceType, ok := item["instance_type"].(string); ok && instanceType != "" {
+				instanceTypeOverridesMap["InstanceType"] = instanceType
+			}
+			instanceTypeOverridesMap["WeightedCapacity"] = item["weighted_capacity"].(int)
+
+			instanceTypeOverridesMaps = append(instanceTypeOverridesMaps, instanceTypeOverridesMap)
+		}
+		request["InstanceTypeOverride"] = instanceTypeOverridesMaps
+	}
 
 	if v := d.Get("scaling_configuration_name").(string); v != "" {
 		request["ScalingConfigurationName"] = d.Get("scaling_configuration_name")
@@ -553,9 +604,14 @@ func resourceAliyunEssScalingConfigurationCreate(d *schema.ResourceData, meta in
 			if instanceFamilyLevel, ok := item["instance_family_level"].(string); ok && instanceFamilyLevel != "" {
 				instancePatternInfosMap["InstanceFamilyLevel"] = instanceFamilyLevel
 			}
+			if burstablePerformance, ok := item["burstable_performance"].(string); ok && burstablePerformance != "" {
+				instancePatternInfosMap["BurstablePerformance"] = burstablePerformance
+			}
 			instancePatternInfosMap["Memory"] = strconv.FormatFloat(item["memory"].(float64), 'f', 2, 64)
 			instancePatternInfosMap["MaxPrice"] = strconv.FormatFloat(item["max_price"].(float64), 'f', 2, 64)
 			instancePatternInfosMap["Cores"] = item["cores"].(int)
+			instancePatternInfosMap["Architectures"] = item["architectures"]
+			instancePatternInfosMap["ExcludedInstanceTypes"] = item["excluded_instance_types"]
 
 			instancePatternInfosMaps = append(instancePatternInfosMaps, instancePatternInfosMap)
 		}
@@ -741,7 +797,10 @@ func modifyEssScalingConfiguration(d *schema.ResourceData, meta interface{}) err
 
 	hasChangeInstanceType := d.HasChange("instance_type")
 	hasChangeInstanceTypes := d.HasChange("instance_types")
-	if hasChangeInstanceType || hasChangeInstanceTypes || d.Get("override").(bool) {
+	hasChangeInstanceTypeOverrides := d.HasChange("instance_type_override")
+	typeOverride := d.Get("instance_type_override")
+
+	if (hasChangeInstanceType || hasChangeInstanceTypes) && (!hasChangeInstanceTypeOverrides || len(typeOverride.(*schema.Set).List()) == 0) {
 		instanceType := d.Get("instance_type").(string)
 		instanceTypes := d.Get("instance_types").([]interface{})
 		if instanceType == "" && (instanceTypes == nil || len(instanceTypes) == 0) {
@@ -755,6 +814,23 @@ func modifyEssScalingConfiguration(d *schema.ResourceData, meta interface{}) err
 			types = append(types, instanceType)
 		}
 		request["InstanceTypes"] = types
+		update = true
+	}
+
+	if hasChangeInstanceTypeOverrides && d.Get("override").(bool) {
+		v, ok := d.GetOk("instance_type_override")
+		if ok {
+			instanceTypeOverrides := make([]ess.ModifyScalingConfigurationInstanceTypeOverride, 0)
+			for _, e := range v.(*schema.Set).List() {
+				pack := e.(map[string]interface{})
+				l := ess.ModifyScalingConfigurationInstanceTypeOverride{
+					InstanceType:     pack["instance_type"].(string),
+					WeightedCapacity: strconv.Itoa(pack["weighted_capacity"].(int)),
+				}
+				instanceTypeOverrides = append(instanceTypeOverrides, l)
+			}
+			request["InstanceTypeOverride"] = instanceTypeOverrides
+		}
 		update = true
 	}
 
@@ -785,6 +861,9 @@ func modifyEssScalingConfiguration(d *schema.ResourceData, meta interface{}) err
 				request["UserData"] = base64.StdEncoding.EncodeToString([]byte(v.(string)))
 			}
 		}
+		if v, ok := d.GetOk("user_data"); ok && v.(string) == "" {
+			request["UserData"] = ""
+		}
 		update = true
 	}
 	if d.HasChange("spot_price_limit") {
@@ -810,11 +889,18 @@ func modifyEssScalingConfiguration(d *schema.ResourceData, meta interface{}) err
 			instancePatternInfos := make([]ess.ModifyScalingConfigurationInstancePatternInfo, 0)
 			for _, e := range v.(*schema.Set).List() {
 				pack := e.(map[string]interface{})
+				i := pack["excluded_instance_types"]
+				arr := toStringArray(i)
+				j := pack["architectures"]
+				arr1 := toStringArray(j)
 				l := ess.ModifyScalingConfigurationInstancePatternInfo{
-					InstanceFamilyLevel: pack["instance_family_level"].(string),
-					Memory:              strconv.FormatFloat(pack["memory"].(float64), 'f', 2, 64),
-					MaxPrice:            strconv.FormatFloat(pack["max_price"].(float64), 'f', 2, 64),
-					Cores:               strconv.Itoa(pack["cores"].(int)),
+					InstanceFamilyLevel:  pack["instance_family_level"].(string),
+					Memory:               strconv.FormatFloat(pack["memory"].(float64), 'f', 2, 64),
+					MaxPrice:             strconv.FormatFloat(pack["max_price"].(float64), 'f', 2, 64),
+					Cores:                strconv.Itoa(pack["cores"].(int)),
+					BurstablePerformance: pack["burstable_performance"].(string),
+					ExcludedInstanceType: &arr,
+					Architecture:         &arr1,
 				}
 				instancePatternInfos = append(instancePatternInfos, l)
 			}
@@ -1021,7 +1107,9 @@ func resourceAliyunEssScalingConfigurationRead(d *schema.ResourceData, meta inte
 		if base64DecodeError == nil {
 			d.Set("user_data", response["UserData"])
 		} else {
-			d.Set("user_data", userDataHashSum(response["UserData"].(string)))
+			if response["UserData"] != nil {
+				d.Set("user_data", userDataHashSum(response["UserData"].(string)))
+			}
 		}
 	} else {
 		if response["UserData"] != nil {
@@ -1033,6 +1121,25 @@ func resourceAliyunEssScalingConfigurationRead(d *schema.ResourceData, meta inte
 	if instanceTypes, ok := d.GetOk("instance_types"); ok && len(instanceTypes.([]interface{})) > 0 {
 		v := response["InstanceTypes"].(map[string]interface{})
 		d.Set("instance_types", v["InstanceType"].([]interface{}))
+	}
+
+	if instanceTypeOverride, ok := d.GetOk("instance_type_override"); ok && len(instanceTypeOverride.(*schema.Set).List()) > 0 {
+		if v := response["InstanceTypeOverrides"]; v != nil {
+			result := make([]map[string]interface{}, 0)
+			for _, i := range v.(map[string][]ess.ModifyScalingConfigurationInstanceTypeOverride)["InstanceTypeOverride"] {
+				r := i
+				n, _ := strconv.Atoi(r.WeightedCapacity)
+				l := map[string]interface{}{
+					"instance_type":     r.InstanceType,
+					"weighted_capacity": n,
+				}
+				result = append(result, l)
+			}
+			err := d.Set("instance_type_override", result)
+			if err != nil {
+				return WrapError(err)
+			}
+		}
 	}
 	if sgs, ok := d.GetOk("security_group_ids"); ok && len(sgs.([]interface{})) > 0 {
 		v := response["SecurityGroupIds"].(map[string]interface{})
@@ -1082,13 +1189,27 @@ func resourceAliyunEssScalingConfigurationRead(d *schema.ResourceData, meta inte
 		result := make([]map[string]interface{}, 0)
 		for _, i := range v.(map[string]interface{})["InstancePatternInfo"].([]interface{}) {
 			r := i.(map[string]interface{})
+			var arr []string
+			var arr1 []string
+			if r["ExcludedInstanceTypes"] != nil {
+				i := r["ExcludedInstanceTypes"].(map[string]interface{})
+				arr = toStringArray(i["ExcludedInstanceType"])
+			}
+			if r["Architectures"] != nil {
+				j := r["Architectures"].(map[string]interface{})
+				arr1 = toStringArray(j["Architecture"])
+			}
+
 			f, _ := r["MaxPrice"].(json.Number).Float64()
 			maxPrice, _ := strconv.ParseFloat(strconv.FormatFloat(f, 'f', 2, 64), 64)
 			l := map[string]interface{}{
-				"instance_family_level": r["InstanceFamilyLevel"],
-				"memory":                r["Memory"],
-				"cores":                 r["Cores"],
-				"max_price":             maxPrice,
+				"instance_family_level":   r["InstanceFamilyLevel"],
+				"memory":                  r["Memory"],
+				"cores":                   r["Cores"],
+				"max_price":               maxPrice,
+				"excluded_instance_types": &arr,
+				"architectures":           &arr1,
+				"burstable_performance":   r["BurstablePerformance"],
 			}
 			result = append(result, l)
 		}
@@ -1097,6 +1218,7 @@ func resourceAliyunEssScalingConfigurationRead(d *schema.ResourceData, meta inte
 			return WrapError(err)
 		}
 	}
+
 	return nil
 }
 
@@ -1223,4 +1345,13 @@ func activeSubstituteScalingConfiguration(d *schema.ResourceData, meta interface
 	}
 
 	return response.ScalingConfigurations.ScalingConfiguration, nil
+}
+
+func toStringArray(a interface{}) []string {
+	var paramSlice []string
+	strArr, _ := a.([]interface{})
+	for _, param := range strArr {
+		paramSlice = append(paramSlice, param.(string))
+	}
+	return paramSlice
 }

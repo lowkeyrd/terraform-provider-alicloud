@@ -32,19 +32,15 @@ func TestAccAlicloudGaCustomRoutingEndpointGroup_basic0(t *testing.T) {
 		Steps: []resource.TestStep{
 			{
 				Config: testAccConfig(map[string]interface{}{
-					"accelerator_id":                     "${alicloud_ga_listener.default.accelerator_id}",
-					"listener_id":                        "${alicloud_ga_listener.default.id}",
-					"endpoint_group_region":              defaultRegionToTest,
-					"custom_routing_endpoint_group_name": name,
-					"description":                        name,
+					"accelerator_id":        "${alicloud_ga_listener.default.accelerator_id}",
+					"listener_id":           "${alicloud_ga_listener.default.id}",
+					"endpoint_group_region": defaultRegionToTest,
 				}),
 				Check: resource.ComposeTestCheckFunc(
 					testAccCheck(map[string]string{
-						"accelerator_id":                     CHECKSET,
-						"listener_id":                        CHECKSET,
-						"endpoint_group_region":              CHECKSET,
-						"custom_routing_endpoint_group_name": name,
-						"description":                        name,
+						"accelerator_id":        CHECKSET,
+						"listener_id":           CHECKSET,
+						"endpoint_group_region": CHECKSET,
 					}),
 				),
 			},
@@ -77,6 +73,54 @@ func TestAccAlicloudGaCustomRoutingEndpointGroup_basic0(t *testing.T) {
 	})
 }
 
+func TestAccAlicloudGaCustomRoutingEndpointGroup_basic0_twin(t *testing.T) {
+	var v map[string]interface{}
+	checkoutSupportedRegions(t, true, connectivity.GaSupportRegions)
+	resourceId := "alicloud_ga_custom_routing_endpoint_group.default"
+	ra := resourceAttrInit(resourceId, AlicloudGaCustomRoutingEndpointGroupMap)
+	rc := resourceCheckInitWithDescribeMethod(resourceId, &v, func() interface{} {
+		return &GaService{testAccProvider.Meta().(*connectivity.AliyunClient)}
+	}, "DescribeGaCustomRoutingEndpointGroup")
+	rac := resourceAttrCheckInit(rc, ra)
+	testAccCheck := rac.resourceAttrMapUpdateSet()
+	rand := acctest.RandIntRange(10000, 99999)
+	name := fmt.Sprintf("tf-testacc%sGaCustomRoutingEndpointGroup%d", defaultRegionToTest, rand)
+	testAccConfig := resourceTestAccConfigFunc(resourceId, name, AlicloudGaCustomRoutingEndpointGroupBasicDependence0)
+	resource.Test(t, resource.TestCase{
+		PreCheck: func() {
+			testAccPreCheck(t)
+		},
+		IDRefreshName: resourceId,
+		Providers:     testAccProviders,
+		CheckDestroy:  rac.checkResourceDestroy(),
+		Steps: []resource.TestStep{
+			{
+				Config: testAccConfig(map[string]interface{}{
+					"accelerator_id":                     "${alicloud_ga_listener.default.accelerator_id}",
+					"listener_id":                        "${alicloud_ga_listener.default.id}",
+					"endpoint_group_region":              defaultRegionToTest,
+					"custom_routing_endpoint_group_name": name,
+					"description":                        name,
+				}),
+				Check: resource.ComposeTestCheckFunc(
+					testAccCheck(map[string]string{
+						"accelerator_id":                     CHECKSET,
+						"listener_id":                        CHECKSET,
+						"endpoint_group_region":              CHECKSET,
+						"custom_routing_endpoint_group_name": name,
+						"description":                        name,
+					}),
+				),
+			},
+			{
+				ResourceName:      resourceId,
+				ImportState:       true,
+				ImportStateVerify: true,
+			},
+		},
+	})
+}
+
 var AlicloudGaCustomRoutingEndpointGroupMap = map[string]string{
 	"status": CHECKSET,
 }
@@ -89,6 +133,7 @@ func AlicloudGaCustomRoutingEndpointGroupBasicDependence0(name string) string {
 
 	data "alicloud_ga_accelerators" "default" {
   		status = "active"
+		bandwidth_billing_type = "BandwidthPackage"
 	}
 	
 	resource "alicloud_ga_bandwidth_package" "default" {

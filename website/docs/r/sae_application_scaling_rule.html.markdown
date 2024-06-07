@@ -20,6 +20,9 @@ For information about Serverless App Engine (SAE) Application Scaling Rule and h
 Basic Usage
 
 ```terraform
+provider "alicloud" {
+  region = "cn-hangzhou"
+}
 variable "name" {
   default = "tf-example"
 }
@@ -58,7 +61,7 @@ resource "alicloud_sae_namespace" "default" {
 
 resource "alicloud_sae_application" "default" {
   app_description   = var.name
-  app_name          = var.name
+  app_name          = "${var.name}-${random_integer.default.result}"
   namespace_id      = alicloud_sae_namespace.default.id
   image_url         = "registry-vpc.${data.alicloud_regions.default.regions.0.id}.aliyuncs.com/sae-demo-image/consumer:1.0"
   package_type      = "Image"

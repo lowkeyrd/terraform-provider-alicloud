@@ -263,11 +263,11 @@ func TestAccAliCloudCSManagedKubernetes_essd_migrate_upgrade(t *testing.T) {
 			{
 				// upgrade
 				Config: testAccConfig(map[string]interface{}{
-					"version": "1.26.3-aliyun.1",
+					"version": "1.26.15-aliyun.1",
 				}),
 				Check: resource.ComposeTestCheckFunc(
 					testAccCheck(map[string]string{
-						"version": "1.26.3-aliyun.1",
+						"version": "1.26.15-aliyun.1",
 					}),
 				),
 			},
@@ -384,6 +384,22 @@ func TestAccAliCloudCSManagedKubernetes_controlPlanLog(t *testing.T) {
 				ImportStateVerifyIgnore: []string{"new_nat_gateway", "user_ca", "timezone", "name_prefix", "addons",
 					"is_enterprise_security_group"},
 			},
+			{
+				Config: testAccConfig(map[string]interface{}{
+					"delete_options": []map[string]interface{}{
+						{
+							"delete_mode":   "delete",
+							"resource_type": "SLB",
+						},
+						{
+							"delete_mode":   "delete",
+							"resource_type": "ALB",
+						},
+					},
+				}),
+				Check: resource.ComposeTestCheckFunc(
+					testAccCheck(map[string]string{})),
+			},
 		},
 	})
 }
@@ -445,7 +461,8 @@ data "alicloud_instance_types" "default" {
 data "alicloud_resource_manager_resource_groups" "default" {}
 
 data "alicloud_kms_keys" "default" {
-  status = "Enabled"
+  status  = "Enabled"
+  filters = "[{\"Key\":\"CreatorType\", \"Values\":[\"User\"]}]"
 }
 
 data "alicloud_vpcs" "default" {
@@ -550,4 +567,5 @@ var csManagedKubernetesBasicMap = map[string]string{
 	"slb_internet":                       CHECKSET,
 	"slb_intranet":                       CHECKSET,
 	"cluster_spec":                       CHECKSET,
+	"slb_id":                             CHECKSET,
 }

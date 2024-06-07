@@ -6,6 +6,7 @@ import (
 	"encoding/base64"
 	"encoding/hex"
 	"encoding/json"
+	"encoding/xml"
 	"fmt"
 	"io/ioutil"
 	"log"
@@ -404,6 +405,16 @@ func convertListToCommaSeparate(configured []interface{}) string {
 	return result
 }
 
+func filterEmptyStrings(arr []interface{}) []interface{} {
+	var result []interface{}
+	for _, str := range arr {
+		if fmt.Sprint(str) != "" {
+			result = append(result, str)
+		}
+	}
+	return result
+}
+
 func convertBoolToString(configured bool) string {
 	return strconv.FormatBool(configured)
 }
@@ -430,6 +441,31 @@ func convertJsonStringToList(configured string) ([]interface{}, error) {
 	return result, nil
 }
 
+func expandArrayToMap(originMap map[string]interface{}, arrayValues []interface{}, arrayKey string) map[string]interface{} {
+	for i, val := range arrayValues {
+		key := fmt.Sprintf("%s.%d", arrayKey, i+1)
+		originMap[key] = fmt.Sprint(val)
+	}
+	return originMap
+}
+
+func convertJsonStringToObject(configured interface{}) map[string]interface{} {
+	result := make(map[string]interface{})
+	if err := json.Unmarshal([]byte(configured.(string)), &result); err != nil {
+		return nil
+	}
+
+	return result
+}
+
+func convertObjectToJsonString(m interface{}) string {
+	if result, err := json.Marshal(m); err != nil {
+		return ""
+	} else {
+		return string(result)
+	}
+}
+
 func convertMaptoJsonString(m map[string]interface{}) (string, error) {
 	//sm := make(map[string]string, len(m))
 	//for k, v := range m {
@@ -448,6 +484,14 @@ func convertMapToJsonStringIgnoreError(m map[string]interface{}) string {
 		return ""
 	} else {
 		return string(result)
+	}
+}
+
+func convertInterfaceToJsonString(m interface{}) (string, error) {
+	if result, err := json.Marshal(m); err != nil {
+		return "", err
+	} else {
+		return string(result), nil
 	}
 }
 
@@ -725,6 +769,32 @@ func compareJsonTemplateAreEquivalent(tem1, tem2 string) (bool, error) {
 		log.Printf("[DEBUG] Canonical template are not equal.\nFirst: %s\nSecond: %s\n",
 			canonicalJson1, canonicalJson2)
 	}
+	return equal, nil
+}
+
+func compareArrayJsonTemplateAreEquivalent(tem1, tem2 string) (bool, error) {
+	obj1 := make([]map[string]interface{}, 0)
+	err := json.Unmarshal([]byte(tem1), &obj1)
+	if err != nil {
+		return false, err
+	}
+
+	canonicalJson1, _ := json.Marshal(obj1)
+
+	obj2 := make([]map[string]interface{}, 0)
+	err = json.Unmarshal([]byte(tem2), &obj2)
+	if err != nil {
+		return false, err
+	}
+
+	canonicalJson2, _ := json.Marshal(obj2)
+
+	equal := bytes.Compare(canonicalJson1, canonicalJson2) == 0
+	if !equal {
+		log.Printf("[DEBUG] Canonical template are not equal.\nFirst: %s\nSecond: %s\n",
+			canonicalJson1, canonicalJson2)
+	}
+
 	return equal, nil
 }
 
@@ -1127,6 +1197,7 @@ func convertArrayObjectToJsonString(src interface{}) (string, error) {
 	if err != nil {
 		return "", err
 	}
+
 	return string(res), nil
 }
 
@@ -1588,6 +1659,83 @@ func genRoaParam(action, method, version, path string) *openapi.Params {
 	}
 }
 
+func rpcParam(action, method, version string) *openapi.Params {
+	return &openapi.Params{
+		Action:      tea.String(action),
+		Version:     tea.String(version),
+		Protocol:    tea.String("HTTPS"),
+		Pathname:    tea.String("/"),
+		Method:      tea.String(method),
+		AuthType:    tea.String("AK"),
+		Style:       tea.String("RPC"),
+		ReqBodyType: tea.String("formData"),
+		BodyType:    tea.String("json"),
+	}
+}
+
+func genXmlParam(action, method, version, path string) *openapi.Params {
+	return &openapi.Params{
+		Action:      tea.String(action),
+		Version:     tea.String(version),
+		Protocol:    tea.String("HTTPS"),
+		Pathname:    tea.String(path),
+		Method:      tea.String(method),
+		AuthType:    tea.String("AK"),
+		ReqBodyType: tea.String("xml"),
+		BodyType:    tea.String("xml"),
+	}
+}
+
+func genJsonXmlParam(action, method, version, path string) *openapi.Params {
+	return &openapi.Params{
+		Action:      tea.String(action),
+		Version:     tea.String(version),
+		Protocol:    tea.String("HTTPS"),
+		Pathname:    tea.String(path),
+		Method:      tea.String(method),
+		AuthType:    tea.String("AK"),
+		ReqBodyType: tea.String("json"),
+		BodyType:    tea.String("xml"),
+	}
+}
+
+func genXmlJsonParam(action, method, version, path string) *openapi.Params {
+	return &openapi.Params{
+		Action:      tea.String(action),
+		Version:     tea.String(version),
+		Protocol:    tea.String("HTTPS"),
+		Pathname:    tea.String(path),
+		Method:      tea.String(method),
+		AuthType:    tea.String("AK"),
+		ReqBodyType: tea.String("xml"),
+		BodyType:    tea.String("json"),
+	}
+}
+
+type MyMap map[string]interface{}
+
+type xmlMapEntry struct {
+	XMLName xml.Name
+	Value   interface{} `xml:",chardata"`
+}
+
+func (m MyMap) MarshalXML(e *xml.Encoder, start xml.StartElement) error {
+	if len(m) == 0 {
+		return nil
+	}
+
+	err := e.EncodeToken(start)
+	if err != nil {
+		return err
+	}
+
+	for k, v := range m {
+		e.Encode(xmlMapEntry{XMLName: xml.Name{Local: k}, Value: v})
+	}
+
+	return e.EncodeToken(start.End())
+}
+
 func expandSingletonToList(singleton interface{}) []interface{} {
 	vs := make([]interface{}, 0)
 	vs = append(vs, singleton)
@@ -1598,4 +1746,68 @@ func MD5(b []byte) string {
 	ctx := md5.New()
 	ctx.Write(b)
 	return hex.EncodeToString(ctx.Sum(nil))
+}
+
+func ConvertTags(tagsMap map[string]interface{}) []map[string]interface{} {
+	tags := make([]map[string]interface{}, 0)
+	for key, value := range tagsMap {
+		if value != nil {
+			if v, ok := value.(string); ok {
+				tags = append(tags, map[string]interface{}{
+					"Key":   key,
+					"Value": v,
+				})
+			}
+		}
+	}
+
+	return tags
+}
+
+func ConvertTagsForKms(tagsMap map[string]interface{}) []map[string]interface{} {
+	tags := make([]map[string]interface{}, 0)
+	for key, value := range tagsMap {
+		if value != nil {
+			if v, ok := value.(string); ok {
+				tags = append(tags, map[string]interface{}{
+					"TagKey":   key,
+					"TagValue": v,
+				})
+			}
+		}
+	}
+
+	return tags
+}
+
+func expandTagsToMap(originMap map[string]interface{}, tags []map[string]interface{}) map[string]interface{} {
+	for i, tag := range tags {
+		for key, value := range tag {
+			if key == "Key" || key == "Value" {
+				newKey := "Tag" + "." + strconv.Itoa(i+1) + "." + key
+				originMap[newKey] = fmt.Sprintf("%v", value)
+			}
+		}
+	}
+	return originMap
+}
+
+func convertChargeTypeToPaymentType(source interface{}) interface{} {
+	switch source {
+	case "PostPaid":
+		return "PayAsYouGo"
+	case "PrePaid":
+		return "Subscription"
+	}
+	return source
+}
+
+func convertPaymentTypeToChargeType(source interface{}) interface{} {
+	switch source {
+	case "PayAsYouGo":
+		return "PostPaid"
+	case "Subscription":
+		return "PrePaid"
+	}
+	return source
 }

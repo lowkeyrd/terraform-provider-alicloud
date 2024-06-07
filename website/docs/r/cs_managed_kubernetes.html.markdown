@@ -102,44 +102,6 @@ variable "terway_vswitch_cidrs" {
   default     = ["10.4.0.0/16", "10.5.0.0/16"]
 }
 
-variable "cluster_addons" {
-  type = list(object({
-    name   = string
-    config = string
-  }))
-
-  default = [
-    {
-      "name"   = "terway-eniip",
-      "config" = "",
-    },
-    {
-      "name"   = "csi-plugin",
-      "config" = "",
-    },
-    {
-      "name"   = "csi-provisioner",
-      "config" = "",
-    },
-    {
-      "name"   = "logtail-ds",
-      "config" = "{'IngressDashboardEnabled':'true'}",
-    },
-    {
-      "name"   = "nginx-ingress-controller",
-      "config" = "{'IngressSlbNetworkType':'internet'}",
-    },
-    {
-      "name"   = "arms-prometheus",
-      "config" = "",
-    },
-    {
-      "name"   = "ack-node-problem-detector",
-      "config" = "{'sls_project_name':''}",
-    }
-  ]
-}
-
 data "alicloud_enhanced_nat_available_zones" "enhanced" {}
 
 # If there is not specifying vpc_id, the module will launch a new vpc
@@ -168,7 +130,7 @@ resource "alicloud_cs_managed_kubernetes" "k8s" {
   name         = var.name
   cluster_spec = "ack.pro.small"
   # version can not be defined in variables.tf.
-  version            = "1.26.3-aliyun.1"
+  # version            = "1.26.3-aliyun.1"
   worker_vswitch_ids = length(var.vswitch_ids) > 0 ? split(",", join(",", var.vswitch_ids)) : length(var.vswitch_cidrs) < 1 ? [] : split(",", join(",", alicloud_vswitch.vswitches.*.id))
   pod_vswitch_ids    = length(var.terway_vswitch_ids) > 0 ? split(",", join(",", var.terway_vswitch_ids)) : length(var.terway_vswitch_cidrs) < 1 ? [] : split(",", join(",", alicloud_vswitch.terway_vswitches.*.id))
   new_nat_gateway    = true
@@ -176,12 +138,37 @@ resource "alicloud_cs_managed_kubernetes" "k8s" {
   proxy_mode         = var.proxy_mode
   service_cidr       = var.service_cidr
 
-  dynamic "addons" {
-    for_each = var.cluster_addons
-    content {
-      name   = lookup(addons.value, "name", var.cluster_addons)
-      config = lookup(addons.value, "config", var.cluster_addons)
-    }
+  addons {
+    name = "terway-eniip"
+  }
+  addons {
+    name = "csi-plugin"
+  }
+  addons {
+    name = "csi-provisioner"
+  }
+  addons {
+    name = "logtail-ds"
+    config = jsonencode({
+      IngressDashboardEnabled = "true"
+    })
+  }
+  addons {
+    name = "nginx-ingress-controller"
+    config = jsonencode({
+      IngressSlbNetworkType = "internet"
+    })
+    # to disable install nginx-ingress-controller automatically
+    # disabled = true
+  }
+  addons {
+    name = "arms-prometheus"
+  }
+  addons {
+    name = "ack-node-problem-detector"
+    config = jsonencode({
+      # sls_project_name = "your-sls-project"
+    })
   }
 }
 ```
@@ -219,19 +206,20 @@ The following arguments are supported:
 * `control_plane_log_components` - (Optional, Available in 1.141.0+) List of target components for which logs need to be collected. Supports `apiserver`, `kcm`, `scheduler`, `ccm` and `controlplane-events`.
 * `control_plane_log_project` - (Optional, Available in 1.141.0+) Control plane log project. If this field is not set, a log service project named k8s-log-{ClusterID} will be automatically created.
 * `retain_resources` - (Optional, Available in 1.141.0+) Resources that are automatically created during cluster creation, including NAT gateways, SNAT rules, SLB instances, and RAM Role, will be deleted. Resources that are manually created after you create the cluster, such as SLB instances for Services, will also be deleted. If you need to retain resources, please configure with `retain_resources`. There are several aspects to pay attention to when using `retain_resources` to retain resources. After configuring `retain_resources` into the terraform configuration manifest file, you first need to run `terraform apply`.Then execute `terraform destroy`.
+* `delete_options` - (Optional) Delete options, only work for deleting resource. Make sure you have run `terraform apply` to make the configuration applied. See [`delete_options`](#delete_options) below.
 * `addons` - (Optional, Available in 1.88.0+) The addon you want to install in cluster. See [`addons`](#addons) below.
 
 ### Network params
 
 * `pod_cidr` - (Optional, ForceNew) - [Flannel Specific] The CIDR block for the pod network when using Flannel.
-* `pod_vswitch_ids` - (Optional) - [Terway Specific] The vswitches for the pod network when using Terway.Be careful the `pod_vswitch_ids` can not equal to `worker_vswitch_ids` or `master_vswitch_ids` but must be in same availability zones.
+* `pod_vswitch_ids` - (Optional) - [Terway Specific] The vswitches for the pod network when using Terway. It is recommended that `pod_vswitch_ids` is not belong to `worker_vswitch_ids` but must be in same availability zones.
 * `new_nat_gateway` - (Optional) Whether to create a new nat gateway while creating kubernetes cluster. Default to true. Then openapi in Alibaba Cloud are not all on intranet, So turn this option on is a good choice.
 * `service_cidr` - (Optional, ForceNew) The CIDR block for the service network. It cannot be duplicated with the VPC CIDR and CIDR used by Kubernetes cluster in VPC, cannot be modified after creation.
 * `node_cidr_mask` - (Optional, ForceNew) The node cidr block to specific how many pods can run on single node. 24-28 is allowed. 24 means 2^(32-24)-1=255 and the node can run at most 255 pods. default: 24
 * `slb_internet_enabled` - (Optional) Whether to create internet load balancer for API Server. Default to true.
 
--> **NOTE:** If you want to use `Terway` as CNI network plugin, You need to specific the `pod_vswitch_ids` field and addons with `terway-eniip`.
-If you want to use `Flannel` as CNI network plugin, You need to specific the `pod_cidr` field and addons with `flannel`.
+-> **NOTE:** If you want to use `Terway` as CNI network plugin, You need to specify the `pod_vswitch_ids` field and addons with `terway-eniip`.
+If you want to use `Flannel` as CNI network plugin, You need to specify the `pod_cidr` field and addons with `flannel`.
 
 ### Computed params
 
@@ -305,7 +293,7 @@ for example:
 The following arguments are supported in the `addons` configuration block:
 
 * `name` - (Optional) This parameter specifies the name of the component.
-* `config` - (Optional) If this parameter is left empty, no configurations are required.
+* `config` - (Optional) If this parameter is left empty, no configurations are required. For more config information, see [cs_kubernetes_addon_metadata](https://registry.terraform.io/providers/aliyun/alicloud/latest/docs/data-sources/cs_kubernetes_addon_metadata).
 * `version` - (Optional) It specifies the version of the component.
 * `disabled` - (Optional) It specifies whether to disable automatic installation. 
 
@@ -328,6 +316,7 @@ resource "alicloud_cs_managed_kubernetes" "k8s" {
     content {
       name     = lookup(addons.value, "name", var.cluster_addons)
       config   = lookup(addons.value, "config", var.cluster_addons)
+      version  = lookup(addons.value, "version", var.cluster_addons)
       disabled = lookup(addons.value, "disabled", var.cluster_addons)
     }
   }
@@ -452,14 +441,12 @@ variable "cluster_addons" {
   type = list(object({
       name      = string
       config    = string
-      disabled  = bool
   }))
 
   default = [
     {
       "name"     = "arms-prometheus",
       "config"   = "",
-      "disabled": true,
     }
   ]
 }
@@ -469,13 +456,11 @@ variable "cluster_addons" {
   type = list(object({
       name      = string
       config    = string
-      disabled  = bool
   }))
   default = [
     {
       "name"     = "ack-node-problem-detector",
       "config"   = "{\"sls_project_name\":\"\"}",
-      "disabled": true,
     }
   ]
 }
@@ -484,13 +469,11 @@ variable "cluster_addons" {
   type = list(object({
       name      = string
       config    = string
-      disabled  = bool
   }))
   default = [
     {
       "name"     = "alicloud-monitor-controller",
       "config"   = "{\"group_contact_ids\":\"[159]\"}",
-      "disabled": true,
     }
   ]
 }
@@ -545,14 +528,17 @@ The following arguments are supported in the `log_config` configuration block:
 * `type` - (Required) Type of collecting logs, only `SLS` are supported currently.
 * `project` - (Optional) Log Service project name, cluster logs will output to this project.
 
-### runtime
+### `runtime`
+
+* `name` - (Optional) The name of the runtime. Supported runtimes can be queried by data source [alicloud_cs_kubernetes_version](https://registry.terraform.io/providers/aliyun/alicloud/latest/docs/data-sources/cs_kubernetes_version).
+* `version` - (Optional) The version of the runtime.
 
 The following example is the definition of runtime block:
 
 ```
   runtime = {
     name = "containerd"
-    version = "1.5.10"
+    version = "1.6.28"
   }
 ```
 
@@ -580,8 +566,42 @@ The following example is the definition of `worker_vswitch_ids` block.
   worker_vswitch_ids = ["vsw-id1", "vsw-id1", "vsw-id2"]
 ```
 
+### `delete_options`
 
+The following arguments are supported in the `delete_options` configuration block:
+* `delete_mode` - (Optional) The deletion mode of the cluster. Different resources may have different default behavior, see `resource_type` for details. Valid values:
+  - `delete`: delete resources created by the cluster.
+  - `retain`: retain resources created by the cluster.
+* `resource_type` - (Optional) The type of resources that are created by cluster. Valid values:
+  - `SLB`: SLB resources created through the service, default behavior is to delete, option to retain is available. 
+  - `ALB`: ALB resources created by the ALB Ingress Controller, default behavior is to retain, option to delete is available. 
+  - `SLS_Data`: SLS Project used by the cluster logging feature, default behavior is to retain, option to delete is available. 
+  - `SLS_ControlPlane`: SLS Project used for the managed cluster control plane logs, default behavior is to retain, option to delete is available.
 
+```
+  ...
+  // Specify delete_options as below when deleting cluster
+  // delete SLB resources created by the cluster
+  delete_options {
+    delete_mode = "delete"
+    resource_type = "SLB"
+  }
+  // delete ALB resources created by the ALB Ingress Controller
+  delete_options {
+    delete_mode = "delete"
+    resource_type = "ALB"
+  }
+  // delete SLS Project used by the cluster logging feature
+  delete_options {
+    delete_mode = "delete"
+    resource_type = "SLS_Data"
+  }
+  // delete SLS Project used for the managed cluster control plane logs
+  delete_options {
+    delete_mode = "delete"
+    resource_type = "SLS_ControlPlane"
+  }
+```
 ## Attributes Reference
 
 The following attributes are exported:
@@ -590,7 +610,7 @@ The following attributes are exported:
 * `vpc_id` - The ID of VPC where the current cluster is located.
 * `slb_intranet` - The ID of private load balancer where the current cluster master node is located.
 * `slb_internet` - The public ip of load balancer.
-* `slb_id` - (Deprecated) The ID of load balancer.
+* `slb_id` - The ID of APIServer load balancer.
 * `nat_gateway_id` - The ID of nat gateway used to launch kubernetes cluster.
 * `worker_nodes` - (Removed from version 1.212.0) List of cluster worker nodes.
   * `id` - ID of the node.

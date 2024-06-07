@@ -20,41 +20,72 @@ Use the navigation on the left to read about the available resources.
 ## Example Usage
 
 ```terraform
-# Configure the Alicloud Provider
+# Configure the AliCloud Provider
+
 provider "alicloud" {
-  access_key = "${var.access_key}"
-  secret_key = "${var.secret_key}"
-  region     = "${var.region}"
+  access_key = var.access_key
+  secret_key = var.secret_key
+  # If not set, cn-beijing will be used.
+  region = var.region
 }
 
-data "alicloud_instance_types" "c2g4" {
-  cpu_core_count = 2
-  memory_size    = 4
+variable "name" {
+  default = "terraform-example"
 }
 
-data "alicloud_images" "default" {
-  name_regex  = "^ubuntu"
-  most_recent = true
-  owners      = "system"
+data "alicloud_zones" "default" {
+  available_disk_category     = "cloud_efficiency"
+  available_resource_creation = "VSwitch"
 }
 
-# Create a web server
-resource "alicloud_instance" "web" {
-  image_id             = "${data.alicloud_images.default.images.0.id}"
-  internet_charge_type = "PayByBandwidth"
-
-  instance_type        = "${data.alicloud_instance_types.c2g4.instance_types.0.id}"
-  system_disk_category = "cloud_efficiency"
-  security_groups      = ["${alicloud_security_group.default.id}"]
-  instance_name        = "web"
-  vswitch_id           = "vsw-abc12345"
+# Create a new ECS instance for VPC
+resource "alicloud_vpc" "vpc" {
+  vpc_name   = var.name
+  cidr_block = "172.16.0.0/16"
 }
 
-# Create security group
-resource "alicloud_security_group" "default" {
-  name        = "default"
-  description = "default"
-  vpc_id      = "vpc-abc12345"
+resource "alicloud_vswitch" "vswitch" {
+  vpc_id       = alicloud_vpc.vpc.id
+  cidr_block   = "172.16.0.0/24"
+  zone_id      = data.alicloud_zones.default.zones.0.id
+  vswitch_name = var.name
+}
+
+# Create a new Security in a VPC
+resource "alicloud_security_group" "group" {
+  name        = var.name
+  description = "foo"
+  vpc_id      = alicloud_vpc.vpc.id
+}
+# Create a kms to encrypt the disk
+resource "alicloud_kms_key" "key" {
+  description            = "Hello KMS"
+  pending_window_in_days = "7"
+  status                 = "Enabled"
+}
+
+resource "alicloud_instance" "instance" {
+  # cn-beijing
+  availability_zone = data.alicloud_zones.default.zones.0.id
+  security_groups   = alicloud_security_group.group.*.id
+
+  # series III
+  instance_type              = "ecs.n4.large"
+  system_disk_category       = "cloud_efficiency"
+  system_disk_name           = var.name
+  system_disk_description    = "system_disk_description"
+  image_id                   = "ubuntu_18_04_64_20G_alibase_20190624.vhd"
+  instance_name              = var.name
+  vswitch_id                 = alicloud_vswitch.vswitch.id
+  internet_max_bandwidth_out = 10
+  data_disks {
+    name        = "data-disk"
+    size        = 20
+    category    = "cloud_efficiency"
+    description = "disk-description"
+    encrypted   = true
+    kms_key_id  = alicloud_kms_key.key.id
+  }
 }
 ```
 
@@ -66,8 +97,9 @@ The following methods are supported, in this order, and explained below:
 - Static credentials
 - Environment variables
 - Shared credentials/configuration file  
-- ECS Role
-- Assume role
+- ECS Instance Role
+- Assuming A RAM Role
+- Assuming A RAM Role With OIDC
 - Sidecar Credentials
 
 ### Static credentials
@@ -79,16 +111,16 @@ Usage:
 
 ```terraform
 provider "alicloud" {
-  access_key = "${var.access_key}"
-  secret_key = "${var.secret_key}"
-  region     = "${var.region}"
+  access_key = var.access_key
+  secret_key = var.secret_key
+  region     = var.region
 }
 ```
 
 ### Environment variables
 
 You can provide your credentials via `ALICLOUD_ACCESS_KEY` and `ALICLOUD_SECRET_KEY`
-environment variables, representing your Alicloud access key and secret key respectively.
+environment variables, representing your Alibaba Cloud access key and secret key respectively.
 `ALICLOUD_REGION` is also used, if applicable:
 
 ```terraform
@@ -98,8 +130,8 @@ provider "alicloud" {}
 Usage:
 
 ```shell
-$ export ALICLOUD_ACCESS_KEY="anaccesskey"
-$ export ALICLOUD_SECRET_KEY="asecretkey"
+$ export ALICLOUD_ACCESS_KEY="<Your-Access-Key-ID>"
+$ export ALICLOUD_SECRET_KEY="<Your-Access-Key-Secret>"
 $ export ALICLOUD_REGION="cn-beijing"
 $ terraform plan
 ```
@@ -118,7 +150,7 @@ provider "alicloud" {
 }
 ```
 
-### ECS Role
+### ECS Instance Role
 
 If you're running Terraform from an ECS instance with RAM Instance using RAM Role,
 Terraform will just access
@@ -136,13 +168,13 @@ Usage:
 ```terraform
 provider "alicloud" {
   ecs_role_name = "terraform-provider-alicloud"
-  region        = "${var.region}"
+  region        = var.region
 }
 ```
 
 -> **NOTE:** At present, the [MNS Resources](https://www.terraform.io/docs/providers/alicloud/r/mns_queue) does not support ECS Role Credential.
 
-### Assume role
+### Assuming A RAM Role
 
 If provided with a role ARN, Terraform will attempt to assume this role using the supplied credentials.
 
@@ -150,11 +182,33 @@ Usage:
 
 ```terraform
 provider "alicloud" {
+  access_key = "<One-AccessKeyId-With-AssumeRole-Policy>"
+  secret_key = "<One-AccessKeySecret-With-AssumeRole-Policy>"
   assume_role {
     role_arn           = "acs:ram::ACCOUNT_ID:role/ROLE_NAME"
-    policy             = "POLICY"
-    session_name       = "SESSION_NAME"
+    policy             = "Policy Content"
+    session_name       = "A Role Session Name"
     session_expiration = 999
+  }
+}
+```
+
+### Assuming A RAM Role With OIDC
+
+If provided with a role ARN and a token from a service account OpenID Connect (OIDC),
+the Alibaba CLoud Provider will attempt to assume this role using the supplied credentials.
+
+**NOTE:** Assuming-Role-With-OIDC is a no-AK auth type, and there is no need setting access_key and secret_key while using it.
+
+Usage:
+
+```terraform
+provider "alicloud" {
+  assume_role_with_oidc {
+    oidc_provider_arn = "acs:ram::ACCOUNT_ID:oidc-provider/ROLE_NAME"
+    role_arn          = "acs:ram::ACCOUNT_ID:role/ROLE_NAME"
+    oidc_token_file   = "/Users/tf_user/secrets/rrsa-tokens/token"
+    role_session_name = "A Role Session Name"
   }
 }
 ```
@@ -206,14 +260,14 @@ In addition to [generic `provider` arguments](https://www.terraform.io/docs/conf
   it can also be sourced from the `ALICLOUD_SECRET_KEY` environment variable, or via
   a dynamic secret key if `ecs_role_name` is specified.
 
-* `security_token` - Alicloud [Security Token Service](https://www.alibabacloud.com/help/doc-detail/66222.html).
+* `security_token` - Alicloud [Security Token Service](https://www.alibabacloud.com/help/en/ram/product-overview/what-is-sts).
   It can be sourced from the `ALICLOUD_SECURITY_TOKEN` environment variable,  or via
   a dynamic security token if `ecs_role_name` is specified.
 
 * `ecs_role_name` - "The RAM Role Name attached on a ECS instance for API operations. You can retrieve this from the 'Access Control' section of the Alibaba Cloud console.",
 
-* `region` - This is the Alicloud region. It must be provided, but
-  it can also be sourced from the `ALICLOUD_REGION` environment variables.
+* `region` - This is the Alibaba Cloud region. Default to `cn-beijing`. 
+  It can also be sourced from the `ALICLOUD_REGION` environment variables.
 
 * `account_id` - (Optional) Alibaba Cloud Account ID. It is used by the Function Compute service and to connect router interfaces.
   If not provided, the provider will attempt to retrieve it automatically with [STS GetCallerIdentity](https://www.alibabacloud.com/help/doc-detail/43767.htm).
@@ -223,7 +277,9 @@ In addition to [generic `provider` arguments](https://www.terraform.io/docs/conf
 
 * `profile` - (Optional, Available since 1.49.0) This is the Alicloud profile name as set in the shared credentials file. It can also be sourced from the `ALICLOUD_PROFILE` environment variable.
 
-* `assume_role` - (Optional) An [`assume_role`](#assume_role) block. Only one `assume_role` block may be in the configuration.
+* `assume_role` - (Optional) An [`assume_role` Configuration Block](#assume_role-configuration-block) block. Only one `assume_role` block may be in the configuration.
+
+* `assume_role_with_oidc` - (Optional, Available since v1.220.0) Configuration block for assuming an RAM role using an OIDC. See the [`assume_role_with_oidc` Configuration Block](#assume_role_with_oidc-configuration-block) section below. Only one `assume_role_with_oidc` block may be in the configuration.
 
 * `endpoints` - (Optional) An [`endpoints`](#endpoints) block to support custom endpoints.
 
@@ -240,7 +296,7 @@ The length should not more than 128(Before 1.207.2, it should not more than 64).
 
 * `max_retry_timeout` - (Optional, Available since 1.183.0) The maximum retry timeout in second of the request. Default to `0`.
 
-### `assume_role`
+### `assume_role` Configuration Block
 
 * `role_arn` - (Required) The ARN of the role to assume. If ARN is set to an empty string, it does not perform role switching. It supports environment variable `ALICLOUD_ASSUME_ROLE_ARN`.
   Terraform executes configuration on account with provided credentials.
@@ -257,6 +313,20 @@ The length should not more than 128(Before 1.207.2, it should not more than 64).
 * `external_id` - (Optional, Available since 1.207.1) The external ID of the RAM role. 
   This parameter is provided by an external party and is used to prevent the confused deputy problem. 
   The value must be 2 to 1,224 characters in length and can contain letters, digits, and the following special characters:`= , . @ : / - _`.
+
+### assume_role_with_oidc Configuration Block
+
+The `assume_role_with_oidc` configuration block supports the following arguments:
+
+* `oidc_provider_arn` - (Required) ARN of the OIDC IdP. Can also be set with the `ALIBABA_CLOUD_OIDC_PROVIDER_ARN` environment variable.
+* `role_arn` - (Required) ARN of the RAM Role to assume. Can also be set with the `ALIBABA_CLOUD_ROLE_ARN` environment variable.
+* `oidc_token` - (Optional) Value of a RRSA security token from an OIDC Idp. One of `oidc_token` or `oidc_token_file` is required.
+* `oidc_token_file` - (Optional) File containing a RRSA security token from an OIDC. One of `oidc_token_file` or `oidc_token` is required.
+  Can also be set with the `ALIBABA_CLOUD_OIDC_TOKEN_FILE` environment variable.
+* `role_session_name` - (Optional) The session name to use when assuming the role. If omitted, 'terraform' is passed to the AssumeRoleWithOIDC call as session name. 
+  Can also be set with the `ALIBABA_CLOUD_ROLE_SESSION_NAME` environment variable.
+* `session_expiration` - (Optional) The validity period of the STS token. Unit: seconds. Default value: 3600. Minimum value: 900. Maximum value: the value of the MaxSessionDuration parameter when creating a ram role.
+* `policy` - (Optional) The policy that specifies the permissions of the returned STS token. You can use this parameter to grant the STS token fewer permissions than the permissions granted to the RAM role.
  
 ### `endpoints`
 

@@ -35,11 +35,16 @@ resource "alicloud_oos_patch_baseline" "default" {
 
 The following arguments are supported:
 * `approval_rules` - (Required) Accept the rules. This value follows the json format. For more details, see the description of [ApprovalRules in the Request parameters table for details](https://www.alibabacloud.com/help/zh/operation-orchestration-service/latest/api-oos-2019-06-01-createpatchbaseline).
+* `approved_patches` - (Optional, Available since v1.219.0) Approved Patch.
+* `approved_patches_enable_non_security` - (Optional, Available since v1.219.0) ApprovedPatchesEnableNonSecurity.
 * `description` - (Optional) Patches baseline description information.
 * `operation_system` - (Required, ForceNew) Operating system type. Valid values: `AliyunLinux`, `Anolis`, `CentOS`, `Debian`, `RedhatEnterpriseLinux`, `Ubuntu`, `Windows`, `AlmaLinux`.
 * `patch_baseline_name` - (Required, ForceNew) The name of the patch baseline.
 * `rejected_patches` - (Optional, Available since v1.210.0) Reject patches.
 * `rejected_patches_action` - (Optional, Available since v1.210.0) Rejected patches action. Valid values: `ALLOW_AS_DEPENDENCY`, `BLOCK`.
+* `resource_group_id` - (Optional, Computed, Available since v1.219.0) The ID of the resource group.
+* `sources` - (Optional, Available since v1.219.0) Source.
+* `tags` - (Optional, Map, Available since v1.219.0) Label.
 
 ## Attributes Reference
 

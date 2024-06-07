@@ -14,7 +14,7 @@ Provides an ALIKAFKA sasl acl resource, see [What is alikafka sasl acl](https://
 -> **NOTE:** Available since v1.66.0.
 
 -> **NOTE:**  Only the following regions support create alikafka sasl user.
-[`cn-hangzhou`,`cn-beijing`,`cn-shenzhen`,`cn-shanghai`,`cn-qingdao`,`cn-hongkong`,`cn-huhehaote`,`cn-zhangjiakou`,`cn-chengdu`,`cn-heyuan`,`ap-southeast-1`,`ap-southeast-3`,`ap-southeast-5`,`ap-south-1`,`ap-northeast-1`,`eu-central-1`,`eu-west-1`,`us-west-1`,`us-east-1`]
+[`cn-hangzhou`,`cn-beijing`,`cn-shenzhen`,`cn-shanghai`,`cn-qingdao`,`cn-hongkong`,`cn-huhehaote`,`cn-zhangjiakou`,`cn-chengdu`,`cn-heyuan`,`ap-southeast-1`,`ap-southeast-3`,`ap-southeast-5`,`ap-northeast-1`,`eu-central-1`,`eu-west-1`,`us-west-1`,`us-east-1`]
 
 ## Example Usage
 
@@ -44,8 +44,13 @@ resource "alicloud_security_group" "default" {
   vpc_id = alicloud_vpc.default.id
 }
 
+resource "random_integer" "default" {
+  min = 10000
+  max = 99999
+}
+
 resource "alicloud_alikafka_instance" "default" {
-  name            = var.name
+  name            = "${var.name}-${random_integer.default.result}"
   partition_num   = 50
   disk_type       = "1"
   disk_size       = "500"

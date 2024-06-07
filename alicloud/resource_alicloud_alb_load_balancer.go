@@ -65,6 +65,7 @@ func resourceAliCloudAlbLoadBalancer() *schema.Resource {
 			"bandwidth_package_id": {
 				Type:     schema.TypeString,
 				Optional: true,
+				Computed: true,
 				ForceNew: true,
 			},
 			"create_time": {
@@ -145,7 +146,7 @@ func resourceAliCloudAlbLoadBalancer() *schema.Resource {
 				Type:     schema.TypeString,
 				Computed: true,
 			},
-			"tags": tagsSchema(),
+			"tags": tagsSchemaComputed(),
 			"vpc_id": {
 				Type:     schema.TypeString,
 				Required: true,

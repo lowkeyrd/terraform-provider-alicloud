@@ -1,6 +1,7 @@
 package alicloud
 
 import (
+	"encoding/json"
 	"fmt"
 	"strconv"
 	"strings"
@@ -376,6 +377,26 @@ func (s *EssService) DescribeEssScalingConfigurationByCommonApi(id string) (obje
 	}
 
 	object = vv.([]interface{})[0].(map[string]interface{})
+	//.(map[string]interface{}) .(map[string]interface{})
+	w := object["WeightedCapacities"]
+	ww := object["InstanceTypes"]
+	if w != nil && ww != nil {
+		weightedCapacity := w.(map[string]interface{})["WeightedCapacity"].([]interface{})
+		instanceType := ww.(map[string]interface{})["InstanceType"].([]interface{})
+		instanceTypeOverride := make([]ess.ModifyScalingConfigurationInstanceTypeOverride, 0)
+		if len(weightedCapacity) != 0 && len(instanceType) != 0 {
+			for i := 0; i < len(weightedCapacity); i++ {
+				l := ess.ModifyScalingConfigurationInstanceTypeOverride{
+					InstanceType:     instanceType[i].(string),
+					WeightedCapacity: weightedCapacity[i].(json.Number).String(),
+				}
+				instanceTypeOverride = append(instanceTypeOverride, l)
+			}
+			m := make(map[string][]ess.ModifyScalingConfigurationInstanceTypeOverride)
+			m["InstanceTypeOverride"] = instanceTypeOverride
+			object["InstanceTypeOverrides"] = m
+		}
+	}
 	return object, nil
 }
 
@@ -495,6 +516,7 @@ func (s *EssService) flattenVserverGroupList(vServerGroups []ess.VServerGroup) [
 func (s *EssService) DescribeEssScalingRule(id string) (rule ess.ScalingRule, err error) {
 	request := ess.CreateDescribeScalingRulesRequest()
 	request.ScalingRuleId = &[]string{id}
+	request.ShowAlarmRules = "true"
 	request.RegionId = s.client.RegionId
 	raw, err := s.client.WithEssClient(func(essClient *ess.Client) (interface{}, error) {
 		return essClient.DescribeScalingRules(request)
@@ -591,6 +613,7 @@ func (srv *EssService) DescribeEssAttachment(id string, instanceIds []string) (i
 	request := ess.CreateDescribeScalingInstancesRequest()
 	request.RegionId = srv.client.RegionId
 	request.ScalingGroupId = id
+	request.CreationType = "Attached"
 	if len(instanceIds) > 0 {
 		request.InstanceId = &instanceIds
 	}
@@ -873,6 +896,27 @@ func (s *EssService) SetResourceTags(d *schema.ResourceData, scalingGroupId stri
 			}
 			addDebug(tagRequest.GetActionName(), raw, tagRequest.RpcRequest, tagRequest)
 		}
+	}
+	return nil
+}
+
+func (s *EssService) ChangeResourceGroup(d *schema.ResourceData, scalingGroupId string, client *connectivity.AliyunClient) error {
+
+	if d.HasChange("resource_group_id") {
+		request := ess.CreateChangeResourceGroupRequest()
+		request.ResourceId = scalingGroupId
+		request.ResourceType = "scalinggroup"
+		request.RegionId = client.RegionId
+		if v, ok := d.GetOk("resource_group_id"); ok {
+			request.NewResourceGroupId = v.(string)
+		}
+		raw, err := client.WithEssClient(func(essClient *ess.Client) (interface{}, error) {
+			return essClient.ChangeResourceGroup(request)
+		})
+		if err != nil {
+			return WrapErrorf(err, DefaultErrorMsg, d.Id(), request.GetActionName(), AlibabaCloudSdkGoERROR)
+		}
+		addDebug(request.GetActionName(), raw, request.RpcRequest, request)
 	}
 	return nil
 }

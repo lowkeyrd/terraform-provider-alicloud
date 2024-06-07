@@ -20,6 +20,10 @@ For information about DMS Enterprise Proxy and how to use it, see [What is Proxy
 Basic Usage
 
 ```terraform
+provider "alicloud" {
+  region = "cn-hangzhou"
+}
+
 variable "name" {
   default = "tf-example"
 }
@@ -41,7 +45,7 @@ data "alicloud_db_zones" "default" {
 }
 
 data "alicloud_db_instance_classes" "default" {
-  zone_id                  = data.alicloud_db_zones.default.zones.0.id
+  zone_id                  = data.alicloud_db_zones.default.zones.1.id
   engine                   = "MySQL"
   engine_version           = "8.0"
   category                 = "HighAvailability"
@@ -58,7 +62,7 @@ resource "alicloud_vswitch" "default" {
   vswitch_name = var.name
   cidr_block   = "10.4.0.0/24"
   vpc_id       = alicloud_vpc.default.id
-  zone_id      = data.alicloud_db_zones.default.zones.0.id
+  zone_id      = data.alicloud_db_zones.default.zones.1.id
 }
 
 resource "alicloud_security_group" "default" {
@@ -90,7 +94,7 @@ resource "alicloud_db_account" "default" {
 
 resource "alicloud_dms_enterprise_instance" "default" {
   tid               = data.alicloud_dms_user_tenants.default.ids.0
-  instance_type     = "MySQL"
+  instance_type     = "mysql"
   instance_source   = "RDS"
   network_type      = "VPC"
   env_type          = "dev"

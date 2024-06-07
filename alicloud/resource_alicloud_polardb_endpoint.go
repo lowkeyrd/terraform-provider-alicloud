@@ -3,6 +3,7 @@ package alicloud
 import (
 	"encoding/json"
 	"fmt"
+	"regexp"
 	"strings"
 	"time"
 
@@ -10,7 +11,6 @@ import (
 	"github.com/aliyun/terraform-provider-alicloud/alicloud/connectivity"
 	"github.com/hashicorp/terraform-plugin-sdk/helper/resource"
 	"github.com/hashicorp/terraform-plugin-sdk/helper/schema"
-	"github.com/hashicorp/terraform-plugin-sdk/helper/validation"
 )
 
 func resourceAlicloudPolarDBEndpoint() *schema.Resource {
@@ -33,7 +33,7 @@ func resourceAlicloudPolarDBEndpoint() *schema.Resource {
 				Type:         schema.TypeString,
 				Optional:     true,
 				ForceNew:     true,
-				ValidateFunc: validation.StringInSlice([]string{"Custom", "Primary", "Cluster"}, false),
+				ValidateFunc: StringInSlice([]string{"Custom", "Primary", "Cluster"}, false),
 				Default:      "Custom",
 			},
 			"nodes": {
@@ -44,13 +44,13 @@ func resourceAlicloudPolarDBEndpoint() *schema.Resource {
 			},
 			"read_write_mode": {
 				Type:         schema.TypeString,
-				ValidateFunc: validation.StringInSlice([]string{"ReadWrite", "ReadOnly"}, false),
+				ValidateFunc: StringInSlice([]string{"ReadWrite", "ReadOnly"}, false),
 				Optional:     true,
 				Computed:     true,
 			},
 			"auto_add_new_nodes": {
 				Type:         schema.TypeString,
-				ValidateFunc: validation.StringInSlice([]string{"Enable", "Disable"}, false),
+				ValidateFunc: StringInSlice([]string{"Enable", "Disable"}, false),
 				Optional:     true,
 				Computed:     true,
 			},
@@ -61,7 +61,7 @@ func resourceAlicloudPolarDBEndpoint() *schema.Resource {
 			},
 			"ssl_enabled": {
 				Type:         schema.TypeString,
-				ValidateFunc: validation.StringInSlice([]string{"Enable", "Disable", "Update"}, false),
+				ValidateFunc: StringInSlice([]string{"Enable", "Disable", "Update"}, false),
 				Optional:     true,
 			},
 			"ssl_connection_string": {
@@ -71,7 +71,7 @@ func resourceAlicloudPolarDBEndpoint() *schema.Resource {
 			"net_type": {
 				Type:         schema.TypeString,
 				Optional:     true,
-				ValidateFunc: validation.StringInSlice([]string{"Public", "Private", "Inner"}, false),
+				ValidateFunc: StringInSlice([]string{"Public", "Private", "Inner"}, false),
 			},
 			"ssl_expire_time": {
 				Type:     schema.TypeString,
@@ -80,7 +80,7 @@ func resourceAlicloudPolarDBEndpoint() *schema.Resource {
 			"ssl_auto_rotate": {
 				Type:         schema.TypeString,
 				Optional:     true,
-				ValidateFunc: validation.StringInSlice([]string{"Enable", "Disable"}, false),
+				ValidateFunc: StringInSlice([]string{"Enable", "Disable"}, false),
 			},
 			"ssl_certificate_url": {
 				Type:     schema.TypeString,
@@ -93,6 +93,17 @@ func resourceAlicloudPolarDBEndpoint() *schema.Resource {
 			"db_endpoint_description": {
 				Type:     schema.TypeString,
 				Optional: true,
+			},
+			"connection_prefix": {
+				Type:         schema.TypeString,
+				Optional:     true,
+				Computed:     true,
+				ValidateFunc: StringMatch(regexp.MustCompile(`^[a-z][a-z0-9\\-]{4,28}[a-z0-9]$`), "The prefix must be 6 to 30 characters in length, and can contain lowercase letters, digits, and hyphens (-),  must start with a letter and end with a digit or letter."),
+			},
+			"port": {
+				Type:     schema.TypeString,
+				Optional: true,
+				Computed: true,
 			},
 		},
 	}
@@ -242,11 +253,22 @@ func resourceAlicloudPolarDBEndpointRead(d *schema.ResourceData, meta interface{
 	if err := d.Set("ssl_auto_rotate", sslAutoRotate); err != nil {
 		return WrapError(err)
 	}
-	if sslEnabled == "Enable" {
-		d.Set("ssl_certificate_url", "https://apsaradb-public.oss-ap-southeast-1.aliyuncs.com/ApsaraDB-CA-Chain.zip?file=ApsaraDB-CA-Chain.zip&regionId="+polarDBService.client.RegionId)
-	} else {
-		d.Set("ssl_certificate_url", "")
+	polarDBService.fillingPolarDBEndpointSslCertificateUrl(sslEnabled, d)
+
+	privateAdress, err := polarDBService.DescribePolarDBConnectionV2(d.Id(), "Private")
+
+	if err != nil {
+		if IsExpectedErrors(err, []string{"InvalidDBClusterId.NotFound"}) {
+			d.SetId("")
+			return nil
+		}
+		return WrapError(err)
 	}
+
+	d.Set("port", privateAdress.Port)
+	prefix := strings.Split(privateAdress.ConnectionString, ".")
+	d.Set("connection_prefix", prefix[0])
+
 	return nil
 }
 
@@ -260,7 +282,8 @@ func resourceAlicloudPolarDBEndpointUpdate(d *schema.ResourceData, meta interfac
 	}
 	dbClusterId := parts[0]
 	dbEndpointId := parts[1]
-	if d.HasChange("nodes") || d.HasChange("read_write_mode") || d.HasChange("auto_add_new_nodes") || d.HasChange("endpoint_config") || d.HasChange("db_endpoint_description") {
+
+	if d.HasChanges("nodes", "read_write_mode", "auto_add_new_nodes", "endpoint_config", "db_endpoint_description") {
 		modifyEndpointRequest := polardb.CreateModifyDBClusterEndpointRequest()
 		modifyEndpointRequest.RegionId = client.RegionId
 		modifyEndpointRequest.DBClusterId = dbClusterId
@@ -298,7 +321,7 @@ func resourceAlicloudPolarDBEndpointUpdate(d *schema.ResourceData, meta interfac
 				return polarDBClient.ModifyDBClusterEndpoint(modifyEndpointRequest)
 			})
 			if err != nil {
-				if IsExpectedErrors(err, []string{"EndpointStatus.NotSupport", "OperationDenied.DBClusterStatus"}) {
+				if IsExpectedErrors(err, []string{"EndpointStatus.NotSupport", "OperationDenied.DBClusterStatus", "MaxscaleCheckResult.Code"}) {
 					return resource.RetryableError(err)
 				}
 				return resource.NonRetryableError(err)
@@ -316,7 +339,45 @@ func resourceAlicloudPolarDBEndpointUpdate(d *schema.ResourceData, meta interfac
 		}
 	}
 
-	if d.HasChange("ssl_enabled") || d.HasChange("net_type") || d.HasChange("ssl_auto_rotate") {
+	if d.HasChanges("connection_prefix", "port") {
+		request := polardb.CreateModifyDBEndpointAddressRequest()
+		request.RegionId = client.RegionId
+		request.DBClusterId = parts[0]
+		request.DBEndpointId = parts[1]
+		object, err := polarDBService.DescribePolarDBConnectionV2(d.Id(), "Private")
+		if err != nil {
+			return WrapError(err)
+		}
+
+		request.NetType = "Private"
+		request.ConnectionStringPrefix = d.Get("connection_prefix").(string)
+		request.Port = d.Get("port").(string)
+		prefix := strings.Split(object.ConnectionString, ".")
+		if (request.Port != "" && request.Port != object.Port) || (request.ConnectionStringPrefix != "" && request.ConnectionStringPrefix != prefix[0]) {
+			if err := resource.Retry(8*time.Minute, func() *resource.RetryError {
+				raw, err := client.WithPolarDBClient(func(polarDBClient *polardb.Client) (interface{}, error) {
+					return polarDBClient.ModifyDBEndpointAddress(request)
+				})
+				if err != nil {
+					if IsExpectedErrors(err, []string{"EndpointStatus.NotSupport", "OperationDenied.DBClusterStatus", "MaxscaleCheckResult.Code"}) {
+						return resource.RetryableError(err)
+					}
+					return resource.NonRetryableError(err)
+				}
+				addDebug(request.GetActionName(), raw, request.RpcRequest, request)
+				return nil
+			}); err != nil {
+				return WrapErrorf(err, DefaultErrorMsg, d.Id(), request.GetActionName(), AlibabaCloudSdkGoERROR)
+			}
+
+			// wait instance connection_prefix modify success
+			if err := polarDBService.WaitForPolarDBConnectionPrefix(d.Id(), request.ConnectionStringPrefix, request.Port, "Private", DefaultTimeoutMedium); err != nil {
+				return WrapError(err)
+			}
+		}
+	}
+
+	if d.HasChanges("ssl_enabled", "net_type", "ssl_auto_rotate") {
 		if d.Get("ssl_enabled") == "" && d.Get("net_type") != "" {
 			return WrapErrorf(Error("Need to specify ssl_enabled as Enable or Disable, if you want to modify the net_type."), DefaultErrorMsg, d.Id(), "ModifyDBClusterSSL", ProviderERROR)
 		}
@@ -331,7 +392,7 @@ func resourceAlicloudPolarDBEndpointUpdate(d *schema.ResourceData, meta interfac
 				return polarDBClient.ModifyDBClusterSSL(modifySSLRequest)
 			})
 			if err != nil {
-				if IsExpectedErrors(err, []string{"EndpointStatus.NotSupport", "OperationDenied.DBClusterStatus"}) {
+				if IsExpectedErrors(err, []string{"EndpointStatus.NotSupport", "OperationDenied.DBClusterStatus", "MaxscaleCheckResult.Code"}) {
 					return resource.RetryableError(err)
 				}
 				return resource.NonRetryableError(err)
@@ -342,12 +403,11 @@ func resourceAlicloudPolarDBEndpointUpdate(d *schema.ResourceData, meta interfac
 			return WrapErrorf(err, DefaultErrorMsg, d.Id(), modifySSLRequest.GetActionName(), AlibabaCloudSdkGoERROR)
 		}
 		// wait cluster status change from SSL_MODIFYING to Running
-		stateConf := BuildStateConf([]string{"SSL_MODIFYING"}, []string{"Running"}, d.Timeout(schema.TimeoutUpdate), 5*time.Minute, polarDBService.PolarDBClusterStateRefreshFunc(dbClusterId, []string{"Deleting"}))
+		stateConf := BuildStateConf([]string{"SSLModifying"}, []string{"Running"}, d.Timeout(schema.TimeoutUpdate), 5*time.Minute, polarDBService.PolarDBClusterStateRefreshFunc(dbClusterId, []string{"Deleting"}))
 		if _, err := stateConf.WaitForState(); err != nil {
 			return WrapErrorf(err, IdMsg, dbClusterId)
 		}
 	}
-
 	return resourceAlicloudPolarDBEndpointRead(d, meta)
 }
 
@@ -381,7 +441,7 @@ func resourceAlicloudPolarDBEndpointDelete(d *schema.ResourceData, meta interfac
 			return polarDBClient.DeleteDBClusterEndpoint(request)
 		})
 		if err != nil {
-			if IsExpectedErrors(err, []string{"OperationDenied.DBClusterStatus", "EndpointStatus.NotSupport", "ClusterEndpoint.StatusNotValid"}) {
+			if IsExpectedErrors(err, []string{"OperationDenied.DBClusterStatus", "EndpointStatus.NotSupport", "ClusterEndpoint.StatusNotValid", "MaxscaleCheckResult.Code"}) {
 				return resource.RetryableError(err)
 			}
 			return resource.NonRetryableError(err)

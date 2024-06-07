@@ -21,10 +21,17 @@ Basic Usage
 
 ```terraform
 variable "name" {
-  default = "terraform-example"
+  default = "tf-example"
 }
 
-data "alicloud_resource_manager_resource_groups" "default" {}
+data "alicloud_resource_manager_resource_groups" "default" {
+  status = "OK"
+}
+
+data "alicloud_kms_keys" "default" {
+  status = "Enabled"
+}
+
 data "alicloud_zones" "default" {
   available_instance_type = "ecs.g7.xlarge"
 }
@@ -33,23 +40,31 @@ resource "alicloud_vpc" "default" {
   vpc_name   = var.name
   cidr_block = "172.16.0.0/12"
 }
+
 resource "alicloud_vswitch" "default" {
   vpc_id       = alicloud_vpc.default.id
   cidr_block   = "172.16.0.0/21"
   zone_id      = data.alicloud_zones.default.zones.0.id
   vswitch_name = var.name
 }
-resource "alicloud_ecs_key_pair" "default" {
-  key_pair_name = var.name
+
+resource "random_integer" "default" {
+  max = 99999
+  min = 10000
 }
+
+resource "alicloud_ecs_key_pair" "default" {
+  key_pair_name = "${var.name}-${random_integer.default.result}"
+}
+
 resource "alicloud_security_group" "default" {
   name   = var.name
   vpc_id = alicloud_vpc.default.id
 }
 
 resource "alicloud_ram_role" "default" {
-  name     = "tfexampleroleemrv2"
-  document = <<EOF
+  name        = var.name
+  document    = <<EOF
     {
         "Statement": [
         {
@@ -66,94 +81,96 @@ resource "alicloud_ram_role" "default" {
         "Version": "1"
     }
     EOF
-
   description = "this is a role example."
   force       = true
 }
 
+
 resource "alicloud_emrv2_cluster" "default" {
-  payment_type    = "PayAsYouGo"
-  cluster_type    = "DATALAKE"
-  release_version = "EMR-5.10.0"
-  cluster_name    = var.name
-  deploy_mode     = "NORMAL"
-  security_mode   = "NORMAL"
-
-  applications = ["HADOOP-COMMON", "HDFS", "YARN", "HIVE", "SPARK3", "TEZ"]
-
-  application_configs {
-    application_name  = "HIVE"
-    config_file_name  = "hivemetastore-site.xml"
-    config_item_key   = "hive.metastore.type"
-    config_item_value = "DLF"
-    config_scope      = "CLUSTER"
-  }
-
-  application_configs {
-    application_name  = "SPARK3"
-    config_file_name  = "hive-site.xml"
-    config_item_key   = "hive.metastore.type"
-    config_item_value = "DLF"
-    config_scope      = "CLUSTER"
-  }
-
-  node_attributes {
-    ram_role          = alicloud_ram_role.default.name
-    security_group_id = alicloud_security_group.default.id
-    vpc_id            = alicloud_vpc.default.id
-    zone_id           = data.alicloud_zones.default.zones.0.id
-    key_pair_name     = alicloud_ecs_key_pair.default.id
-  }
-
-  tags = {
-    created = "tf"
-  }
-
   node_groups {
-    node_group_type = "MASTER"
-    node_group_name = "emr-master"
-    payment_type    = "PayAsYouGo"
-    vswitch_ids     = [alicloud_vswitch.default.id]
-    with_public_ip  = false
-    instance_types  = ["ecs.g7.xlarge"]
-    node_count      = 1
+    vswitch_ids = [
+      "${alicloud_vswitch.default.id}"
+    ]
+    instance_types = [
+      "ecs.g7.xlarge"
+    ]
+    node_count           = "1"
+    spot_instance_remedy = "false"
+    data_disks {
+      count             = "3"
+      category          = "cloud_essd"
+      size              = "80"
+      performance_level = "PL0"
+    }
 
+    node_group_name   = "emr-master"
+    payment_type      = "PayAsYouGo"
+    with_public_ip    = "false"
+    graceful_shutdown = "false"
     system_disk {
-      category = "cloud_essd"
-      size     = 80
-      count    = 1
+      category          = "cloud_essd"
+      size              = "80"
+      performance_level = "PL0"
+      count             = "1"
+    }
+
+    node_group_type = "MASTER"
+  }
+  node_groups {
+    spot_instance_remedy = "false"
+    node_group_type      = "CORE"
+    vswitch_ids = [
+      "${alicloud_vswitch.default.id}"
+    ]
+    node_count        = "2"
+    graceful_shutdown = "false"
+    system_disk {
+      performance_level = "PL0"
+      count             = "1"
+      category          = "cloud_essd"
+      size              = "80"
     }
 
     data_disks {
-      category = "cloud_essd"
-      size     = 80
-      count    = 3
+      count             = "3"
+      performance_level = "PL0"
+      category          = "cloud_essd"
+      size              = "80"
     }
-  }
 
-  node_groups {
-    node_group_type = "CORE"
     node_group_name = "emr-core"
     payment_type    = "PayAsYouGo"
-    vswitch_ids     = [alicloud_vswitch.default.id]
-    with_public_ip  = false
-    instance_types  = ["ecs.g7.xlarge"]
-    node_count      = 3
+    instance_types = [
+      "ecs.g7.xlarge"
+    ]
+    with_public_ip = "false"
+  }
 
-    system_disk {
-      category = "cloud_essd"
-      size     = 80
-      count    = 1
-    }
-
-    data_disks {
-      category = "cloud_essd"
-      size     = 80
-      count    = 3
-    }
+  deploy_mode = "NORMAL"
+  tags = {
+    Created = "TF"
+    For     = "example"
+  }
+  release_version = "EMR-5.10.0"
+  applications = [
+    "HADOOP-COMMON",
+    "HDFS",
+    "YARN"
+  ]
+  node_attributes {
+    zone_id              = data.alicloud_zones.default.zones.0.id
+    key_pair_name        = alicloud_ecs_key_pair.default.id
+    data_disk_encrypted  = "true"
+    data_disk_kms_key_id = data.alicloud_kms_keys.default.ids.0
+    vpc_id               = alicloud_vpc.default.id
+    ram_role             = alicloud_ram_role.default.name
+    security_group_id    = alicloud_security_group.default.id
   }
 
   resource_group_id = data.alicloud_resource_manager_resource_groups.default.ids.0
+  cluster_name      = var.name
+  payment_type      = "PayAsYouGo"
+  cluster_type      = "DATAFLOW"
 }
 ```
 ## Argument Reference
@@ -167,12 +184,13 @@ The following arguments are supported:
 * `release_version` - (Required, ForceNew) EMR Version, e.g. EMR-5.10.0. You can find the all valid EMR Version in emr web console.
 * `cluster_name` - (Required) The name of emr cluster. The name length must be less than 64. Supported characters: chinese character, english character, number, "-", "_".
 * `deploy_mode` - (Optional, ForceNew) The deploy mode of EMR cluster. Supported value: NORMAL or HA.
+* `log_collect_strategy` - (Optional, Available since v1.219.0) The log collect strategy of EMR cluster. 
 * `security_mode` - (Optional) The security mode of EMR cluster. Supported value: NORMAL or KERBEROS.
 * `applications` - (Required, ForceNew) The applications of EMR cluster to be installed, e.g. HADOOP-COMMON, HDFS, YARN, HIVE, SPARK2, SPARK3, ZOOKEEPER etc. You can find all valid applications in emr web console.
 * `application_configs` - (Optional) The application configurations of EMR cluster. See [`application_configs`](#application_configs) below.
 * `node_attributes` - (Required, ForceNew) The node attributes of ecs instances which the emr-cluster belongs. See [`node_attributes`](#node_attributes) below.
 * `node_groups` - (Required) Groups of node, You can specify MASTER as a group, CORE as a group (just like the above example). See [`node_groups`](#node_groups) below.
-* `bootstrap_scripts` (Optional) The bootstrap scripts to be effected when creating emr-cluster or resize emr-cluster. See [`bootstrap_scripts`](#bootstrap_scripts) below.
+* `bootstrap_scripts` (Optional) The bootstrap scripts to be effected when creating emr-cluster or resize emr-cluster, if priority is not specified, the scripts will execute in the declared order. See [`bootstrap_scripts`](#bootstrap_scripts) below.
 * `tags` - (Optional) A mapping of tags to assign to the resource.
 
 ### `subscription_config`
@@ -182,6 +200,7 @@ The `subscription_config` block supports the following:
 * `payment_duration_unit` - (Required) If paymentType is Subscription, this should be specified. Supported value: Month or Year.
 * `payment_duration` - (Required) If paymentType is Subscription, this should be specified. Supported value: 1、2、3、4、5、6、7、8、9、12、24、36、48.
 * `auto_renew` - (Optional) Auto renew for prepaid, ’true’ or ‘false’ . Default value: false.
+* `auto_pay_order` - (Optional, Available since v1.219.0) Auto pay order for payment type of subscription, ’true’ or ‘false’ .
 * `auto_renew_duration_unit` - (Optional) If paymentType is Subscription, this should be specified. Supported value: Month or Year.
 * `auto_renew_duration` - (Optional) If paymentType is Subscription, this should be specified. Supported value: 1、2、3、4、5、6、7、8、9、12、24、36、48. 
 
@@ -214,7 +233,7 @@ The `node_attributes` block supports the following:
 
 The node_groups mapping supports the following: 
 
-* `node_group_type` - (Required) The node group type of emr cluster, supported value: MASTER, CORE or TASK.
+* `node_group_type` - (Required) The node group type of emr cluster, supported value: MASTER, CORE or TASK. Node group type of GATEWAY is available since v1.219.0.
 * `node_group_name` - (Required) The node group name of emr cluster.
 * `payment_type` - (Optional) Payment Type for this cluster. Supported value: PayAsYouGo or Subscription.
 * `subscription_config` - (Optional) The detail configuration of subscription payment type. See [`subscription_config`](#node_groups-subscription_config) below.
@@ -229,6 +248,8 @@ The node_groups mapping supports the following:
 * `graceful_shutdown` - (Optional) Enable emr cluster of task node graceful decommission, ’true’ or ‘false’ .
 * `spot_instance_remedy` - (Optional) Whether to replace spot instances with newly created spot/onDemand instance when receive a spot recycling message.
 * `cost_optimized_config` - (Optional) The detail cost optimized configuration of emr cluster. See [`cost_optimized_config`](#node_groups-cost_optimized_config) below.
+* `deployment_set_strategy` - (Optional, Available since v1.219.0) Deployment set strategy for this cluster node group. Supported value: NONE, CLUSTER or NODE_GROUP.
+* `node_resize_strategy` - (Optional, Available since v1.219.0) Node resize strategy for this cluster node group. Supported value: PRIORITY, COST_OPTIMIZED.
 
 ### `node_groups-subscription_config`
 
@@ -237,6 +258,7 @@ The subscription_config mapping supports the following:
 * `payment_duration_unit` - (Required) If paymentType is Subscription, this should be specified. Supported value: Month or Year.
 * `payment_duration` - (Required) If paymentType is Subscription, this should be specified. Supported value: 1、2、3、4、5、6、7、8、9、12、24、36、48.
 * `auto_renew` - (Optional) Auto renew for prepaid, ’true’ or ‘false’ . Default value: false.
+* `auto_pay_order` - (Optional, Available since v1.219.0) Auto pay order for payment type of subscription, ’true’ or ‘false’ .
 * `auto_renew_duration_unit` - (Optional) If paymentType is Subscription, this should be specified. Supported value: Month or Year.
 * `auto_renew_duration` - (Optional) If paymentType is Subscription, this should be specified. Supported value: 1、2、3、4、5、6、7、8、9、12、24、36、48. 
 

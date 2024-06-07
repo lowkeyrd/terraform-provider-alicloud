@@ -9,7 +9,6 @@ import (
 	"github.com/hashicorp/terraform-plugin-sdk/helper/resource"
 )
 
-// Test Redis TairInstance. >>> Resource test cases, automatically generated.
 // Case 3314
 func TestAccAliCloudRedisTairInstance_basic3314(t *testing.T) {
 	var v map[string]interface{}
@@ -258,6 +257,21 @@ func TestAccAliCloudRedisTairInstance_basic3340(t *testing.T) {
 			},
 			{
 				Config: testAccConfig(map[string]interface{}{
+					"tags": map[string]string{
+						"Created": "TF",
+						"For":     "Test",
+					},
+				}),
+				Check: resource.ComposeTestCheckFunc(
+					testAccCheck(map[string]string{
+						"tags.%":       "2",
+						"tags.Created": "TF",
+						"tags.For":     "Test",
+					}),
+				),
+			},
+			{
+				Config: testAccConfig(map[string]interface{}{
 					"shard_count": "4",
 				}),
 				Check: resource.ComposeTestCheckFunc(
@@ -352,6 +366,10 @@ func TestAccAliCloudRedisTairInstance_basic3340(t *testing.T) {
 					"vswitch_id":         "${local.vswitch_id}",
 					"vpc_id":             "${data.alicloud_vpcs.default.ids.0}",
 					"resource_group_id":  "${data.alicloud_resource_manager_resource_groups.default.groups.0.id}",
+					"tags": map[string]string{
+						"Created": "TF",
+						"For":     "Test",
+					},
 				}),
 				Check: resource.ComposeTestCheckFunc(
 					testAccCheck(map[string]string{
@@ -369,6 +387,9 @@ func TestAccAliCloudRedisTairInstance_basic3340(t *testing.T) {
 						"vswitch_id":         CHECKSET,
 						"vpc_id":             CHECKSET,
 						"resource_group_id":  CHECKSET,
+						"tags.%":             "2",
+						"tags.Created":       "TF",
+						"tags.For":           "Test",
 					}),
 				),
 			},
@@ -889,19 +910,15 @@ func TestAccAliCloudRedisTairInstance_basic4491_twin(t *testing.T) {
 		Steps: []resource.TestStep{
 			{
 				Config: testAccConfig(map[string]interface{}{
-					"force_upgrade":             "false",
-					"auto_renew":                "false",
 					"port":                      "6379",
 					"payment_type":              "PayAsYouGo",
 					"instance_type":             "tair_essd",
-					"zone_id":                   "${alicloud_vswitch.default.zone_id}",
-					"period":                    "9",
+					"zone_id":                   "${data.alicloud_kvstore_zones.default.zones.1.id}",
 					"instance_class":            "tair.essd.standard.xlarge",
 					"tair_instance_name":        name,
-					"auto_renew_period":         "1",
-					"secondary_zone_id":         "${alicloud_vswitch.default.zone_id}",
-					"vswitch_id":                "${alicloud_vswitch.default.id}",
-					"vpc_id":                    "${alicloud_vswitch.default.vpc_id}",
+					"secondary_zone_id":         "${data.alicloud_kvstore_zones.default.zones.1.id}",
+					"vswitch_id":                "${data.alicloud_vswitches.default.ids.0}",
+					"vpc_id":                    "${data.alicloud_vpcs.default.ids.0}",
 					"resource_group_id":         "${data.alicloud_resource_manager_resource_groups.default.groups.0.id}",
 					"storage_performance_level": "PL1",
 					"storage_size_gb":           "20",
@@ -912,14 +929,12 @@ func TestAccAliCloudRedisTairInstance_basic4491_twin(t *testing.T) {
 				}),
 				Check: resource.ComposeTestCheckFunc(
 					testAccCheck(map[string]string{
-						"auto_renew":                "false",
 						"port":                      "6379",
 						"payment_type":              "PayAsYouGo",
 						"instance_type":             "tair_essd",
 						"zone_id":                   CHECKSET,
 						"instance_class":            "tair.essd.standard.xlarge",
 						"tair_instance_name":        name,
-						"auto_renew_period":         "1",
 						"secondary_zone_id":         CHECKSET,
 						"vswitch_id":                CHECKSET,
 						"vpc_id":                    CHECKSET,
@@ -961,26 +976,419 @@ provider "alicloud" {
 }
 
 data "alicloud_kvstore_zones" "default" {
-  product_type = "Tair_essd"
+  product_type         = "Tair_essd"
   instance_charge_type = "PostPaid"
 }
 
-resource "alicloud_vpc" "default" {
-  vpc_name   = var.name
-  cidr_block = "192.168.0.0/24"
+data "alicloud_vpcs" "default" {
+  name_regex = "default-NODELETING"
 }
 
-resource "alicloud_vswitch" "default" {
-  vswitch_name = var.name
-  cidr_block   = "192.168.0.0/24"
-  zone_id      = data.alicloud_kvstore_zones.default.zones.1.id
-  vpc_id       = alicloud_vpc.default.id
+data "alicloud_vswitches" "default" {
+  vpc_id  = data.alicloud_vpcs.default.ids.0
+  zone_id = data.alicloud_kvstore_zones.default.zones.1.id
 }
 
 data "alicloud_resource_manager_resource_groups" "default" {
 }
 
 `, name)
+}
+
+// Test Redis TairInstance. >>> Resource test cases, automatically generated.
+var AlicloudRedisTairInstanceMap6500 = map[string]string{
+	"port":           CHECKSET,
+	"status":         CHECKSET,
+	"engine_version": CHECKSET,
+	"payment_type":   "PayAsYouGo",
+	"create_time":    CHECKSET,
+}
+
+func AlicloudRedisTairInstanceBasicDependence6500(name string) string {
+	return fmt.Sprintf(`
+variable "name" {
+    default = "%s"
+}
+
+variable "zone_id" {
+  default = "cn-beijing-h"
+}
+
+variable "region_id" {
+  default = "cn-beijing"
+}
+
+variable "secondary_zone_id" {
+  default = "cn-beijing-i"
+}
+
+data "alicloud_resource_manager_resource_groups" "default" {}
+
+data "alicloud_zones" "default" {
+  available_resource_creation = "VSwitch"
+}
+
+resource "alicloud_vpc" "defaultVpc" {
+  description       = "测试请勿绑定test-ljt"
+  resource_group_id = data.alicloud_resource_manager_resource_groups.default.ids.0
+  cidr_block        = "172.16.0.0/12"
+  vpc_name          = var.name
+}
+
+resource "alicloud_vswitch" "defaultVSwitch" {
+  vpc_id       = alicloud_vpc.defaultVpc.id
+  zone_id      = var.zone_id
+  cidr_block   = "172.16.0.0/24"
+  vswitch_name = var.name
+}
+
+resource "alicloud_vswitch" "secondaryvsw" {
+  vpc_id       = alicloud_vpc.defaultVpc.id
+  zone_id      = var.secondary_zone_id
+  cidr_block   = "172.16.1.0/24"
+  vswitch_name = var.name
+}
+
+
+`, name)
+}
+
+// Case Tair_rdb_单副本变高可用 6639
+var AlicloudRedisTairInstanceMap6639 = map[string]string{
+	"port":           CHECKSET,
+	"status":         CHECKSET,
+	"engine_version": CHECKSET,
+	"payment_type":   "PayAsYouGo",
+	"create_time":    CHECKSET,
+}
+
+func AlicloudRedisTairInstanceBasicDependence6639(name string) string {
+	return fmt.Sprintf(`
+variable "name" {
+    default = "%s"
+}
+
+variable "zone_id" {
+  default = "cn-beijing-h"
+}
+
+variable "region_id" {
+  default = "cn-beijing"
+}
+
+data "alicloud_resource_manager_resource_groups" "default" {}
+
+data "alicloud_zones" "default" {
+  available_resource_creation = "VSwitch"
+}
+
+resource "alicloud_vpc" "defaultVpc" {
+  description       = "测试请勿绑定test-ljt"
+  resource_group_id = data.alicloud_resource_manager_resource_groups.default.ids.0
+  cidr_block        = "172.16.0.0/12"
+  vpc_name          = var.name
+}
+
+resource "alicloud_vswitch" "defaultVSwitch" {
+  vpc_id       = alicloud_vpc.defaultVpc.id
+  zone_id      = var.zone_id
+  cidr_block   = "172.16.0.0/24"
+  vswitch_name = var.name
+}
+
+
+`, name)
+}
+
+var AlicloudRedisTairInstanceMap6473 = map[string]string{
+	"port":           CHECKSET,
+	"status":         CHECKSET,
+	"engine_version": CHECKSET,
+	"payment_type":   "PayAsYouGo",
+	"create_time":    CHECKSET,
+}
+
+func AlicloudRedisTairInstanceBasicDependence6473(name string) string {
+	return fmt.Sprintf(`
+variable "name" {
+    default = "%s"
+}
+
+variable "zone_id" {
+  default = "cn-beijing-h"
+}
+
+variable "region_id" {
+  default = "cn-beijing"
+}
+
+data "alicloud_resource_manager_resource_groups" "default" {}
+
+data "alicloud_zones" "default" {
+  available_resource_creation = "VSwitch"
+}
+
+resource "alicloud_vpc" "defaultVpc" {
+  description       = "测试请勿绑定test-ljt"
+  cidr_block        = "172.16.0.0/12"
+  vpc_name          = var.name
+}
+
+resource "alicloud_vswitch" "defaultVSwitch" {
+  vpc_id       = alicloud_vpc.defaultVpc.id
+  zone_id      = data.alicloud_zones.default.zones.0.id
+  cidr_block   = "172.16.0.0/24"
+  vswitch_name = var.name
+}
+
+
+`, name)
+}
+
+// Case Tair_rdb_rw_双可用区_修改slave只读节点 6500  raw
+func TestAccAliCloudRedisTairInstance_basic6500_raw(t *testing.T) {
+	var v map[string]interface{}
+	resourceId := "alicloud_redis_tair_instance.default"
+	ra := resourceAttrInit(resourceId, AlicloudRedisTairInstanceMap6500)
+	rc := resourceCheckInitWithDescribeMethod(resourceId, &v, func() interface{} {
+		return &RedisServiceV2{testAccProvider.Meta().(*connectivity.AliyunClient)}
+	}, "DescribeRedisTairInstance")
+	rac := resourceAttrCheckInit(rc, ra)
+	testAccCheck := rac.resourceAttrMapUpdateSet()
+	rand := acctest.RandIntRange(10000, 99999)
+	name := fmt.Sprintf("tf-testacc%sredistairinstance%d", defaultRegionToTest, rand)
+	testAccConfig := resourceTestAccConfigFunc(resourceId, name, AlicloudRedisTairInstanceBasicDependence6500)
+	resource.Test(t, resource.TestCase{
+		PreCheck: func() {
+			testAccPreCheck(t)
+			testAccPreCheckWithRegions(t, true, []connectivity.Region{"cn-beijing"})
+		},
+		IDRefreshName: resourceId,
+		Providers:     testAccProviders,
+		CheckDestroy:  rac.checkResourceDestroy(),
+		Steps: []resource.TestStep{
+			{
+				Config: testAccConfig(map[string]interface{}{
+					"payment_type":          "PayAsYouGo",
+					"instance_type":         "tair_rdb",
+					"zone_id":               "${var.zone_id}",
+					"instance_class":        "tair.rdb.with.proxy.1g",
+					"tair_instance_name":    name,
+					"vswitch_id":            "${alicloud_vswitch.defaultVSwitch.id}",
+					"vpc_id":                "${alicloud_vpc.defaultVpc.id}",
+					"resource_group_id":     "${data.alicloud_resource_manager_resource_groups.default.ids.0}",
+					"password":              "123456Tf",
+					"engine_version":        "5.0",
+					"port":                  "6379",
+					"slave_read_only_count": "2",
+					"secondary_zone_id":     "${var.secondary_zone_id}",
+					"shard_count":           "1",
+					"read_only_count":       "2",
+					"node_type":             "MASTER_SLAVE",
+				}),
+				Check: resource.ComposeTestCheckFunc(
+					testAccCheck(map[string]string{
+						"payment_type":          "PayAsYouGo",
+						"instance_type":         "tair_rdb",
+						"zone_id":               CHECKSET,
+						"instance_class":        "tair.rdb.with.proxy.1g",
+						"tair_instance_name":    name,
+						"vswitch_id":            CHECKSET,
+						"vpc_id":                CHECKSET,
+						"resource_group_id":     CHECKSET,
+						"password":              "123456Tf",
+						"engine_version":        "5.0",
+						"port":                  "6379",
+						"slave_read_only_count": "2",
+						"secondary_zone_id":     CHECKSET,
+						"shard_count":           "1",
+						"read_only_count":       "2",
+						"node_type":             "MASTER_SLAVE",
+					}),
+				),
+			},
+			{
+				Config: testAccConfig(map[string]interface{}{
+					"slave_read_only_count": "3",
+					"read_only_count":       "3",
+				}),
+				Check: resource.ComposeTestCheckFunc(
+					testAccCheck(map[string]string{
+						"slave_read_only_count": "3",
+						"read_only_count":       "3",
+					}),
+				),
+			},
+			{
+				ResourceName:            resourceId,
+				ImportState:             true,
+				ImportStateVerify:       true,
+				ImportStateVerifyIgnore: []string{"auto_renew", "auto_renew_period", "cluster_backup_id", "effective_time", "force_upgrade", "password", "period", "read_only_count", "slave_read_only_count"},
+			},
+		},
+	})
+}
+
+// Case Tair_rdb_单副本变高可用 6639  raw
+func TestAccAliCloudRedisTairInstance_basic6639_raw(t *testing.T) {
+	var v map[string]interface{}
+	resourceId := "alicloud_redis_tair_instance.default"
+	ra := resourceAttrInit(resourceId, AlicloudRedisTairInstanceMap6639)
+	rc := resourceCheckInitWithDescribeMethod(resourceId, &v, func() interface{} {
+		return &RedisServiceV2{testAccProvider.Meta().(*connectivity.AliyunClient)}
+	}, "DescribeRedisTairInstance")
+	rac := resourceAttrCheckInit(rc, ra)
+	testAccCheck := rac.resourceAttrMapUpdateSet()
+	rand := acctest.RandIntRange(10000, 99999)
+	name := fmt.Sprintf("tf-testacc%sredistairinstance%d", defaultRegionToTest, rand)
+	testAccConfig := resourceTestAccConfigFunc(resourceId, name, AlicloudRedisTairInstanceBasicDependence6639)
+	resource.Test(t, resource.TestCase{
+		PreCheck: func() {
+			testAccPreCheck(t)
+			testAccPreCheckWithRegions(t, true, []connectivity.Region{"cn-beijing"})
+		},
+		IDRefreshName: resourceId,
+		Providers:     testAccProviders,
+		CheckDestroy:  rac.checkResourceDestroy(),
+		Steps: []resource.TestStep{
+			{
+				Config: testAccConfig(map[string]interface{}{
+					"payment_type":       "PayAsYouGo",
+					"instance_type":      "tair_rdb",
+					"zone_id":            "${var.zone_id}",
+					"instance_class":     "tair.rdb.1g",
+					"tair_instance_name": name,
+					"vswitch_id":         "${alicloud_vswitch.defaultVSwitch.id}",
+					"vpc_id":             "${alicloud_vpc.defaultVpc.id}",
+					"resource_group_id":  "${data.alicloud_resource_manager_resource_groups.default.ids.0}",
+					"password":           "123456Tf",
+					"engine_version":     "5.0",
+					"period":             "12",
+					"auto_renew_period":  "12",
+					"port":               "6379",
+					"cluster_backup_id":  "cb-hyxdof5x9kqb333",
+					"secondary_zone_id":  "${var.zone_id}",
+					"node_type":          "STAND_ALONE",
+				}),
+				Check: resource.ComposeTestCheckFunc(
+					testAccCheck(map[string]string{
+						"payment_type":       "PayAsYouGo",
+						"instance_type":      "tair_rdb",
+						"zone_id":            CHECKSET,
+						"instance_class":     "tair.rdb.1g",
+						"tair_instance_name": name,
+						"vswitch_id":         CHECKSET,
+						"vpc_id":             CHECKSET,
+						"resource_group_id":  CHECKSET,
+						"password":           "123456Tf",
+						"engine_version":     "5.0",
+						"period":             "12",
+						"auto_renew_period":  "12",
+						"port":               "6379",
+						"cluster_backup_id":  "cb-hyxdof5x9kqb333",
+						"secondary_zone_id":  CHECKSET,
+						"node_type":          "STAND_ALONE",
+					}),
+				),
+			},
+			{
+				Config: testAccConfig(map[string]interface{}{
+					"instance_class": "tair.rdb.2g",
+					"node_type":      "MASTER_SLAVE",
+				}),
+				Check: resource.ComposeTestCheckFunc(
+					testAccCheck(map[string]string{
+						"instance_class": "tair.rdb.2g",
+						"node_type":      "MASTER_SLAVE",
+					}),
+				),
+			},
+			{
+				ResourceName:            resourceId,
+				ImportState:             true,
+				ImportStateVerify:       true,
+				ImportStateVerifyIgnore: []string{"auto_renew", "auto_renew_period", "cluster_backup_id", "effective_time", "force_upgrade", "password", "period", "read_only_count", "slave_read_only_count"},
+			},
+		},
+	})
+}
+
+// Case Tair_rdb_升级大版本 6473  raw
+func TestAccAliCloudRedisTairInstance_basic6473_raw(t *testing.T) {
+	var v map[string]interface{}
+	resourceId := "alicloud_redis_tair_instance.default"
+	ra := resourceAttrInit(resourceId, AlicloudRedisTairInstanceMap6473)
+	rc := resourceCheckInitWithDescribeMethod(resourceId, &v, func() interface{} {
+		return &RedisServiceV2{testAccProvider.Meta().(*connectivity.AliyunClient)}
+	}, "DescribeRedisTairInstance")
+	rac := resourceAttrCheckInit(rc, ra)
+	testAccCheck := rac.resourceAttrMapUpdateSet()
+	rand := acctest.RandIntRange(10000, 99999)
+	name := fmt.Sprintf("tf-testacc%sredistairinstance%d", defaultRegionToTest, rand)
+	testAccConfig := resourceTestAccConfigFunc(resourceId, name, AlicloudRedisTairInstanceBasicDependence6473)
+	resource.Test(t, resource.TestCase{
+		PreCheck: func() {
+			testAccPreCheck(t)
+		},
+		IDRefreshName: resourceId,
+		Providers:     testAccProviders,
+		CheckDestroy:  rac.checkResourceDestroy(),
+		Steps: []resource.TestStep{
+			{
+				Config: testAccConfig(map[string]interface{}{
+					"payment_type":       "PayAsYouGo",
+					"instance_type":      "tair_rdb",
+					"zone_id":            "${alicloud_vswitch.defaultVSwitch.zone_id}",
+					"instance_class":     "tair.rdb.1g",
+					"tair_instance_name": name,
+					"vswitch_id":         "${alicloud_vswitch.defaultVSwitch.id}",
+					"vpc_id":             "${alicloud_vpc.defaultVpc.id}",
+					"resource_group_id":  "${data.alicloud_resource_manager_resource_groups.default.ids.0}",
+					"password":           "123456Tf",
+					"engine_version":     "5.0",
+					"period":             "12",
+					"port":               "6379",
+					"auto_renew":         "false",
+					"node_type":          "MASTER_SLAVE",
+				}),
+				Check: resource.ComposeTestCheckFunc(
+					testAccCheck(map[string]string{
+						"payment_type":       "PayAsYouGo",
+						"instance_type":      "tair_rdb",
+						"zone_id":            CHECKSET,
+						"instance_class":     "tair.rdb.1g",
+						"tair_instance_name": name,
+						"vswitch_id":         CHECKSET,
+						"vpc_id":             CHECKSET,
+						"resource_group_id":  CHECKSET,
+						"password":           "123456Tf",
+						"engine_version":     "5.0",
+						"period":             "12",
+						"port":               "6379",
+						"auto_renew":         "false",
+						"node_type":          "MASTER_SLAVE",
+					}),
+				),
+			},
+			{
+				Config: testAccConfig(map[string]interface{}{
+					"engine_version": "6.0",
+					"force_upgrade":  "true",
+				}),
+				Check: resource.ComposeTestCheckFunc(
+					testAccCheck(map[string]string{
+						"engine_version": "6.0",
+					}),
+				),
+			},
+			{
+				ResourceName:            resourceId,
+				ImportState:             true,
+				ImportStateVerify:       true,
+				ImportStateVerifyIgnore: []string{"auto_renew", "auto_renew_period", "cluster_backup_id", "effective_time", "force_upgrade", "password", "period", "read_only_count", "slave_read_only_count"},
+			},
+		},
+	})
 }
 
 // Test Redis TairInstance. <<< Resource test cases, automatically generated.

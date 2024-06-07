@@ -24,13 +24,22 @@ variable "name" {
   default = "terraform-example"
 }
 
+resource "random_integer" "default" {
+  min = 10000
+  max = 99999
+}
+
+locals {
+  name = "${var.name}-${random_integer.default.result}"
+}
+
 data "alicloud_zones" "default" {
   available_disk_category     = "cloud_efficiency"
   available_resource_creation = "VSwitch"
 }
 
 resource "alicloud_vpc" "default" {
-  vpc_name   = var.name
+  vpc_name   = local.name
   cidr_block = "172.16.0.0/16"
 }
 
@@ -38,18 +47,18 @@ resource "alicloud_vswitch" "default" {
   vpc_id       = alicloud_vpc.default.id
   cidr_block   = "172.16.0.0/24"
   zone_id      = data.alicloud_zones.default.zones[0].id
-  vswitch_name = var.name
+  vswitch_name = local.name
 }
 
 resource "alicloud_security_group" "default" {
-  name   = var.name
+  name   = local.name
   vpc_id = alicloud_vpc.default.id
 }
 
 resource "alicloud_ess_scaling_group" "default" {
   min_size           = 0
   max_size           = 1
-  scaling_group_name = var.name
+  scaling_group_name = local.name
   removal_policies   = ["OldestInstance", "NewestInstance"]
   vswitch_ids        = [alicloud_vswitch.default.id]
   group_type         = "ECI"
@@ -87,7 +96,8 @@ The following arguments are supported:
   256 characters in length and cannot start with http:// or https://.
 * `security_group_id` - (Optional) ID of the security group used to create new instance. It is conflict
   with `security_group_ids`.
-* `container_group_name` - (Optional) The name of the container group.
+* `container_group_name` - (Optional) The name of the container group. which must contain 2-128 characters (
+  English), starting with numbers, English lowercase letters , and can contain number, and hypens `-`.
 * `restart_policy` - (Optional) The restart policy of the container group. Default to `Always`.
 * `cpu` - (Optional) The amount of CPU resources allocated to the container group.
 * `memory` - (Optional) The amount of memory resources allocated to the container group.
@@ -115,6 +125,14 @@ The following arguments are supported:
 * `volumes` - (Optional) The list of volumes. See [`volumes`](#volumes) below for details.
 * `host_aliases` - (Optional) HostAliases. See [`host_aliases`](#host_aliases) below.
 * `acr_registry_infos` - (Optional, Available in 1.193.1+) Information about the Container Registry Enterprise Edition instance. See [`acr_registry_infos`](#acr_registry_infos) below for details.
+* `image_snapshot_id` - (Optional) The ID of image cache.
+* `termination_grace_period_seconds` - (Optional) The program's buffering time before closing.
+* `auto_match_image_cache` - (Optional) Whether to automatically match the image cache.
+* `ipv6_address_count` - (Optional) Number of IPv6 addresses.
+* `active_deadline_seconds` - (Optional) The duration in seconds relative to the startTime that the job may be active before the system tries to terminate it.
+* `ephemeral_storage` - (Optional) The size of ephemeral storage.
+* `load_balancer_weight` - (Optional) The weight of an ECI instance attached to the Server Group.
+* `instance_types` - (Optional, Available since v1.223.0) The specified ECS instance types. You can specify up to five ECS instance types.
 
 ### `volumes`
 
@@ -162,6 +180,11 @@ The init_container supports the following:
 * `ports` - (Optional) The structure of port. See [`ports`](#init_containers-ports) below for details.
 * `volume_mounts` - (Optional) The structure of volumeMounts. See [`volume_mounts`](#init_containers-volume_mounts) below for details.
 * `working_dir` - (Optional) The working directory of the container.
+* `security_context_capability_adds` - (Optional, Available since 1.215.0) Grant certain permissions to processes within container. Optional values:
+  - NET_ADMIN: Allow network management tasks to be performed.
+  - NET_RAW: Allow raw sockets.
+* `security_context_read_only_root_file_system` - (Optional, Available since 1.215.0) Mounts the container's root filesystem as read-only.
+* `security_context_run_as_user` - (Optional, Available since 1.215.0) Specifies user ID  under which all processes run.
 
 ### `init_containers-environment_vars`
 
@@ -170,6 +193,8 @@ The environment_var supports the following:
 * `key` - (Optional) The name of the variable. The name can be 1 to 128 characters in length and can contain letters,
   digits, and underscores (_). It cannot start with a digit.
 * `value` - (Optional) The value of the variable. The value can be 0 to 256 characters in length.
+* `field_ref_field_path` - (Optional, Available since 1.215.0) Environment variable value reference. Optional values:
+  - status.podIP: IP of pod.
 
 ### `init_containers-ports`
 
@@ -243,6 +268,12 @@ The container supports the following:
 * `readiness_probe_tcp_socket_port` - (Optional, Available in 1.193.1+) The port detected by Transmission Control Protocol (TCP) sockets when you use TCP sockets to perform readiness probes.
 * `readiness_probe_success_threshold` - (Optional, Available in 1.193.1+) The minimum number of consecutive successes for the readiness probe to be considered successful after having failed. Default value: 1. Set the value to 1.
 * `readiness_probe_timeout_seconds` - (Optional, Available in 1.193.1+) The timeout period for the readiness probe. Unit: seconds. Default value: 1. Minimum value: 1.
+* `security_context_capability_adds` - (Optional, Available since 1.215.0) Grant certain permissions to processes within container. Optional values:
+  - NET_ADMIN: Allow network management tasks to be performed.
+  - NET_RAW: Allow raw sockets.
+* `lifecycle_pre_stop_handler_execs` - (Optional, Available since 1.216.0) The commands to be executed in containers when you use the CLI to specify the preStop callback function.
+* `security_context_read_only_root_file_system` - (Optional, Available since 1.215.0) Mounts the container's root filesystem as read-only.
+* `security_context_run_as_user` - (Optional, Available since 1.215.0) Specifies user ID  under which all processes run.
 
 ### `containers-environment_vars`
 
@@ -251,6 +282,8 @@ The environment_var supports the following:
 * `key` - (Optional) The name of the variable. The name can be 1 to 128 characters in length and can contain letters,
   digits, and underscores (_). It cannot start with a digit.
 * `value` - (Optional) The value of the variable. The value can be 0 to 256 characters in length.
+* `field_ref_field_path` - (Optional, Available since 1.215.0) Environment variable value reference. Optional values: 
+  - status.podIP: IP of pod.
 
 ### `containers-ports`
 

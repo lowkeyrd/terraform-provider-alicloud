@@ -20,8 +20,11 @@ For information about DBS Backup Plan and how to use it, see [What is Backup Pla
 Basic Usage
 
 ```terraform
-data "alicloud_resource_manager_resource_groups" "default" {
-  status = "OK"
+provider "alicloud" {
+  region = "cn-hangzhou"
+}
+variable "name" {
+  default = "terraform-example"
 }
 
 data "alicloud_resource_manager_resource_groups" "default" {
@@ -37,7 +40,7 @@ data "alicloud_db_zones" "default" {
 }
 
 data "alicloud_db_instance_classes" "default" {
-  zone_id                  = data.alicloud_db_zones.default.zones.0.id
+  zone_id                  = data.alicloud_db_zones.default.zones.1.id
   engine                   = "MySQL"
   engine_version           = "8.0"
   category                 = "HighAvailability"
@@ -51,19 +54,12 @@ data "alicloud_vpcs" "default" {
 
 data "alicloud_vswitches" "default" {
   vpc_id  = data.alicloud_vpcs.default.ids.0
-  zone_id = data.alicloud_db_zones.default.zones.0.id
+  zone_id = data.alicloud_db_zones.default.zones.1.id
 }
 
-resource "alicloud_vswitch" "this" {
-  count        = length(data.alicloud_vswitches.default.ids) > 0 ? 0 : 1
-  vswitch_name = var.name
-  vpc_id       = data.alicloud_vpcs.default.ids.0
-  zone_id      = data.alicloud_db_zones.default.ids.0
-  cidr_block   = cidrsubnet(data.alicloud_vpcs.default.vpcs.0.cidr_block, 8, 4)
-}
 locals {
-  vswitch_id = length(data.alicloud_vswitches.default.ids) > 0 ? data.alicloud_vswitches.default.ids.0 : concat(alicloud_vswitch.this.*.id, [""])[0]
-  zone_id    = data.alicloud_db_zones.default.ids.0
+  vswitch_id = data.alicloud_vswitches.default.ids.0
+  zone_id    = data.alicloud_db_zones.default.ids.1
 }
 
 resource "alicloud_security_group" "default" {

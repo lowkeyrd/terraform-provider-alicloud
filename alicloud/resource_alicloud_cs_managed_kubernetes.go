@@ -2,6 +2,7 @@ package alicloud
 
 import (
 	"fmt"
+	"log"
 	"regexp"
 	"strconv"
 	"strings"
@@ -14,7 +15,7 @@ import (
 
 	"github.com/hashicorp/terraform-plugin-sdk/helper/validation"
 
-	roacs "github.com/alibabacloud-go/cs-20151215/v3/client"
+	roacs "github.com/alibabacloud-go/cs-20151215/v5/client"
 	"github.com/aliyun/terraform-provider-alicloud/alicloud/connectivity"
 	"github.com/denverdino/aliyungo/common"
 	"github.com/denverdino/aliyungo/cs"
@@ -210,7 +211,6 @@ func resourceAlicloudCSManagedKubernetes() *schema.Resource {
 					Type:         schema.TypeString,
 					ValidateFunc: validation.StringMatch(regexp.MustCompile(`^vsw-[a-z0-9]*$`), "should start with 'vsw-'."),
 				},
-				MaxItems: 10,
 			},
 			"pod_cidr": {
 				Type:     schema.TypeString,
@@ -535,9 +535,8 @@ func resourceAlicloudCSManagedKubernetes() *schema.Resource {
 				},
 			},
 			"slb_id": {
-				Type:       schema.TypeString,
-				Computed:   true,
-				Deprecated: "Field 'slb_id' has been deprecated from provider version 1.9.2. New field 'slb_internet' replaces it.",
+				Type:     schema.TypeString,
+				Computed: true,
 			},
 			"slb_internet": {
 				Type:     schema.TypeString,
@@ -719,6 +718,24 @@ func resourceAlicloudCSManagedKubernetes() *schema.Resource {
 					Type: schema.TypeString,
 				},
 			},
+			"delete_options": {
+				Type:     schema.TypeList,
+				Optional: true,
+				Elem: &schema.Resource{
+					Schema: map[string]*schema.Schema{
+						"resource_type": {
+							Type:         schema.TypeString,
+							Optional:     true,
+							ValidateFunc: validation.StringInSlice([]string{"SLB", "ALB", "SLS_Data", "SLS_ControlPlane", "PrivateZone"}, false),
+						},
+						"delete_mode": {
+							Type:         schema.TypeString,
+							Optional:     true,
+							ValidateFunc: validation.StringInSlice([]string{"delete", "retain"}, false),
+						},
+					},
+				},
+			},
 			"rrsa_metadata": {
 				Type:     schema.TypeList,
 				Computed: true,
@@ -791,22 +808,70 @@ func resourceAlicloudCSManagedKubernetesCreate(d *schema.ResourceData, meta inte
 }
 
 func UpgradeAlicloudKubernetesCluster(d *schema.ResourceData, meta interface{}) error {
-	client := meta.(*connectivity.AliyunClient)
-	if d.HasChange("version") {
-		nextVersion := d.Get("version").(string)
-		args := &cs.UpgradeClusterArgs{
-			Version: nextVersion,
-		}
-
-		csService := CsService{client}
-		err := csService.UpgradeCluster(d.Id(), args)
-
-		if err != nil {
-			return WrapError(err)
-		}
-
-		d.SetPartial("version")
+	if !d.HasChange("version") {
+		return nil
 	}
+
+	clusterId := d.Id()
+	version := d.Get("version").(string)
+	action := "UpgradeCluster"
+	c := meta.(*connectivity.AliyunClient)
+	rosCsClient, err := c.NewRoaCsClient()
+	if err != nil {
+		return err
+	}
+	args := &roacs.UpgradeClusterRequest{
+		NextVersion: tea.String(version),
+	}
+	// upgrade cluster
+	var resp *roacs.UpgradeClusterResponse
+	err = resource.Retry(UpgradeClusterTimeout, func() *resource.RetryError {
+		resp, err = rosCsClient.UpgradeCluster(tea.String(clusterId), args)
+		if NeedRetry(err) || resp == nil {
+			return resource.RetryableError(err)
+		}
+		if err != nil {
+			return resource.NonRetryableError(err)
+		}
+		return nil
+	})
+
+	if err != nil {
+		return WrapErrorf(err, ResponseCodeMsg, d.Id(), action, err)
+	}
+
+	taskId := tea.StringValue(resp.Body.TaskId)
+	if taskId == "" {
+		return WrapErrorf(err, ResponseCodeMsg, d.Id(), action, resp)
+	}
+
+	csClient := CsClient{client: rosCsClient}
+	stateConf := BuildStateConf([]string{}, []string{"success"}, d.Timeout(schema.TimeoutUpdate), 5*time.Second, csClient.DescribeTaskRefreshFunc(d, taskId, []string{"fail", "failed"}))
+	if jobDetail, err := stateConf.WaitForState(); err != nil {
+		// try to cancel task
+		wait := incrementalWait(3*time.Second, 3*time.Second)
+		_ = resource.Retry(5*time.Minute, func() *resource.RetryError {
+			_, _err := rosCsClient.CancelTask(tea.String(taskId))
+			if _err != nil {
+				if NeedRetry(_err) {
+					wait()
+					return resource.RetryableError(_err)
+				}
+				log.Printf("[WARN] %s ACK Cluster cancel upgrade error: %#v", clusterId, err)
+			}
+			return nil
+		})
+		// output error message
+		return WrapErrorf(err, ResponseCodeMsg, d.Id(), action, jobDetail)
+	}
+	// ensure cluster state is running
+	csService := CsService{client: c}
+	stateConf = BuildStateConf([]string{}, []string{"running"}, UpgradeClusterTimeout, 10*time.Second, csService.CsKubernetesInstanceStateRefreshFunc(clusterId, []string{"deleting", "failed"}))
+	if _, err := stateConf.WaitForState(); err != nil {
+		return WrapError(err)
+	}
+
+	d.SetPartial("version")
 	return nil
 }
 
@@ -968,7 +1033,18 @@ func updateControlPlaneLog(d *schema.ResourceData, meta interface{}) error {
 		}
 	}
 
-	_, err = csClient.UpdateControlPlaneLog(tea.String(d.Id()), request)
+	wait := incrementalWait(3*time.Second, 3*time.Second)
+	err = resource.Retry(5*time.Minute, func() *resource.RetryError {
+		_, err = csClient.UpdateControlPlaneLog(tea.String(d.Id()), request)
+		if err != nil {
+			if NeedRetry(err) {
+				wait()
+				return resource.RetryableError(err)
+			}
+			return resource.NonRetryableError(err)
+		}
+		return nil
+	})
 	if err != nil {
 		return err
 	}
@@ -989,7 +1065,20 @@ func checkControlPlaneLogEnable(d *schema.ResourceData, meta interface{}) error 
 	if err != nil {
 		return err
 	}
-	response, err := client.CheckControlPlaneLogEnable(tea.String(d.Id()))
+	var response *roacs.CheckControlPlaneLogEnableResponse
+	wait := incrementalWait(3*time.Second, 3*time.Second)
+	err = resource.Retry(5*time.Minute, func() *resource.RetryError {
+		response, err = client.CheckControlPlaneLogEnable(tea.String(d.Id()))
+		if err != nil {
+			if NeedRetry(err) {
+				wait()
+				return resource.RetryableError(err)
+			}
+			return resource.NonRetryableError(err)
+		}
+		return nil
+	})
+
 	if err != nil {
 		return err
 	}

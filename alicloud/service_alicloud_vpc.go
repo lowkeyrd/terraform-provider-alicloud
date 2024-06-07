@@ -55,16 +55,16 @@ func (s *VpcService) DescribeEip(id string) (eip vpc.EipAddress, err error) {
 func (s *VpcService) DescribeEipAssociation(id string) (object map[string]interface{}, err error) {
 	parts, err := ParseResourceId(id, 2)
 	if err != nil {
-		err = WrapError(err)
-		return
+		return object, WrapError(err)
 	}
+
 	object, err = s.DescribeEipAddress(parts[0])
 	if err != nil {
-		err = WrapError(err)
-		return
+		return object, WrapError(err)
 	}
+
 	if object["InstanceId"] != parts[1] {
-		err = WrapErrorf(Error(GetNotFoundMessage("Eip Association", id)), NotFoundMsg, ProviderERROR)
+		return object, WrapErrorf(Error(GetNotFoundMessage("Eip:Association", id)), NotFoundWithResponse)
 	}
 
 	return
@@ -1821,10 +1821,17 @@ func (s *VpcService) DeleteAclResources(id string) (object map[string]interface{
 	}
 	for _, val := range resources {
 		item, _ := val.(map[string]interface{})
+		if item["Status"] == "UNBINDING" {
+			continue
+		}
+
 		deleteResources = append(deleteResources, map[string]interface{}{
 			"ResourceId":   item["ResourceId"],
 			"ResourceType": item["ResourceType"],
 		})
+	}
+	if len(deleteResources) == 0 {
+		return nil, nil
 	}
 
 	var response map[string]interface{}

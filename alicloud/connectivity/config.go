@@ -2,15 +2,20 @@ package connectivity
 
 import (
 	"fmt"
-	"log"
-	"sync"
-
+	openapi "github.com/alibabacloud-go/darabonba-openapi/v2/client"
 	roa "github.com/alibabacloud-go/tea-roa/client"
+	util "github.com/alibabacloud-go/tea-utils/v2/service"
+	"github.com/alibabacloud-go/tea/tea"
+	"log"
+	"regexp"
+	"sync"
+	"time"
 
 	"encoding/json"
 	"net/http"
 	"strings"
 
+	sts20150401 "github.com/alibabacloud-go/sts-20150401/v2/client"
 	rpc "github.com/alibabacloud-go/tea-rpc/client"
 	"github.com/aliyun/alibaba-cloud-sdk-go/sdk/auth"
 	"github.com/aliyun/alibaba-cloud-sdk-go/sdk/auth/credentials"
@@ -44,7 +49,9 @@ type Config struct {
 	RamRolePolicy            string
 	RamRoleExternalId        string
 	RamRoleSessionExpiration int
+	AssumeRoleWithOidc       *AssumeRoleWithOidc
 	Endpoints                *sync.Map
+	SignVersion              *sync.Map
 	RKvstoreEndpoint         string
 	EcsEndpoint              string
 	RdsEndpoint              string
@@ -189,6 +196,16 @@ type Config struct {
 	ComputeNestEndpoint         string
 }
 
+type AssumeRoleWithOidc struct {
+	RoleARN         string
+	DurationSeconds int
+	Policy          string
+	RoleSessionName string
+	OIDCProviderArn string
+	OIDCTokenFile   string
+	OIDCToken       string
+}
+
 func (c *Config) loadAndValidate() error {
 	err := c.validateRegion()
 	if err != nil {
@@ -235,16 +252,83 @@ func (c *Config) getAuthCredential(stsSupported bool) auth.Credential {
 	return credentials.NewAccessKeyCredential(c.AccessKey, c.SecretKey)
 }
 
-// getAuthCredentialByEcsRoleName aims to access meta to get sts credential
+func (c *Config) setAuthByAssumeRole() (err error) {
+	if c.AccessKey == "" || c.RamRoleArn == "" {
+		return
+	}
+	config := &openapi.Config{
+		RegionId:        tea.String(c.RegionId),
+		AccessKeyId:     tea.String(c.AccessKey),
+		AccessKeySecret: tea.String(c.SecretKey),
+		Endpoint:        tea.String(c.StsEndpoint),
+		UserAgent:       tea.String(fmt.Sprintf("%s/%s %s/%s %s/%s %s/%s", Terraform, c.TerraformVersion, Provider, providerVersion, Module, c.ConfigurationSource, TerraformTraceId, c.TerraformTraceId)),
+		// currently, sts endpoint only supports https
+		Protocol:       tea.String("HTTPS"),
+		ReadTimeout:    tea.Int(c.ClientReadTimeout),
+		ConnectTimeout: tea.Int(c.ClientConnectTimeout),
+		MaxIdleConns:   tea.Int(500),
+	}
+	if c.SecurityToken != "" {
+		config.SecurityToken = tea.String(c.SecurityToken)
+	}
+
+	query := map[string]*string{
+		"AcceptLanguage": tea.String("en-US"),
+	}
+	if c.SourceIp != "" {
+		query["SourceIp"] = tea.String(c.SourceIp)
+	}
+	if c.SecureTransport != "" {
+		query["SecureTransport"] = tea.String(c.SecureTransport)
+	}
+
+	param := &openapi.GlobalParameters{Queries: query}
+	config.GlobalParameters = param
+	stsClient, err := sts20150401.NewClient(config)
+	if err != nil {
+		return fmt.Errorf("refreshing credential failed when building sts client. Error: %v", err)
+	}
+
+	request := &sts20150401.AssumeRoleRequest{
+		RoleArn:         tea.String(c.RamRoleArn),
+		RoleSessionName: tea.String(c.RamRoleSessionName),
+	}
+	if c.RamRolePolicy != "" {
+		request.Policy = tea.String(c.RamRolePolicy)
+	}
+	if c.RamRoleSessionExpiration != 0 {
+		request.DurationSeconds = tea.Int64(int64(c.RamRoleSessionExpiration))
+	}
+	if c.RamRoleExternalId != "" {
+		request.ExternalId = tea.String(c.RamRoleExternalId)
+	}
+
+	runtime := &util.RuntimeOptions{}
+	var response *sts20150401.AssumeRoleResponse
+	maxRetries := 5
+	for i := 0; i <= maxRetries; i++ {
+		response, err = stsClient.AssumeRoleWithOptions(request, runtime)
+		if err != nil {
+			if needRetry(err) && i < maxRetries {
+				time.Sleep(time.Duration(i))
+				continue
+			}
+			return fmt.Errorf("refreshing credential failed by AssumeRole. Error: %v", err)
+		}
+		break
+	}
+
+	c.AccessKey, c.SecretKey, c.SecurityToken = *response.Body.Credentials.AccessKeyId, *response.Body.Credentials.AccessKeySecret, *response.Body.Credentials.SecurityToken
+	return nil
+}
+
+// setAuthCredentialByEcsRoleName aims to access meta to get sts credential
 // Actually, the job should be done by sdk, but currently not all resources and products support alibaba-cloud-sdk-go,
 // and their go sdk does support ecs role name.
 // This method is a temporary solution and it should be removed after all go sdk support ecs role name
 // The related PR: https://github.com/aliyun/terraform-provider-alicloud/pull/731
-func (c *Config) getAuthCredentialByEcsRoleName() (accessKey, secretKey, token string, err error) {
-	if c.AccessKey != "" {
-		return c.AccessKey, c.SecretKey, c.SecurityToken, nil
-	}
-	if c.EcsRoleName == "" {
+func (c *Config) setAuthCredentialByEcsRoleName() (err error) {
+	if c.AccessKey != "" || c.EcsRoleName == "" {
 		return
 	}
 	requestUrl := securityCredURL + c.EcsRoleName
@@ -287,36 +371,117 @@ func (c *Config) getAuthCredentialByEcsRoleName() (accessKey, secretKey, token s
 		return
 	}
 	accessKeyId, err := jmespath.Search("AccessKeyId", data)
-	if err != nil {
+	if err != nil || accessKeyId == nil {
 		err = fmt.Errorf("refresh Ecs sts token err, fail to get AccessKeyId: %s", err.Error())
 		return
 	}
 	accessKeySecret, err := jmespath.Search("AccessKeySecret", data)
-	if err != nil {
+	if err != nil || accessKeySecret == nil {
 		err = fmt.Errorf("refresh Ecs sts token err, fail to get AccessKeySecret: %s", err.Error())
 		return
 	}
 	securityToken, err := jmespath.Search("SecurityToken", data)
-	if err != nil {
+	if err != nil || securityToken == nil {
 		err = fmt.Errorf("refresh Ecs sts token err, fail to get SecurityToken: %s", err.Error())
 		return
 	}
 
-	if accessKeyId == nil || accessKeySecret == nil || securityToken == nil {
-		err = fmt.Errorf("there is no any available accesskey, secret and security token for Ecs role %s", c.EcsRoleName)
-		return
-	}
-
-	return accessKeyId.(string), accessKeySecret.(string), securityToken.(string), nil
+	c.AccessKey, c.SecretKey, c.SecurityToken = accessKeyId.(string), accessKeySecret.(string), securityToken.(string)
+	return
 }
 
-func (c *Config) MakeConfigByEcsRoleName() error {
-	accessKey, secretKey, token, err := c.getAuthCredentialByEcsRoleName()
+// setAuthCredentialByOidc aims to access meta to get sts credential
+// Actually, the job should be done by sdk, but currently not sdk support it, like alibaba-cloud-sdk-go.
+// TODO：the provider can consider implementing all of credential type as an alternative to the SDK.
+func (c *Config) setAuthCredentialByOidc() (err error) {
+	if c.AccessKey != "" || c.AssumeRoleWithOidc == nil {
+		return
+	}
+	config := &openapi.Config{
+		RegionId:  tea.String(c.RegionId),
+		Endpoint:  tea.String(c.StsEndpoint),
+		UserAgent: tea.String(fmt.Sprintf("%s/%s %s/%s %s/%s %s/%s", Terraform, c.TerraformVersion, Provider, providerVersion, Module, c.ConfigurationSource, TerraformTraceId, c.TerraformTraceId)),
+		// currently, sts endpoint only supports https
+		Protocol:       tea.String("HTTPS"),
+		ReadTimeout:    tea.Int(c.ClientReadTimeout),
+		ConnectTimeout: tea.Int(c.ClientConnectTimeout),
+		MaxIdleConns:   tea.Int(500),
+	}
+	query := map[string]*string{
+		"AcceptLanguage": tea.String("en-US"),
+	}
+	if c.SourceIp != "" {
+		query["SourceIp"] = tea.String(c.SourceIp)
+	}
+	if c.SecureTransport != "" {
+		query["SecureTransport"] = tea.String(c.SecureTransport)
+	}
+
+	param := &openapi.GlobalParameters{Queries: query}
+	config.GlobalParameters = param
+	stsClient, err := sts20150401.NewClient(config)
 	if err != nil {
+		return fmt.Errorf("refreshing credential failed when building sts client. Error: %v", err)
+	}
+
+	request := &sts20150401.AssumeRoleWithOIDCRequest{
+		OIDCProviderArn: tea.String(c.AssumeRoleWithOidc.OIDCProviderArn),
+		RoleArn:         tea.String(c.AssumeRoleWithOidc.RoleARN),
+		OIDCToken:       tea.String(c.AssumeRoleWithOidc.OIDCToken),
+		RoleSessionName: tea.String(c.AssumeRoleWithOidc.RoleSessionName),
+	}
+	if c.AssumeRoleWithOidc.Policy != "" {
+		request.Policy = tea.String(c.AssumeRoleWithOidc.Policy)
+	}
+	if c.AssumeRoleWithOidc.DurationSeconds != 0 {
+		request.DurationSeconds = tea.Int64(int64(c.AssumeRoleWithOidc.DurationSeconds))
+	}
+
+	runtime := &util.RuntimeOptions{}
+	var response *sts20150401.AssumeRoleWithOIDCResponse
+	maxRetries := 5
+	for i := 0; i <= maxRetries; i++ {
+		response, err = stsClient.AssumeRoleWithOIDCWithOptions(request, runtime)
+		if err != nil {
+			if needRetry(err) && i < maxRetries {
+				time.Sleep(time.Duration(i))
+				continue
+			}
+			return fmt.Errorf("refreshing credential failed by AssumeRole. Error: %v", err)
+		}
+		break
+	}
+
+	c.AccessKey, c.SecretKey, c.SecurityToken = *response.Body.Credentials.AccessKeyId, *response.Body.Credentials.AccessKeySecret, *response.Body.Credentials.SecurityToken
+	return nil
+}
+func needRetry(err error) bool {
+	postRegex := regexp.MustCompile("^Post [\"]*https://.*")
+	if postRegex.MatchString(err.Error()) {
+		return true
+	}
+
+	throttlingRegex := regexp.MustCompile("Throttling")
+	codeRegex := regexp.MustCompile("^code: 5[\\d]{2}")
+
+	if e, ok := err.(*tea.SDKError); ok {
+		if strings.Contains(*e.Message, "Client.Timeout") {
+			return true
+		}
+		if *e.Code == "ServiceUnavailable" || *e.Code == "Rejected.Throttling" || throttlingRegex.MatchString(*e.Code) || codeRegex.MatchString(*e.Message) {
+			return true
+		}
+	}
+	return false
+}
+func (c *Config) RefreshAuthCredential() error {
+	if err := c.setAuthCredentialByEcsRoleName(); err != nil {
 		return err
 	}
-	c.AccessKey, c.SecretKey, c.SecurityToken = accessKey, secretKey, token
-	return nil
+	if err := c.setAuthCredentialByOidc(); err != nil {
+		return err
+	}
+	return c.setAuthByAssumeRole()
 }
 
 func (c *Config) getTeaDslSdkConfig(stsSupported bool) (config rpc.Config, err error) {
@@ -354,6 +519,54 @@ func (c *Config) getTeaRoaDslSdkConfig(stsSupported bool) (config roa.Config, er
 	if c.SecureTransport != "" {
 		config.SetSecureTransport(c.SecureTransport)
 	}
+	return
+}
+func (c *Config) getTeaRpcOpenapiConfig(stsSupported bool) (config openapi.Config, err error) {
+	config.SetRegionId(c.RegionId)
+	config.SetUserAgent(fmt.Sprintf("%s/%s %s/%s %s/%s %s/%s", Terraform, c.TerraformVersion, Provider, providerVersion, Module, c.ConfigurationSource, TerraformTraceId, c.TerraformTraceId))
+	credential, err := credential.NewCredential(c.getCredentialConfig(stsSupported))
+	config.SetCredential(credential).
+		SetRegionId(c.RegionId).
+		SetProtocol(c.Protocol).
+		SetReadTimeout(c.ClientReadTimeout).
+		SetConnectTimeout(c.ClientConnectTimeout).
+		SetMaxIdleConns(500)
+
+	query := map[string]*string{
+		"AcceptLanguage": tea.String("en-US"),
+	}
+	if c.SourceIp != "" {
+		query["SourceIp"] = tea.String(c.SourceIp)
+	}
+	if c.SecureTransport != "" {
+		query["SecureTransport"] = tea.String(c.SecureTransport)
+	}
+
+	param := &openapi.GlobalParameters{Queries: query}
+	config.GlobalParameters = param
+	return
+}
+func (c *Config) getTeaRoaOpenapiConfig(stsSupported bool) (config openapi.Config, err error) {
+	config.SetRegionId(c.RegionId)
+	config.SetUserAgent(fmt.Sprintf("%s/%s %s/%s %s/%s %s/%s", Terraform, c.TerraformVersion, Provider, providerVersion, Module, c.ConfigurationSource, TerraformTraceId, c.TerraformTraceId))
+	credential, err := credential.NewCredential(c.getCredentialConfig(stsSupported))
+	config.SetCredential(credential).
+		SetRegionId(c.RegionId).
+		SetProtocol(c.Protocol).
+		SetReadTimeout(c.ClientReadTimeout).
+		SetConnectTimeout(c.ClientConnectTimeout).
+		SetMaxIdleConns(500)
+
+	header := make(map[string]*string)
+	if c.SourceIp != "" {
+		header["x-acs-source-ip"] = tea.String(c.SourceIp)
+	}
+	if c.SecureTransport != "" {
+		header["x-acs-secure-transport"] = tea.String(c.SecureTransport)
+	}
+
+	param := &openapi.GlobalParameters{Headers: header}
+	config.GlobalParameters = param
 	return
 }
 func (c *Config) getCredentialConfig(stsSupported bool) *credential.Config {

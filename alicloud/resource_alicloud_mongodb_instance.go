@@ -89,12 +89,6 @@ func resourceAliCloudMongoDBInstance() *schema.Resource {
 				Type:     schema.TypeString,
 				Optional: true,
 			},
-			"replication_factor": {
-				Type:         schema.TypeInt,
-				Optional:     true,
-				Computed:     true,
-				ValidateFunc: IntInSlice([]int{1, 3, 5, 7}),
-			},
 			"network_type": {
 				Type:         schema.TypeString,
 				Optional:     true,
@@ -154,6 +148,12 @@ func resourceAliCloudMongoDBInstance() *schema.Resource {
 				Optional: true,
 				ForceNew: true,
 			},
+			"replication_factor": {
+				Type:         schema.TypeInt,
+				Optional:     true,
+				Computed:     true,
+				ValidateFunc: IntInSlice([]int{1, 3, 5, 7}),
+			},
 			"readonly_replicas": {
 				Type:         schema.TypeInt,
 				Optional:     true,
@@ -181,6 +181,11 @@ func resourceAliCloudMongoDBInstance() *schema.Resource {
 				Computed: true,
 				Elem:     &schema.Schema{Type: schema.TypeString},
 			},
+			"backup_retention_period": {
+				Type:     schema.TypeInt,
+				Optional: true,
+				Computed: true,
+			},
 			"backup_interval": {
 				Type:         schema.TypeString,
 				Optional:     true,
@@ -207,6 +212,11 @@ func resourceAliCloudMongoDBInstance() *schema.Resource {
 				Type:     schema.TypeString,
 				Optional: true,
 				Computed: true,
+			},
+			"effective_time": {
+				Type:         schema.TypeString,
+				Optional:     true,
+				ValidateFunc: StringInSlice([]string{"Immediately", "MaintainTime"}, false),
 			},
 			"order_type": {
 				Type:         schema.TypeString,
@@ -379,10 +389,6 @@ func resourceAliCloudMongoDBInstanceCreate(d *schema.ResourceData, meta interfac
 		request["HiddenZoneId"] = v
 	}
 
-	if v, ok := d.GetOkExists("replication_factor"); ok {
-		request["ReplicationFactor"] = strconv.Itoa(v.(int))
-	}
-
 	if v, ok := d.GetOk("network_type"); ok {
 		request["NetworkType"] = v
 	}
@@ -424,6 +430,10 @@ func resourceAliCloudMongoDBInstanceCreate(d *schema.ResourceData, meta interfac
 
 	if v, ok := d.GetOk("cloud_disk_encryption_key"); ok {
 		request["EncryptionKey"] = v
+	}
+
+	if v, ok := d.GetOkExists("replication_factor"); ok {
+		request["ReplicationFactor"] = strconv.Itoa(v.(int))
 	}
 
 	if v, ok := d.GetOkExists("readonly_replicas"); ok {
@@ -491,12 +501,12 @@ func resourceAliCloudMongoDBInstanceRead(d *schema.ResourceData, meta interface{
 	d.Set("zone_id", object["ZoneId"])
 	d.Set("secondary_zone_id", object["SecondaryZoneId"])
 	d.Set("hidden_zone_id", object["HiddenZoneId"])
-	d.Set("replication_factor", formatInt(object["ReplicationFactor"]))
 	d.Set("network_type", object["NetworkType"])
 	d.Set("name", object["DBInstanceDescription"])
 	d.Set("instance_charge_type", object["ChargeType"])
 	d.Set("encrypted", object["Encrypted"])
 	d.Set("cloud_disk_encryption_key", object["EncryptionKey"])
+	d.Set("replication_factor", formatInt(object["ReplicationFactor"]))
 	d.Set("readonly_replicas", formatInt(object["ReadonlyReplicas"]))
 	d.Set("resource_group_id", object["ResourceGroupId"])
 	d.Set("maintain_start_time", object["MaintainStartTime"])
@@ -536,7 +546,10 @@ func resourceAliCloudMongoDBInstanceRead(d *schema.ResourceData, meta interface{
 	}
 
 	d.Set("backup_time", backupPolicy["PreferredBackupTime"])
-	d.Set("backup_period", strings.Split(backupPolicy["PreferredBackupPeriod"].(string), ","))
+	if period, ok := backupPolicy["PreferredBackupPeriod"]; ok && fmt.Sprint(period) != "" {
+		d.Set("backup_period", strings.Split(period.(string), ","))
+	}
+	d.Set("backup_retention_period", formatInt(backupPolicy["BackupRetentionPeriod"]))
 	d.Set("backup_interval", backupPolicy["BackupInterval"])
 	d.Set("snapshot_backup_type", backupPolicy["SnapshotBackupType"])
 	d.Set("retention_period", formatInt(backupPolicy["BackupRetentionPeriod"]))
@@ -597,12 +610,12 @@ func resourceAliCloudMongoDBInstanceRead(d *schema.ResourceData, meta interface{
 					replicaSetsItemMap["replica_set_role"] = replicaSetRole
 				}
 
-				if networkType, ok := replicaSetsArg["ConnectionDomain"]; ok {
-					replicaSetsItemMap["connection_domain"] = networkType
+				if connectionDomain, ok := replicaSetsArg["ConnectionDomain"]; ok {
+					replicaSetsItemMap["connection_domain"] = connectionDomain
 				}
 
-				if networkType, ok := replicaSetsArg["ConnectionPort"]; ok {
-					replicaSetsItemMap["connection_port"] = networkType
+				if connectionPort, ok := replicaSetsArg["ConnectionPort"]; ok {
+					replicaSetsItemMap["connection_port"] = connectionPort
 				}
 
 				replicaSetsMaps = append(replicaSetsMaps, replicaSetsItemMap)
@@ -649,6 +662,13 @@ func resourceAliCloudMongoDBInstanceUpdate(d *schema.ResourceData, meta interfac
 	}
 	if v, ok := d.GetOkExists("readonly_replicas"); ok {
 		modifyDBInstanceSpecReq["ReadonlyReplicas"] = strconv.Itoa(v.(int))
+	}
+
+	if d.HasChange("effective_time") {
+		update = true
+	}
+	if v, ok := d.GetOk("effective_time"); ok {
+		modifyDBInstanceSpecReq["EffectiveTime"] = v
 	}
 
 	if d.HasChange("order_type") {
@@ -915,19 +935,20 @@ func resourceAliCloudMongoDBInstanceUpdate(d *schema.ResourceData, meta interfac
 			d.SetPartial("kms_encryption_context")
 		}
 
-		err := ddsService.ResetAccountPassword(d, accountPassword)
+		err := ddsService.ResetAccountPassword(d, accountPassword, "instance")
 		if err != nil {
 			return WrapError(err)
 		}
 	}
 
-	if d.HasChange("backup_time") || d.HasChange("backup_period") || d.HasChange("backup_interval") || d.HasChange("snapshot_backup_type") {
-		if err := ddsService.MotifyMongoDBBackupPolicy(d); err != nil {
+	if d.HasChange("backup_time") || d.HasChange("backup_period") || d.HasChange("backup_retention_period") || d.HasChange("backup_interval") || d.HasChange("snapshot_backup_type") {
+		if err := ddsService.ModifyMongoDBBackupPolicy(d); err != nil {
 			return WrapError(err)
 		}
 
 		d.SetPartial("backup_time")
 		d.SetPartial("backup_period")
+		d.SetPartial("backup_retention_period")
 		d.SetPartial("backup_interval")
 		d.SetPartial("snapshot_backup_type")
 	}

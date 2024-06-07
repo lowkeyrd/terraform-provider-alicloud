@@ -58,10 +58,10 @@ resource "alicloud_vswitch" "default" {
 }
 
 resource "alicloud_cs_edge_kubernetes" "default" {
-  name                         = var.name
+  name_prefix                  = var.name
   worker_vswitch_ids           = [alicloud_vswitch.default.id]
   worker_instance_types        = [data.alicloud_instance_types.default.instance_types.0.id]
-  version                      = "1.20.11-aliyunedge.1"
+  version                      = "1.26.3-aliyun.1"
   worker_number                = "1"
   password                     = "Test12345"
   pod_cidr                     = "10.99.0.0/16"
@@ -108,10 +108,9 @@ resource "alicloud_vswitch" "default" {
 }
 
 resource "alicloud_cs_edge_kubernetes" "default" {
-  name                         = var.name
+  name_prefix                  = var.name
   worker_vswitch_ids           = [alicloud_vswitch.default.id]
   worker_instance_types        = [data.alicloud_instance_types.default.instance_types.0.id]
-  version                      = "1.20.11-aliyunedge.1"
   cluster_spec                 = "ack.pro.small"
   worker_number                = "1"
   password                     = "Test12345"
@@ -124,18 +123,11 @@ resource "alicloud_cs_edge_kubernetes" "default" {
   install_cloud_monitor        = "true"
   slb_internet_enabled         = "true"
   is_enterprise_security_group = "true"
-  addons {
-    name   = "alibaba-log-controller"
-    config = "{\"IngressDashboardEnabled\":\"false\"}"
-  }
+
   worker_data_disks {
     category  = "cloud_ssd"
     size      = "200"
     encrypted = "false"
-  }
-  runtime = {
-    name    = "containerd"
-    version = "1.5.10"
   }
 }
 ```
@@ -159,17 +151,8 @@ resource "alicloud_cs_edge_kubernetes" "default" {
 * `cluster_spec` - (Optional, Available since v1.185.0) The cluster specifications of kubernetes cluster,which can be empty. Valid values:
   * ack.standard : Standard edge clusters.
   * ack.pro.small : Professional edge clusters.
-* `runtime` - (Optional, Available since v1.185.0) The runtime of containers. If you select another container runtime, see [Comparison of Docker, containerd, and Sandboxed-Container](https://www.alibabacloud.com/help/doc-detail/160313.htm). Detailed below.
+* `runtime` - (Optional, Available since v1.185.0) The runtime of containers. If you select another container runtime, see [Comparison of Docker, containerd, and Sandboxed-Container](https://www.alibabacloud.com/help/doc-detail/160313.htm). See [`runtime`](#runtime) below.
 * `availability_zone` - (Optional) The ID of availability zone.
-* `connections` - (Map) Map of kubernetes cluster connection information.
-  * `api_server_internet` - API Server Internet endpoint.
-  * `api_server_intranet` - API Server Intranet endpoint.
-  * `master_public_ip` - Master node SSH IP address.
-  * `service_domain` - Service Access Domain.
-* `certificate_authority` - (Map, Available since v1.105.0) Nested attribute containing certificate authority data for your cluster.
-  * `cluster_cert` - The base64 encoded cluster certificate data required to communicate with your cluster. Add this to the certificate-authority-data section of the kubeconfig file for your cluster.
-  * `client_cert` - The base64 encoded client certificate data required to communicate with your cluster. Add this to the client-certificate-data section of the kubeconfig file for your cluster.
-  * `client_key` - The base64 encoded client key data required to communicate with your cluster. Add this to the client-key-data section of the kubeconfig file for your cluster.
 
 *Network params*
 
@@ -216,7 +199,8 @@ You can set some file paths to save kube_config information, but this way is cum
 The addons supports the following:
 
 * `name` - (Optional) Name of the ACK add-on. The name must match one of the names returned by [DescribeAddons](https://help.aliyun.com/document_detail/171524.html).
-* `config` - (Optional) The ACK add-on configurations.
+* `config` - (Optional) The ACK add-on configurations. For more config information, see [cs_kubernetes_addon_metadata](https://registry.terraform.io/providers/aliyun/alicloud/latest/docs/data-sources/cs_kubernetes_addon_metadata).
+* `version` - (Optional) It specifies the version of the component.
 * `disabled` - (Optional) Disables the automatic installation of a component. Default is `false`.
 
 The following example is the definition of addons block, The type of this field is list:
@@ -253,6 +237,20 @@ The log_config supports the following:
 * `type` - (Required) Type of collecting logs, only `SLS` are supported currently.
 * `project` - (Optional) Log Service project name, cluster logs will output to this project.
 
+### `runtime`
+
+* `name` - (Optional) The name of the runtime. Supported runtimes can be queried by data source [alicloud_cs_kubernetes_version](https://registry.terraform.io/providers/aliyun/alicloud/latest/docs/data-sources/cs_kubernetes_version).
+* `version` - (Optional) The version of the runtime.
+
+The following example is the definition of runtime block:
+
+```
+  runtime = {
+    name = "containerd"
+    version = "1.6.28"
+  }
+```
+
 ## Attributes Reference
 
 The following attributes are exported:
@@ -266,7 +264,16 @@ The following attributes are exported:
   * `id` - ID of the node.
   * `name` - Node name.
   * `private_ip` - The private IP address of node.
-* `worker_ram_role_name` - The RamRole Name attached to worker node.  
+* `worker_ram_role_name` - The RamRole Name attached to worker node.
+* `connections` - (Map) Map of kubernetes cluster connection information.
+  * `api_server_internet` - API Server Internet endpoint.
+  * `api_server_intranet` - API Server Intranet endpoint.
+  * `master_public_ip` - Master node SSH IP address.
+  * `service_domain` - Service Access Domain.
+* `certificate_authority` - (Map, Available since v1.105.0) Nested attribute containing certificate authority data for your cluster.
+  * `cluster_cert` - The base64 encoded cluster certificate data required to communicate with your cluster. Add this to the certificate-authority-data section of the kubeconfig file for your cluster.
+  * `client_cert` - The base64 encoded client certificate data required to communicate with your cluster. Add this to the client-certificate-data section of the kubeconfig file for your cluster.
+  * `client_key` - The base64 encoded client key data required to communicate with your cluster. Add this to the client-key-data section of the kubeconfig file for your cluster.
 
 ## Timeouts
 

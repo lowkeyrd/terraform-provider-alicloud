@@ -249,6 +249,10 @@ func resourceAlicloudCSEdgeKubernetes() *schema.Resource {
 							Type:     schema.TypeString,
 							Optional: true,
 						},
+						"version": {
+							Type:     schema.TypeString,
+							Optional: true,
+						},
 						"disabled": {
 							Type:     schema.TypeBool,
 							Optional: true,
@@ -671,7 +675,7 @@ func resourceAlicloudCSEdgeKubernetesUpdate(d *schema.ResourceData, meta interfa
 	// upgrade cluster version
 	err := UpgradeAlicloudKubernetesCluster(d, meta)
 	if err != nil {
-		return WrapErrorf(err, DefaultErrorMsg, d.Id(), "UpgradeClusterVersion", DenverdinoAliyungo)
+		return WrapError(err)
 	}
 	d.Partial(false)
 	return resourceAlicloudCSKubernetesRead(d, meta)

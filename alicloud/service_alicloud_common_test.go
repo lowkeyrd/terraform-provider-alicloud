@@ -912,6 +912,27 @@ data "alicloud_polardb_zones" "default"{}
 data "alicloud_vpcs" "default" {
 	name_regex = "^default-NODELETING$"
 }
+resource "alicloud_vpc" "default" {
+    vpc_name = var.name
+}
+resource "alicloud_vswitch" "default" {
+ vswitch_name = "tf_testAccPolarDB"
+ vpc_id  = alicloud_vpc.default.id
+ zone_id = data.alicloud_polardb_zones.default.ids.0
+ cidr_block = cidrsubnet(alicloud_vpc.default.cidr_block, 8, 4)
+}
+locals {
+  vpc_id = alicloud_vpc.default.id
+  vswitch_id = concat(alicloud_vswitch.default.*.id, [""])[0]
+  zone_id = data.alicloud_polardb_zones.default.ids[length(data.alicloud_polardb_zones.default.ids)-1]
+}
+`
+
+const PolarDBPostgreSQLCommonTestCase = `
+data "alicloud_polardb_zones" "default"{}
+data "alicloud_vpcs" "default" {
+	name_regex = "^default-NODELETING$"
+}
 data "alicloud_vswitches" "default" {
 	zone_id = local.zone_id
 	vpc_id = data.alicloud_vpcs.default.ids.0
@@ -926,9 +947,10 @@ resource "alicloud_vswitch" "this" {
 locals {
   vpc_id = data.alicloud_vpcs.default.ids.0
   vswitch_id = length(data.alicloud_vswitches.default.ids) > 0 ? data.alicloud_vswitches.default.ids.0 : concat(alicloud_vswitch.this.*.id, [""])[0]
-  zone_id = data.alicloud_polardb_zones.default.ids[length(data.alicloud_polardb_zones.default.ids)-1]
+  zone_id = data.alicloud_polardb_zones.default.ids[length(data.alicloud_polardb_zones.default.ids)-2]
 }
 `
+
 const AdbCommonTestCase = `
 data "alicloud_adb_zones" "default" {}
 data "alicloud_vpcs" "default" {

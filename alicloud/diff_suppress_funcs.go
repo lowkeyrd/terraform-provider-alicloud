@@ -250,6 +250,14 @@ func PostPaidDiffSuppressFunc(k, old, new string, d *schema.ResourceData) bool {
 	return true
 }
 
+func ChargeTypeDiffSuppressFunc(k, old, new string, d *schema.ResourceData) bool {
+	// payment_type is the instance_charge_type's replacement.
+	if _, ok := d.GetOk("payment_type"); ok {
+		return true
+	}
+	return false
+}
+
 func PostPaidAndRenewDiffSuppressFunc(k, old, new string, d *schema.ResourceData) bool {
 	if v, ok := d.GetOk("instance_charge_type"); ok && strings.ToLower(v.(string)) == "prepaid" && d.Get("auto_renew").(bool) {
 		return false
@@ -272,9 +280,10 @@ func redisPostPaidAndRenewDiffSuppressFunc(k, old, new string, d *schema.Resourc
 }
 
 func ramSAMLProviderDiffSuppressFunc(old, new string) bool {
-	if strings.Replace(old, "\n", "", -1) != strings.Replace(new, "\n", "", -1) {
+	if Trim(strings.Replace(old, "\n", "", -1)) != Trim(strings.Replace(new, "\n", "", -1)) {
 		return false
 	}
+
 	return true
 }
 
@@ -365,6 +374,14 @@ func polardbProxyTypeDiffSuppressFunc(k, old, new string, d *schema.ResourceData
 func polardbDiffSuppressFunc(k, old, new string, d *schema.ResourceData) bool {
 	creationOption, optionOk := d.GetOk("creation_option")
 	if dbType, ok := d.GetOk("db_type"); ok && dbType.(string) == "MySQL" && (creationOption == "Normal" || !optionOk) {
+		return false
+	}
+	return true
+}
+
+func polardbAndCreationDiffSuppressFunc(k, old, new string, d *schema.ResourceData) bool {
+	creationCategory, categoryOk := d.GetOk("creation_category")
+	if dbType, ok := d.GetOk("db_type"); ok && dbType.(string) == "MySQL" && (creationCategory == "Normal" || creationCategory == "NormalMultimaster" || !categoryOk) {
 		return false
 	}
 	return true
@@ -711,6 +728,13 @@ func CmsAlarmDiffSuppressFunc(k, old, new string, d *schema.ResourceData) bool {
 
 func esDataNodeDiskPerformanceLevelDiffSuppressFunc(k, old, new string, d *schema.ResourceData) bool {
 	if v, ok := d.GetOk("data_node_disk_type"); ok && v.(string) != "cloud_essd" {
+		return true
+	}
+	return false
+}
+
+func UpperLowerCaseDiffSuppressFunc(k, old, new string, d *schema.ResourceData) bool {
+	if strings.ToLower(old) == strings.ToLower(new) {
 		return true
 	}
 	return false

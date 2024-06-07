@@ -35,9 +35,10 @@ func resourceAlicloudOssBucket() *schema.Resource {
 
 			"acl": {
 				Type:         schema.TypeString,
-				Default:      oss.ACLPrivate,
+				Computed:     true,
 				Optional:     true,
 				ValidateFunc: StringInSlice([]string{"private", "public-read", "public-read-write"}, false),
+				Deprecated:   "Field 'acl' has been deprecated since provider version 1.220.0. New resource 'alicloud_oss_bucket_acl' instead.",
 			},
 
 			"cors_rule": {
@@ -472,6 +473,11 @@ func resourceAlicloudOssBucket() *schema.Resource {
 					},
 				},
 				MaxItems: 1,
+			},
+			"resource_group_id": {
+				Type:     schema.TypeString,
+				Computed: true,
+				Optional: true,
 			},
 		},
 	}
@@ -914,6 +920,20 @@ func resourceAlicloudOssBucketRead(d *schema.ResourceData, meta interface{}) err
 		return WrapError(err)
 	}
 
+	// Read the bucket resource-group-id
+	raw, err = client.WithOssClient(func(ossClient *oss.Client) (interface{}, error) {
+		requestInfo = ossClient
+		return ossClient.GetBucketResourceGroup(d.Id())
+	})
+	if err != nil && !IsExpectedErrors(err, []string{"NotImplemented"}) {
+		return WrapErrorf(err, DefaultErrorMsg, d.Id(), "GetBucketResourceGroup", AliyunOssGoSdk)
+	}
+	if err == nil {
+		addDebug("GetBucketResourceGroup", raw, requestInfo, request)
+		resourceGroup, _ := raw.(oss.GetBucketResourceGroupResult)
+		d.Set("resource_group_id", resourceGroup.ResourceGroupId)
+	}
+
 	return nil
 }
 
@@ -1021,6 +1041,23 @@ func resourceAlicloudOssBucketUpdate(d *schema.ResourceData, meta interface{}) e
 			return WrapError(err)
 		}
 		d.SetPartial("transfer_acceleration")
+	}
+
+	if d.HasChange("resource_group_id") {
+		resourceGroupId := d.Get("resource_group_id").(string)
+		request := map[string]string{"bucketName": d.Id(), "resourceGroupId": resourceGroupId}
+		var requestInfo *oss.Client
+		raw, err := client.WithOssClient(func(ossClient *oss.Client) (interface{}, error) {
+			requestInfo = ossClient
+			return nil, ossClient.PutBucketResourceGroup(d.Id(), oss.PutBucketResourceGroup{
+				ResourceGroupId: resourceGroupId,
+			})
+		})
+		if err != nil {
+			return WrapErrorf(err, DefaultErrorMsg, d.Id(), "PutBucketResourceGroup", AliyunOssGoSdk)
+		}
+		addDebug("PutBucketResourceGroup", raw, requestInfo, request)
+		d.SetPartial("resource_group_id")
 	}
 
 	d.Partial(false)

@@ -10,13 +10,15 @@ const (
 	SimpleScalingRule         = ScalingRuleType("SimpleScalingRule")
 	TargetTrackingScalingRule = ScalingRuleType("TargetTrackingScalingRule")
 	StepScalingRule           = ScalingRuleType("StepScalingRule")
+	PredictiveScalingRule     = ScalingRuleType("PredictiveScalingRule")
 )
 
 type BatchSize int
 
 const (
-	AttachDetachLoadbalancersBatchsize = BatchSize(5)
-	AttachDetachDbinstancesBatchsize   = BatchSize(5)
+	AttachDetachLoadbalancersBatchsize  = BatchSize(5)
+	AttachDetachDbinstancesBatchsize    = BatchSize(5)
+	AttachDetachAlbServerGroupBatchsize = BatchSize(5)
 )
 
 type MaxItems int

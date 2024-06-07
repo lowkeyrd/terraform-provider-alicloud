@@ -5,7 +5,11 @@ import (
 	"log"
 	"os"
 	"reflect"
+	"strings"
 	"testing"
+	"time"
+
+	"github.com/PaesslerAG/jsonpath"
 
 	"github.com/agiledragon/gomonkey/v2"
 	util "github.com/alibabacloud-go/tea-utils/service"
@@ -19,7 +23,110 @@ import (
 	"github.com/hashicorp/terraform-plugin-sdk/helper/resource"
 )
 
-func TestAccAlicloudEipanycastAnycastEipAddress_basic(t *testing.T) {
+func init() {
+	resource.AddTestSweepers("alicloud_eipanycast_anycast_eip_address", &resource.Sweeper{
+		Name: "alicloud_eipanycast_anycast_eip_address",
+		F:    testSweepEipanycastAnycastEipAddress,
+	})
+}
+
+func testSweepEipanycastAnycastEipAddress(region string) error {
+	rawClient, err := sharedClientForRegion(region)
+	if err != nil {
+		return fmt.Errorf("error getting Alicloud client: %s", err)
+	}
+	client := rawClient.(*connectivity.AliyunClient)
+
+	// delete all resource.
+	prefixes := []string{}
+	conn, err := client.NewEipanycastClient()
+	if err != nil {
+		return WrapError(err)
+	}
+
+	action := "ListAnycastEipAddresses"
+	request := map[string]interface{}{
+		"MaxResults": PageSizeLarge,
+	}
+	addressIds := make([]string, 0)
+	var response map[string]interface{}
+	for {
+		runtime := util.RuntimeOptions{}
+		runtime.SetAutoretry(true)
+		wait := incrementalWait(3*time.Second, 3*time.Second)
+		err = resource.Retry(5*time.Minute, func() *resource.RetryError {
+			response, err = conn.DoRequest(StringPointer(action), nil, StringPointer("POST"), StringPointer("2020-03-09"), StringPointer("AK"), nil, request, &runtime)
+			if err != nil {
+				if NeedRetry(err) {
+					wait()
+					return resource.RetryableError(err)
+				}
+				return resource.NonRetryableError(err)
+			}
+			return nil
+		})
+		if err != nil {
+			log.Println("List Eip Address Failed!", err)
+			return nil
+		}
+		resp, err := jsonpath.Get("$.AnycastList", response)
+		if err != nil {
+			return WrapErrorf(err, FailedGetAttributeMsg, action, "$.AnycastList", response)
+		}
+		result, _ := resp.([]interface{})
+		for _, v := range result {
+			item := v.(map[string]interface{})
+			skip := false
+			for _, prefix := range prefixes {
+				if strings.HasPrefix(strings.ToLower(fmt.Sprint(item["Name"])), strings.ToLower(prefix)) {
+					skip = false
+					break
+				}
+			}
+			if skip {
+				log.Printf("[INFO] Skipping Eip Address: %v (%v)", item["Name"], item["AnycastId"])
+				continue
+			}
+			addressIds = append(addressIds, fmt.Sprint(item["AnycastId"]))
+		}
+		if nextToken, ok := response["NextToken"].(string); ok && nextToken != "" {
+			request["NextToken"] = nextToken
+		} else {
+			break
+		}
+	}
+	for _, addressId := range addressIds {
+		log.Printf("[INFO] Deleting Eip Address: (%s)", addressId)
+		action := "ReleaseAnycastEipAddress"
+		conn, err := client.NewEipanycastClient()
+		if err != nil {
+			return WrapError(err)
+		}
+		request := map[string]interface{}{
+			"AnycastId": addressId,
+		}
+		request["RegionId"] = client.RegionId
+		wait := incrementalWait(3*time.Second, 3*time.Second)
+		err = resource.Retry(time.Minute*9, func() *resource.RetryError {
+			_, err = conn.DoRequest(StringPointer(action), nil, StringPointer("POST"), StringPointer("2020-03-09"), StringPointer("AK"), nil, request, &util.RuntimeOptions{})
+			if err != nil {
+				if NeedRetry(err) {
+					wait()
+					return resource.RetryableError(err)
+				}
+				return resource.NonRetryableError(err)
+			}
+			return nil
+		})
+		if err != nil {
+			log.Printf("[ERROR] Failed To Delete Eip Address : %s", err)
+		}
+		log.Printf("[INFO] Delete Eip Address Success : %s", addressId)
+	}
+	return nil
+}
+
+func TestAccAliCloudEipanycastAnycastEipAddress_basic(t *testing.T) {
 	var v map[string]interface{}
 	resourceId := "alicloud_eipanycast_anycast_eip_address.default"
 	ra := resourceAttrInit(resourceId, AlicloudEipanycastAnycastEipAddressMap)
@@ -88,6 +195,26 @@ func TestAccAlicloudEipanycastAnycastEipAddress_basic(t *testing.T) {
 			//},
 			{
 				Config: testAccConfig(map[string]interface{}{
+					"resource_group_id": "${data.alicloud_resource_manager_resource_groups.default.ids.0}",
+				}),
+				Check: resource.ComposeTestCheckFunc(
+					testAccCheck(map[string]string{
+						"resource_group_id": CHECKSET,
+					}),
+				),
+			},
+			{
+				Config: testAccConfig(map[string]interface{}{
+					"resource_group_id": "${data.alicloud_resource_manager_resource_groups.default.ids.1}",
+				}),
+				Check: resource.ComposeTestCheckFunc(
+					testAccCheck(map[string]string{
+						"resource_group_id": CHECKSET,
+					}),
+				),
+			},
+			{
+				Config: testAccConfig(map[string]interface{}{
 					"description":              name + "change",
 					"anycast_eip_address_name": name + "change",
 				}),
@@ -113,6 +240,9 @@ func AlicloudEipanycastAnycastEipAddressBasicDependence(name string) string {
 variable "name" {
 	default = "%s"
 }
+
+data "alicloud_resource_manager_resource_groups" "default" {}
+
 `, name)
 }
 
@@ -418,11 +548,11 @@ func TestUnitAlicloudEipanycastAnycastEipAddress(t *testing.T) {
 }
 
 // Test Eipanycast AnycastEipAddress. >>> Resource test cases, automatically generated.
-// Case 3705
-func TestAccAlicloudEipanycastAnycastEipAddress_basic3705(t *testing.T) {
+// Case AnycasetEipAddressTest_后付费 3623
+func TestAccAliCloudEipanycastAnycastEipAddress_basic3623(t *testing.T) {
 	var v map[string]interface{}
 	resourceId := "alicloud_eipanycast_anycast_eip_address.default"
-	ra := resourceAttrInit(resourceId, AlicloudEipanycastAnycastEipAddressMap3705)
+	ra := resourceAttrInit(resourceId, AlicloudEipanycastAnycastEipAddressMap3623)
 	rc := resourceCheckInitWithDescribeMethod(resourceId, &v, func() interface{} {
 		return &EipanycastServiceV2{testAccProvider.Meta().(*connectivity.AliyunClient)}
 	}, "DescribeEipanycastAnycastEipAddress")
@@ -430,7 +560,7 @@ func TestAccAlicloudEipanycastAnycastEipAddress_basic3705(t *testing.T) {
 	testAccCheck := rac.resourceAttrMapUpdateSet()
 	rand := acctest.RandIntRange(10000, 99999)
 	name := fmt.Sprintf("tf-testacc%seipanycastanycasteipaddress%d", defaultRegionToTest, rand)
-	testAccConfig := resourceTestAccConfigFunc(resourceId, name, AlicloudEipanycastAnycastEipAddressBasicDependence3705)
+	testAccConfig := resourceTestAccConfigFunc(resourceId, name, AlicloudEipanycastAnycastEipAddressBasicDependence3623)
 	resource.Test(t, resource.TestCase{
 		PreCheck: func() {
 			testAccPreCheck(t)
@@ -483,16 +613,6 @@ func TestAccAlicloudEipanycastAnycastEipAddress_basic3705(t *testing.T) {
 			},
 			{
 				Config: testAccConfig(map[string]interface{}{
-					"anycast_eip_address_name": name + "_update",
-				}),
-				Check: resource.ComposeTestCheckFunc(
-					testAccCheck(map[string]string{
-						"anycast_eip_address_name": name + "_update",
-					}),
-				),
-			},
-			{
-				Config: testAccConfig(map[string]interface{}{
 					"description": "test2",
 				}),
 				Check: resource.ComposeTestCheckFunc(
@@ -508,26 +628,6 @@ func TestAccAlicloudEipanycastAnycastEipAddress_basic3705(t *testing.T) {
 				Check: resource.ComposeTestCheckFunc(
 					testAccCheck(map[string]string{
 						"bandwidth": "800",
-					}),
-				),
-			},
-			{
-				Config: testAccConfig(map[string]interface{}{
-					"anycast_eip_address_name": name + "_update",
-				}),
-				Check: resource.ComposeTestCheckFunc(
-					testAccCheck(map[string]string{
-						"anycast_eip_address_name": name + "_update",
-					}),
-				),
-			},
-			{
-				Config: testAccConfig(map[string]interface{}{
-					"resource_group_id": "${data.alicloud_resource_manager_resource_groups.default.ids.0}",
-				}),
-				Check: resource.ComposeTestCheckFunc(
-					testAccCheck(map[string]string{
-						"resource_group_id": CHECKSET,
 					}),
 				),
 			},
@@ -603,29 +703,28 @@ func TestAccAlicloudEipanycastAnycastEipAddress_basic3705(t *testing.T) {
 	})
 }
 
-var AlicloudEipanycastAnycastEipAddressMap3705 = map[string]string{
+var AlicloudEipanycastAnycastEipAddressMap3623 = map[string]string{
 	"status":       CHECKSET,
 	"create_time":  CHECKSET,
 	"bandwidth":    CHECKSET,
 	"payment_type": CHECKSET,
 }
 
-func AlicloudEipanycastAnycastEipAddressBasicDependence3705(name string) string {
+func AlicloudEipanycastAnycastEipAddressBasicDependence3623(name string) string {
 	return fmt.Sprintf(`
 variable "name" {
     default = "%s"
 }
 
-data "alicloud_resource_manager_resource_groups" "default" {}
 
 `, name)
 }
 
-// Case 3705  twin
-func TestAccAlicloudEipanycastAnycastEipAddress_basic3705_twin(t *testing.T) {
+// Case AnycasetEipAddressTest_后付费 3623  twin
+func TestAccAliCloudEipanycastAnycastEipAddress_basic3623_twin(t *testing.T) {
 	var v map[string]interface{}
 	resourceId := "alicloud_eipanycast_anycast_eip_address.default"
-	ra := resourceAttrInit(resourceId, AlicloudEipanycastAnycastEipAddressMap3705)
+	ra := resourceAttrInit(resourceId, AlicloudEipanycastAnycastEipAddressMap3623)
 	rc := resourceCheckInitWithDescribeMethod(resourceId, &v, func() interface{} {
 		return &EipanycastServiceV2{testAccProvider.Meta().(*connectivity.AliyunClient)}
 	}, "DescribeEipanycastAnycastEipAddress")
@@ -633,7 +732,7 @@ func TestAccAlicloudEipanycastAnycastEipAddress_basic3705_twin(t *testing.T) {
 	testAccCheck := rac.resourceAttrMapUpdateSet()
 	rand := acctest.RandIntRange(10000, 99999)
 	name := fmt.Sprintf("tf-testacc%seipanycastanycasteipaddress%d", defaultRegionToTest, rand)
-	testAccConfig := resourceTestAccConfigFunc(resourceId, name, AlicloudEipanycastAnycastEipAddressBasicDependence3705)
+	testAccConfig := resourceTestAccConfigFunc(resourceId, name, AlicloudEipanycastAnycastEipAddressBasicDependence3623)
 	resource.Test(t, resource.TestCase{
 		PreCheck: func() {
 			testAccPreCheck(t)
@@ -645,12 +744,11 @@ func TestAccAlicloudEipanycastAnycastEipAddress_basic3705_twin(t *testing.T) {
 			{
 				Config: testAccConfig(map[string]interface{}{
 					"anycast_eip_address_name": name,
-					"description":              "test_1",
-					"bandwidth":                "200",
+					"description":              "test2",
+					"bandwidth":                "800",
 					"service_location":         "international",
 					"internet_charge_type":     "PayByTraffic",
 					"payment_type":             "PayAsYouGo",
-					"resource_group_id":        "${data.alicloud_resource_manager_resource_groups.default.ids.0}",
 					"tags": map[string]string{
 						"Created": "TF",
 						"For":     "Test",
@@ -659,12 +757,11 @@ func TestAccAlicloudEipanycastAnycastEipAddress_basic3705_twin(t *testing.T) {
 				Check: resource.ComposeTestCheckFunc(
 					testAccCheck(map[string]string{
 						"anycast_eip_address_name": name,
-						"description":              "test_1",
-						"bandwidth":                "200",
+						"description":              "test2",
+						"bandwidth":                "800",
 						"service_location":         "international",
 						"internet_charge_type":     "PayByTraffic",
 						"payment_type":             "PayAsYouGo",
-						"resource_group_id":        CHECKSET,
 						"tags.%":                   "2",
 						"tags.Created":             "TF",
 						"tags.For":                 "Test",

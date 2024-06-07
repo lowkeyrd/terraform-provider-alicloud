@@ -219,7 +219,7 @@ func TestAccAliCloudCSKubernetes_basic(t *testing.T) {
 			{
 				Config: testAccConfig(map[string]interface{}{
 					"name":                           name,
-					"version":                        "1.26.3-aliyun.1",
+					"version":                        "1.26.15-aliyun.1",
 					"master_vswitch_ids":             []string{"${local.vswitch_id}", "${local.vswitch_id}", "${local.vswitch_id}"},
 					"master_instance_types":          []string{"${data.alicloud_instance_types.default.instance_types.0.id}", "${data.alicloud_instance_types.default.instance_types.0.id}", "${data.alicloud_instance_types.default.instance_types.0.id}"},
 					"master_disk_category":           "cloud_essd",
@@ -256,7 +256,7 @@ func TestAccAliCloudCSKubernetes_basic(t *testing.T) {
 				Check: resource.ComposeTestCheckFunc(
 					testAccCheck(map[string]string{
 						"name":                          name,
-						"version":                       "1.26.3-aliyun.1",
+						"version":                       "1.26.15-aliyun.1",
 						"master_disk_category":          "cloud_essd",
 						"master_disk_performance_level": "PL0",
 						"master_disk_size":              "80",
@@ -349,6 +349,30 @@ func TestAccAliCloudCSKubernetes_basic(t *testing.T) {
 					}),
 				),
 			},
+			{
+				Config: testAccConfig(map[string]interface{}{
+					"delete_options": []map[string]interface{}{
+						{
+							"delete_mode":   "delete",
+							"resource_type": "SLB",
+						},
+						{
+							"delete_mode":   "delete",
+							"resource_type": "SLS_Data",
+						},
+						{
+							"delete_mode":   "delete",
+							"resource_type": "SLS_ControlPlane",
+						},
+						{
+							"delete_mode":   "delete",
+							"resource_type": "ALB",
+						},
+					},
+				}),
+				Check: resource.ComposeTestCheckFunc(
+					testAccCheck(map[string]string{})),
+			},
 		},
 	})
 }
@@ -392,7 +416,7 @@ func TestAccAliCloudCSKubernetes_prepaid(t *testing.T) {
 			{
 				Config: testAccConfig(map[string]interface{}{
 					"name_prefix":                  "tf-testAccKubernetes_prepaid",
-					"version":                      "1.24.6-aliyun.1",
+					"version":                      "1.26.15-aliyun.1",
 					"master_vswitch_ids":           []string{"${local.vswitch_id}", "${local.vswitch_id}", "${local.vswitch_id}"},
 					"master_instance_types":        []string{"${data.alicloud_instance_types.default.instance_types.0.id}", "${data.alicloud_instance_types.default.instance_types.0.id}", "${data.alicloud_instance_types.default.instance_types.0.id}"},
 					"master_disk_category":         "cloud_ssd",
@@ -449,16 +473,16 @@ func TestAccAliCloudCSKubernetes_prepaid(t *testing.T) {
 					}),
 				),
 			},
-			//{
-			//	Config: testAccConfig(map[string]interface{}{
-			//		"version": "1.26.3-aliyun.1",
-			//	}),
-			//	Check: resource.ComposeTestCheckFunc(
-			//		testAccCheck(map[string]string{
-			//			"version": "1.26.3-aliyun.1",
-			//		}),
-			//	),
-			//},
+			{
+				Config: testAccConfig(map[string]interface{}{
+					"version": "1.28.9-aliyun.1",
+				}),
+				Check: resource.ComposeTestCheckFunc(
+					testAccCheck(map[string]string{
+						"version": "1.28.9-aliyun.1",
+					}),
+				),
+			},
 			{
 				ResourceName:      resourceId,
 				ImportState:       true,
@@ -608,7 +632,7 @@ resource "alicloud_cs_kubernetes_node_pool" "default" {
   system_disk_size              = 50
   system_disk_category          = "cloud_essd"
   system_disk_performance_level = "PL0"
-  desired_size                  = 1
+  desired_size                  = 2
 }
 `, name)
 }
@@ -634,6 +658,7 @@ var csKubernetesBasicMap = map[string]string{
 	"resource_group_id":                  CHECKSET,
 	"slb_internet":                       CHECKSET,
 	"slb_intranet":                       CHECKSET,
+	"slb_id":                             CHECKSET,
 }
 
 func TestUnit_parseRRSAMetadata(t *testing.T) {

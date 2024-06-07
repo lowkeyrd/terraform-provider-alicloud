@@ -139,7 +139,7 @@ func testSweepVpcs(region string) error {
 	return nil
 }
 
-func TestAccAlicloudVPC_basic(t *testing.T) {
+func TestAccAliCloudVPC_basic(t *testing.T) {
 	var v map[string]interface{}
 	resourceId := "alicloud_vpc.default"
 	ra := resourceAttrInit(resourceId, AlicloudVpcMap)
@@ -294,7 +294,7 @@ data "alicloud_resource_manager_resource_groups" "default" {
 `)
 }
 
-func TestAccAlicloudVPC_enableIpv6(t *testing.T) {
+func TestAccAliCloudVPC_enableIpv6(t *testing.T) {
 	var v map[string]interface{}
 	resourceId := "alicloud_vpc.default"
 	ra := resourceAttrInit(resourceId, AlicloudVpcMap1)
@@ -351,6 +351,28 @@ func TestAccAlicloudVPC_enableIpv6(t *testing.T) {
 				Check: resource.ComposeTestCheckFunc(
 					testAccCheck(map[string]string{
 						"description": name,
+					}),
+				),
+			},
+			{
+				Config: testAccConfig(map[string]interface{}{
+					"enable_ipv6": "false",
+				}),
+				Check: resource.ComposeTestCheckFunc(
+					testAccCheck(map[string]string{
+						"enable_ipv6":     "false",
+						"ipv6_cidr_block": "",
+					}),
+				),
+			},
+			{
+				Config: testAccConfig(map[string]interface{}{
+					"enable_ipv6": "true",
+				}),
+				Check: resource.ComposeTestCheckFunc(
+					testAccCheck(map[string]string{
+						"enable_ipv6":     "true",
+						"ipv6_cidr_block": CHECKSET,
 					}),
 				),
 			},
@@ -422,7 +444,7 @@ func TestAccAlicloudVPC_enableIpv6(t *testing.T) {
 	})
 }
 
-func TestAccAlicloudVPC_basic1(t *testing.T) {
+func TestAccAliCloudVPC_basic1(t *testing.T) {
 	var v map[string]interface{}
 	resourceId := "alicloud_vpc.default"
 	ra := resourceAttrInit(resourceId, AlicloudVpcMap1)
@@ -474,7 +496,7 @@ func TestAccAlicloudVPC_basic1(t *testing.T) {
 	})
 }
 
-func TestAccAlicloudVPC_basic2(t *testing.T) {
+func TestAccAliCloudVPC_basic2(t *testing.T) {
 	var v map[string]interface{}
 	resourceId := "alicloud_vpc.default"
 	ra := resourceAttrInit(resourceId, AlicloudVpcMap1)
@@ -513,6 +535,16 @@ func TestAccAlicloudVPC_basic2(t *testing.T) {
 						"resource_group_id": CHECKSET,
 						"dry_run":           "false",
 						"user_cidrs.#":      "1",
+					}),
+				),
+			},
+			{
+				Config: testAccConfig(map[string]interface{}{
+					"name": name + "-update",
+				}),
+				Check: resource.ComposeTestCheckFunc(
+					testAccCheck(map[string]string{
+						"name": name + "-update",
 					}),
 				),
 			},
@@ -979,7 +1011,7 @@ func TestUnitAlicloudVPCdsafa(t *testing.T) {
 
 // Test Vpc Vpc. >>> Resource test cases, automatically generated.
 // Case 3113
-func TestAccAlicloudVpcVpc_basic3113(t *testing.T) {
+func TestAccAliCloudVpcVpc_basic3113(t *testing.T) {
 	var v map[string]interface{}
 	resourceId := "alicloud_vpc.default"
 	ra := resourceAttrInit(resourceId, AlicloudVpcVpcMap3113)
@@ -1169,7 +1201,7 @@ variable "name" {
 }
 
 // Case 3113  twin
-func TestAccAlicloudVpcVpc_basic3113_twin(t *testing.T) {
+func TestAccAliCloudVpcVpc_basic3113_twin(t *testing.T) {
 	var v map[string]interface{}
 	resourceId := "alicloud_vpc.default"
 	ra := resourceAttrInit(resourceId, AlicloudVpcVpcMap3113)

@@ -20,19 +20,18 @@ For information about ECD Network Package and how to use it, see [What is Networ
 Basic Usage
 
 ```terraform
-variable "name" {
-  default = "terraform-example"
+provider "alicloud" {
+  region = "cn-hangzhou"
 }
-resource "alicloud_ecd_simple_office_site" "default" {
-  cidr_block          = "172.16.0.0/12"
-  enable_admin_access = false
-  desktop_access_type = "Internet"
-  office_site_name    = var.name
+
+data "alicloud_ecd_simple_office_sites" "default" {
+  status     = "REGISTERED"
+  name_regex = "default"
 }
 
 resource "alicloud_ecd_network_package" "default" {
   bandwidth      = 10
-  office_site_id = alicloud_ecd_simple_office_site.default.id
+  office_site_id = data.alicloud_ecd_simple_office_sites.default.ids.0
 }
 ```
 

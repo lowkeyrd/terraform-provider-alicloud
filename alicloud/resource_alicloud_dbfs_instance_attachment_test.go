@@ -69,36 +69,40 @@ variable "name" {
 locals {
   zone_id = "cn-hangzhou-i"
 }
+data "alicloud_instance_types" "example" {
+  availability_zone    = local.zone_id
+  instance_type_family = "ecs.g7se"
+}
+data "alicloud_images" "example" {
+  instance_type = data.alicloud_instance_types.example.instance_types[length(data.alicloud_instance_types.example.instance_types) - 1].id
+  name_regex    = "^aliyun_2_1903_x64_20G_alibase_20231221.vhd"
+  owners        = "system"
+}
+
 data "alicloud_vpcs" "default" {
-  name_regex = "^default-NODELETING$"
+    name_regex = "^default-NODELETING$"
 }
 data "alicloud_vswitches" "default" {
   vpc_id  = data.alicloud_vpcs.default.ids[0]
   zone_id = local.zone_id
 }
-resource "alicloud_security_group" "default" {
-  name        = var.name
-  description = "tf test"
-  vpc_id  = data.alicloud_vpcs.default.ids[0]
+
+resource "alicloud_security_group" "example" {
+  name   = var.name
+  vpc_id = data.alicloud_vpcs.default.ids[0]
 }
-data "alicloud_images" "default" {
-  owners      = "system"
-  name_regex  = "^centos_8"
-  most_recent = true
-}
+
 resource "alicloud_instance" "default" {
-  image_id          = data.alicloud_images.default.images[0].id
-  instance_name     = var.name
-  instance_type     = "ecs.g7se.large"
-  availability_zone = local.zone_id
-  vswitch_id        = data.alicloud_vswitches.default.ids[0]
+  availability_zone    = local.zone_id
+  instance_name        = var.name
+  image_id             = data.alicloud_images.example.images.0.id
+  instance_type        = data.alicloud_instance_types.example.instance_types[length(data.alicloud_instance_types.example.instance_types) - 1].id
+  security_groups      = [alicloud_security_group.example.id]
+  vswitch_id           = data.alicloud_vswitches.default.ids.0
   system_disk_category = "cloud_essd"
-  security_groups = [
-    alicloud_security_group.default.id
-  ]
 }
 resource "alicloud_dbfs_instance" "default" {
-  category          = "standard"
+  category          = "enterprise"
   zone_id           = alicloud_instance.default.availability_zone
   performance_level = "PL1"
   instance_name     = var.name
