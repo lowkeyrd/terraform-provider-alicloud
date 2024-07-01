@@ -701,7 +701,7 @@ func Provider() terraform.ResourceProvider {
 			"alicloud_cr_chains":                                        dataSourceAlicloudCrChains(),
 			"alicloud_vpn_pbr_route_entries":                            dataSourceAlicloudVpnPbrRouteEntries(),
 			"alicloud_mse_znodes":                                       dataSourceAlicloudMseZnodes(),
-			"alicloud_cen_transit_router_available_resources":           dataSourceAlicloudCenTransitRouterAvailableResources(),
+			"alicloud_cen_transit_router_available_resources":           dataSourceAliCloudCenTransitRouterAvailableResources(),
 			"alicloud_ecs_image_pipelines":                              dataSourceAlicloudEcsImagePipelines(),
 			"alicloud_hbr_ots_backup_plans":                             dataSourceAlicloudHbrOtsBackupPlans(),
 			"alicloud_hbr_ots_snapshots":                                dataSourceAlicloudHbrOtsSnapshots(),
@@ -863,6 +863,10 @@ func Provider() terraform.ResourceProvider {
 			"alicloud_cms_site_monitors":                                dataSourceAliCloudCloudMonitorServiceSiteMonitors(),
 		},
 		ResourcesMap: map[string]*schema.Resource{
+			"alicloud_ddos_bgp_policy":                                      resourceAliCloudDdosBgpPolicy(),
+			"alicloud_cen_transit_router_ecr_attachment":                    resourceAliCloudCenTransitRouterEcrAttachment(),
+			"alicloud_alb_load_balancer_security_group_attachment":          resourceAliCloudAlbLoadBalancerSecurityGroupAttachment(),
+			"alicloud_gpdb_db_resource_group":                               resourceAliCloudGpdbDbResourceGroup(),
 			"alicloud_cloud_firewall_nat_firewall":                          resourceAliCloudCloudFirewallNatFirewall(),
 			"alicloud_oss_bucket_public_access_block":                       resourceAliCloudOssBucketPublicAccessBlock(),
 			"alicloud_oss_account_public_access_block":                      resourceAliCloudOssAccountPublicAccessBlock(),
@@ -872,6 +876,10 @@ func Provider() terraform.ResourceProvider {
 			"alicloud_oss_bucket_user_defined_log_fields":                   resourceAliCloudOssBucketUserDefinedLogFields(),
 			"alicloud_oss_bucket_transfer_acceleration":                     resourceAliCloudOssBucketTransferAcceleration(),
 			"alicloud_sls_scheduled_sql":                                    resourceAliCloudSlsScheduledSQL(),
+			"alicloud_express_connect_router_express_connect_router":        resourceAliCloudExpressConnectRouterExpressConnectRouter(),
+			"alicloud_express_connect_router_vpc_association":               resourceAliCloudExpressConnectRouterExpressConnectRouterVpcAssociation(),
+			"alicloud_express_connect_router_tr_association":                resourceAliCloudExpressConnectRouterExpressConnectRouterTrAssociation(),
+			"alicloud_express_connect_router_vbr_child_instance":            resourceAliCloudExpressConnectRouterExpressConnectRouterVbrChildInstance(),
 			"alicloud_express_connect_traffic_qos_rule":                     resourceAliCloudExpressConnectTrafficQosRule(),
 			"alicloud_express_connect_traffic_qos_queue":                    resourceAliCloudExpressConnectTrafficQosQueue(),
 			"alicloud_express_connect_traffic_qos_association":              resourceAliCloudExpressConnectTrafficQosAssociation(),
@@ -1285,7 +1293,7 @@ func Provider() terraform.ResourceProvider {
 			"alicloud_resource_manager_shared_target":                        resourceAlicloudResourceManagerSharedTarget(),
 			"alicloud_ga_listener":                                           resourceAliCloudGaListener(),
 			"alicloud_tsdb_instance":                                         resourceAlicloudTsdbInstance(),
-			"alicloud_ga_bandwidth_package":                                  resourceAlicloudGaBandwidthPackage(),
+			"alicloud_ga_bandwidth_package":                                  resourceAliCloudGaBandwidthPackage(),
 			"alicloud_ga_endpoint_group":                                     resourceAliCloudGaEndpointGroup(),
 			"alicloud_brain_industrial_pid_organization":                     resourceAlicloudBrainIndustrialPidOrganization(),
 			"alicloud_ga_bandwidth_package_attachment":                       resourceAlicloudGaBandwidthPackageAttachment(),
@@ -1504,7 +1512,7 @@ func Provider() terraform.ResourceProvider {
 			"alicloud_fnf_execution":                                         resourceAlicloudFnFExecution(),
 			"alicloud_cr_chart_repository":                                   resourceAlicloudCrChartRepository(),
 			"alicloud_mongodb_sharding_network_public_address":               resourceAlicloudMongodbShardingNetworkPublicAddress(),
-			"alicloud_ga_acl":                                                resourceAlicloudGaAcl(),
+			"alicloud_ga_acl":                                                resourceAliCloudGaAcl(),
 			"alicloud_ga_acl_attachment":                                     resourceAliCloudGaAclAttachment(),
 			"alicloud_ga_additional_certificate":                             resourceAliCloudGaAdditionalCertificate(),
 			"alicloud_alidns_custom_line":                                    resourceAlicloudAlidnsCustomLine(),
@@ -1637,7 +1645,7 @@ func Provider() terraform.ResourceProvider {
 			"alicloud_vpc_network_acl_attachment":                            resourceAliCloudVpcNetworkAclAttachment(),
 			"alicloud_cen_transit_router_cidr":                               resourceAlicloudCenTransitRouterCidr(),
 			"alicloud_das_switch_das_pro":                                    resourceAlicloudDasSwitchDasPro(),
-			"alicloud_ga_basic_accelerator":                                  resourceAlicloudGaBasicAccelerator(),
+			"alicloud_ga_basic_accelerator":                                  resourceAliCloudGaBasicAccelerator(),
 			"alicloud_ga_basic_endpoint_group":                               resourceAliCloudGaBasicEndpointGroup(),
 			"alicloud_cms_metric_rule_black_list":                            resourceAlicloudCmsMetricRuleBlackList(),
 			"alicloud_ga_basic_ip_set":                                       resourceAliCloudGaBasicIpSet(),
@@ -1894,7 +1902,7 @@ func providerConfigure(d *schema.ResourceData, p *schema.Provider) (interface{},
 		config.FnfEndpoint = strings.TrimSpace(endpoints["fnf"].(string))
 		config.RosEndpoint = strings.TrimSpace(endpoints["ros"].(string))
 		config.PrivatelinkEndpoint = strings.TrimSpace(endpoints["privatelink"].(string))
-		config.ResourcesharingEndpoint = strings.TrimSpace(endpoints["resourcesharing"].(string))
+		config.ResourcesharingEndpoint = strings.TrimSpace(endpoints["ressharing"].(string))
 		config.GaEndpoint = strings.TrimSpace(endpoints["ga"].(string))
 		config.HitsdbEndpoint = strings.TrimSpace(endpoints["hitsdb"].(string))
 		config.BrainIndustrialEndpoint = strings.TrimSpace(endpoints["brain_industrial"].(string))
@@ -2941,7 +2949,7 @@ func endpointsSchema() *schema.Schema {
 					Description: descriptions["brain_industrial_endpoint"],
 				},
 
-				"resourcesharing": {
+				"ressharing": {
 					Type:        schema.TypeString,
 					Optional:    true,
 					Default:     "",
@@ -3382,7 +3390,7 @@ func endpointsToHash(v interface{}) int {
 	buf.WriteString(fmt.Sprintf("%s-", m["fnf"].(string)))
 	buf.WriteString(fmt.Sprintf("%s-", m["ros"].(string)))
 	buf.WriteString(fmt.Sprintf("%s-", m["privatelink"].(string)))
-	buf.WriteString(fmt.Sprintf("%s-", m["resourcesharing"].(string)))
+	buf.WriteString(fmt.Sprintf("%s-", m["ressharing"].(string)))
 	buf.WriteString(fmt.Sprintf("%s-", m["ga"].(string)))
 	buf.WriteString(fmt.Sprintf("%s-", m["hitsdb"].(string)))
 	buf.WriteString(fmt.Sprintf("%s-", m["brain_industrial"].(string)))

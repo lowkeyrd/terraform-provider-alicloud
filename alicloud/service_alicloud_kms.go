@@ -120,6 +120,9 @@ func (s *KmsService) DescribeKmsKeyPolicy(id string) (object map[string]interfac
 	addDebug(action, response, request)
 
 	if err != nil {
+		if IsExpectedErrors(err, []string{"Forbidden.ResourceNotFound"}) {
+			return object, nil
+		}
 		return object, WrapErrorf(err, DefaultErrorMsg, id, action, AlibabaCloudSdkGoERROR)
 	}
 
@@ -293,6 +296,9 @@ func (s *KmsService) DescribeKmsSecretPolicy(id string) (object map[string]inter
 	addDebug(action, response, request)
 
 	if err != nil {
+		if IsExpectedErrors(err, []string{"Forbidden.ResourceNotFound"}) {
+			return object, nil
+		}
 		return object, WrapErrorf(err, DefaultErrorMsg, id, action, AlibabaCloudSdkGoERROR)
 	}
 
