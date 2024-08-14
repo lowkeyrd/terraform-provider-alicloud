@@ -129,7 +129,10 @@ The following arguments are supported:
       targeting your `alicloud_slb_listener` in order to make sure the listener with its HealthCheck configuration is ready before creating your scaling group).
     - The Server Load Balancer instance attached with VPC-type ECS instances cannot be attached to the scaling group.
     - The default weight of an ECS instance attached to the Server Load Balancer instance is 50.
-* `multi_az_policy` - (Optional, ForceNew) Multi-AZ scaling group ECS instance expansion and contraction strategy. PRIORITY, BALANCE or COST_OPTIMIZED(Available since v1.54.0).
+* `multi_az_policy` - (Optional, ForceNew) Multi-AZ scaling group ECS instance expansion and contraction strategy. PRIORITY, COMPOSABLE, BALANCE or COST_OPTIMIZED(Available since v1.54.0).
+* `az_balance` - (Optional, Available since v1.225.1) Specifies whether to evenly distribute instances in the scaling group across multiple zones. This parameter takes effect only if you set MultiAZPolicy to COMPOSABLE.
+* `spot_allocation_strategy` - (Optional, Available since v1.225.1) The allocation policy of preemptible instances. You can use this parameter to individually specify the allocation policy for preemptible instances. This parameter takes effect only if you set MultiAZPolicy to COMPOSABLE.
+* `allocation_strategy` - (Optional, Available since v1.225.1) The allocation policy of instances. Auto Scaling selects instance types based on the allocation policy to create instances. The policy can be applied to pay-as-you-go instances and preemptible instances. This parameter takes effect only if you set MultiAZPolicy to COMPOSABLE.
 * `on_demand_base_capacity` - (Optional, Available since v1.54.0) The minimum amount of the Auto Scaling group's capacity that must be fulfilled by On-Demand Instances. This base portion is provisioned first as your group scales.
 * `on_demand_percentage_above_base_capacity` - (Optional, Available since v1.54.0) Controls the percentages of On-Demand Instances and Spot Instances for your additional capacity beyond OnDemandBaseCapacity.  
 * `spot_instance_pools` - (Optional, Available since v1.54.0) The number of Spot pools to use to allocate your Spot capacity. The Spot pools is composed of instance types of lowest price.
@@ -138,7 +141,11 @@ The following arguments are supported:
 * `launch_template_id` - (Optional, Available since v1.141.0) Instance launch template ID, scaling group obtains launch configuration from instance launch template, see [Launch Template](https://www.alibabacloud.com/help/doc-detail/73916.html). Creating scaling group from launch template enable group automatically.
 * `launch_template_version` - (Optional, Available since v1.159.0) The version number of the launch template. Valid values are the version number, `Latest`, or `Default`, Default value: `Default`.
 * `group_type` - (Optional, ForceNew, Available since v1.164.0) Resource type within scaling group. Optional values: ECS, ECI. Default to ECS.
-* `health_check_type` - (Optional, Available since v1.193.0) Resource type within scaling group. Optional values: ECS, NONE, LOAD_BALANCER. Default to ECS.
+* `health_check_type` - (Optional, Available since v1.193.0) Resource type within scaling group. Optional values: ECS, ECI, NONE, LOAD_BALANCER. Default to ECS.
+* `health_check_types` - (Optional, Available since v1.228.0) The health check modes of the scaling group. Valid values: ECS, ECI, NONE, LOAD_BALANCER.
+* `instance_id` - (Optional, ForceNew, Available since v1.228.0) The ID of the instance from which Auto Scaling obtains the required configuration information and uses the information to automatically create a scaling configuration.
+* `scaling_policy` - (Optional, Available since v1.227.0) The reclaim mode of the scaling group. Optional values: recycle, release, forceRecycle, forceRelease. 
+* `max_instance_lifetime` - (Optional, Available since v1.227.0) The maximum life span of an instance in the scaling group. Unit: seconds.
 * `tags` - (Optional, Available since v1.160.0) A mapping of tags to assign to the resource.
   - Key: It can be up to 64 characters in length. It cannot begin with "aliyun", "acs:", "http://", or "https://". It cannot be a null string.
   - Value: It can be up to 128 characters in length. It cannot begin with "aliyun", "acs:", "http://", or "https://". It can be a null string.

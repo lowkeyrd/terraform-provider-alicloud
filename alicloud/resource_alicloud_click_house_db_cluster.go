@@ -57,7 +57,6 @@ func resourceAlicloudClickHouseDbCluster() *schema.Resource {
 			},
 			"db_cluster_class": {
 				Type:     schema.TypeString,
-				ForceNew: true,
 				Required: true,
 			},
 			"db_cluster_network_type": {
@@ -80,7 +79,6 @@ func resourceAlicloudClickHouseDbCluster() *schema.Resource {
 				Type:         schema.TypeInt,
 				ValidateFunc: validation.IntBetween(1, 48),
 				Required:     true,
-				ForceNew:     true,
 			},
 
 			"encryption_key": {
@@ -153,6 +151,26 @@ func resourceAlicloudClickHouseDbCluster() *schema.Resource {
 				Optional: true,
 				Computed: true,
 				ForceNew: true,
+			},
+			"multi_zone_vswitch_list": {
+				Type:     schema.TypeSet,
+				Optional: true,
+				ForceNew: true,
+				Elem: &schema.Resource{
+					Schema: map[string]*schema.Schema{
+						"zone_id": {
+							Optional: true,
+							Computed: true,
+							ForceNew: true,
+							Type:     schema.TypeString,
+						},
+						"vswitch_id": {
+							Required: true,
+							ForceNew: true,
+							Type:     schema.TypeString,
+						},
+					},
+				},
 			},
 			"vpc_id": {
 				Type:     schema.TypeString,
@@ -229,6 +247,21 @@ func resourceAlicloudClickHouseDbClusterCreate(d *schema.ResourceData, meta inte
 		request["VSwitchId"] = v
 	}
 
+	if v, ok := d.GetOk("multi_zone_vswitch_list"); ok {
+		vlist := v.(*schema.Set).List()
+		if len(vlist) != 2 {
+			return WrapError(fmt.Errorf("multi_zone_vswitch_list must have 2 different zones and vswitches, got: %d", len(vlist)))
+		}
+		vswitch1, vswitch2 := vlist[0].(map[string]interface{}), vlist[1].(map[string]interface{})
+		if vswitch1["zone_id"] == vswitch2["zone_id"] || vswitch1["vswitch_id"] == vswitch2["vswitch_id"] {
+			return WrapError(fmt.Errorf("multi_zone_vswitch_list must have 2 different zone ids and vswitch ids"))
+		}
+		request["ZoneIdBak"] = vswitch1["zone_id"]
+		request["VSwitchBak"] = vswitch1["vswitch_id"]
+		request["ZoneIdBak2"] = vswitch2["zone_id"]
+		request["VSwitchBak2"] = vswitch2["vswitch_id"]
+	}
+
 	if (request["ZoneId"] == nil || request["VpcId"] == nil) && request["VSwitchId"] != nil {
 		vpcService := VpcService{client}
 		vsw, err := vpcService.DescribeVSwitchWithTeadsl(request["VSwitchId"].(string))
@@ -242,6 +275,25 @@ func resourceAlicloudClickHouseDbClusterCreate(d *schema.ResourceData, meta inte
 			request["ZoneId"] = vsw["ZoneId"]
 		}
 	}
+
+	if request["ZoneIdBak"] == nil && request["VSwitchBak"] != nil {
+		vpcService := VpcService{client}
+		vsw, err := vpcService.DescribeVSwitchWithTeadsl(request["VSwitchBak"].(string))
+		if err != nil {
+			return WrapError(err)
+		}
+		request["ZoneIdBak"] = vsw["ZoneId"]
+	}
+
+	if request["ZondIdBak2"] == nil && request["VSwitchBak2"] != nil {
+		vpcService := VpcService{client}
+		vsw, err := vpcService.DescribeVSwitchWithTeadsl(request["VSwitchBak2"].(string))
+		if err != nil {
+			return WrapError(err)
+		}
+		request["ZondIdBak2"] = vsw["ZoneId"]
+	}
+
 	request["ClientToken"] = buildClientToken("CreateDBInstance")
 	runtime := util.RuntimeOptions{}
 	runtime.SetAutoretry(true)
@@ -305,6 +357,21 @@ func resourceAlicloudClickHouseDbClusterRead(d *schema.ResourceData, meta interf
 	d.Set("vpc_id", object["VpcId"])
 	d.Set("connection_string", object["ConnectionString"])
 	d.Set("port", object["Port"])
+
+	if ZoneIdVswitchMap, ok := object["ZoneIdVswitchMap"]; ok {
+		vMap := ZoneIdVswitchMap.(map[string]interface{})
+		if _, ok := vMap[object["ZoneId"].(string)]; ok {
+			delete(vMap, object["ZoneId"].(string))
+		}
+		vList := make([]map[string]interface{}, 0)
+		for k, v := range vMap {
+			vList = append(vList, map[string]interface{}{
+				"zone_id":    k,
+				"vswitch_id": v.(string),
+			})
+		}
+		d.Set("multi_zone_vswitch_list", vList)
+	}
 
 	object, err = clickhouseService.DescribeClickHouseAutoRenewStatus(d.Id())
 	if err != nil {
@@ -540,7 +607,7 @@ func resourceAlicloudClickHouseDbClusterUpdate(d *schema.ResourceData, meta inte
 			return WrapErrorf(err, IdMsg, d.Id())
 		}
 	}
-	if !d.IsNewResource() && d.HasChange("db_node_storage") {
+	if !d.IsNewResource() && (d.HasChange("db_node_storage") || d.HasChange("db_node_group_count") || d.HasChange("db_cluster_class")) {
 		clickhouseService := ClickhouseService{client}
 		object, err := clickhouseService.DescribeClickHouseDbCluster(d.Id())
 		if err != nil {
@@ -554,8 +621,16 @@ func resourceAlicloudClickHouseDbClusterUpdate(d *schema.ResourceData, meta inte
 		if err != nil {
 			return WrapError(err)
 		}
-		if storageLocal <= storageRemote {
-			return WrapError(fmt.Errorf("Downgrading storage is not supported"))
+		if storageLocal < storageRemote {
+			return WrapError(fmt.Errorf("downgrading storage is not supported"))
+		}
+		nodeCountLocal := d.Get("db_node_group_count").(int)
+		nodeCountRemote, err := object["DBNodeCount"].(json.Number).Int64()
+		if err != nil {
+			return WrapError(err)
+		}
+		if int64(nodeCountLocal) < nodeCountRemote {
+			return WrapError(fmt.Errorf("downgrading db_node_group_count is not supported"))
 		}
 		request := map[string]interface{}{
 			"DBClusterId":       d.Id(),
@@ -587,13 +662,15 @@ func resourceAlicloudClickHouseDbClusterUpdate(d *schema.ResourceData, meta inte
 		if err != nil {
 			return WrapErrorf(err, DefaultErrorMsg, d.Id(), action, AlibabaCloudSdkGoERROR)
 		}
-		stateConf := BuildStateConf([]string{"ClassChanging"}, []string{"Running"}, d.Timeout(schema.TimeoutUpdate), 5*time.Second, clickhouseService.ClickHouseDbClusterStateRefreshFunc(d.Id(), []string{}))
+		stateConf := BuildStateConf([]string{"ClassChanging", "SCALING_OUT"}, []string{"Running"}, d.Timeout(schema.TimeoutUpdate), 5*time.Second, clickhouseService.ClickHouseDbClusterStateRefreshFunc(d.Id(), []string{}))
 		if _, err := stateConf.WaitForState(); err != nil {
 			return WrapErrorf(err, IdMsg, d.Id())
 		}
 		d.SetPartial("db_node_storage")
+		d.SetPartial("db_node_group_count")
+		d.SetPartial("db_cluster_class")
 	}
-	if v, ok := d.GetOk("payment_type"); ok && v.(string) == "Subscription" && d.HasChange("renewal_status") && !d.IsNewResource(){
+	if v, ok := d.GetOk("payment_type"); ok && v.(string) == "Subscription" && d.HasChange("renewal_status") && !d.IsNewResource() {
 		action := "ModifyAutoRenewAttribute"
 		conn, err := client.NewClickhouseClient()
 		if err != nil {

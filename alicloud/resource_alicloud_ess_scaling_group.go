@@ -47,10 +47,22 @@ func resourceAlicloudEssScalingGroup() *schema.Resource {
 				Optional: true,
 			},
 			"health_check_type": {
+				Type:          schema.TypeString,
+				Computed:      true,
+				ValidateFunc:  StringInSlice([]string{"ECS", "NONE", "LOAD_BALANCER", "ECI"}, false),
+				Optional:      true,
+				ConflictsWith: []string{"health_check_types"},
+			},
+			"scaling_policy": {
 				Type:         schema.TypeString,
 				Computed:     true,
-				ValidateFunc: StringInSlice([]string{"ECS", "NONE", "LOAD_BALANCER"}, false),
+				ValidateFunc: StringInSlice([]string{"recycle", "release", "forceRecycle", "forceRelease"}, false),
 				Optional:     true,
+			},
+			"max_instance_lifetime": {
+				Type:         schema.TypeInt,
+				Optional:     true,
+				ValidateFunc: IntAtLeast(86400),
 			},
 			"default_cooldown": {
 				Type:         schema.TypeInt,
@@ -62,6 +74,17 @@ func resourceAlicloudEssScalingGroup() *schema.Resource {
 				Type:       schema.TypeString,
 				Optional:   true,
 				Deprecated: "Field 'vswitch_id' has been deprecated from provider version 1.7.1, and new field 'vswitch_ids' can replace it.",
+			},
+			"instance_id": {
+				Type:     schema.TypeString,
+				Optional: true,
+				ForceNew: true,
+			},
+			"health_check_types": {
+				Type:          schema.TypeList,
+				Optional:      true,
+				Elem:          &schema.Schema{Type: schema.TypeString},
+				ConflictsWith: []string{"health_check_type"},
 			},
 			"vswitch_ids": {
 				Type:     schema.TypeSet,
@@ -113,8 +136,24 @@ func resourceAlicloudEssScalingGroup() *schema.Resource {
 				Type:         schema.TypeString,
 				Optional:     true,
 				Default:      "PRIORITY",
-				ValidateFunc: StringInSlice([]string{"PRIORITY", "BALANCE", "COST_OPTIMIZED"}, false),
+				ValidateFunc: StringInSlice([]string{"PRIORITY", "BALANCE", "COST_OPTIMIZED", "COMPOSABLE"}, false),
 				ForceNew:     true,
+			},
+			"az_balance": {
+				Type:     schema.TypeBool,
+				Optional: true,
+			},
+			"allocation_strategy": {
+				Type:         schema.TypeString,
+				Optional:     true,
+				ValidateFunc: StringInSlice([]string{"priority", "lowestPrice"}, false),
+				Computed:     true,
+			},
+			"spot_allocation_strategy": {
+				Type:         schema.TypeString,
+				Optional:     true,
+				ValidateFunc: StringInSlice([]string{"priority", "lowestPrice"}, false),
+				Computed:     true,
 			},
 			"on_demand_base_capacity": {
 				Type:         schema.TypeInt,
@@ -223,6 +262,8 @@ func resourceAliyunEssScalingGroupCreate(d *schema.ResourceData, meta interface{
 			return resource.NonRetryableError(err)
 		}
 		d.SetId(raw.(map[string]interface{})["ScalingGroupId"].(string))
+		d.Set("alb_server_group", request["AlbServerGroup"])
+
 		return nil
 	}); err != nil {
 		return WrapErrorf(err, DefaultErrorMsg, "alicloud_ess_scaling_group", "CreateScalingGroup", AlibabaCloudSdkGoERROR)
@@ -277,10 +318,18 @@ func resourceAliyunEssScalingGroupRead(d *schema.ResourceData, meta interface{})
 	d.Set("desired_capacity", object["DesiredCapacity"])
 	d.Set("scaling_group_name", object["ScalingGroupName"])
 	d.Set("default_cooldown", object["DefaultCooldown"])
+	if object["MaxInstanceLifetime"] != nil {
+		d.Set("max_instance_lifetime", object["MaxInstanceLifetime"])
+	}
 	d.Set("multi_az_policy", object["MultiAZPolicy"])
+	d.Set("az_balance", object["AzBalance"])
+	d.Set("allocation_strategy", object["AllocationStrategy"])
+	d.Set("spot_allocation_strategy", object["SpotAllocationStrategy"])
 	d.Set("on_demand_base_capacity", object["OnDemandBaseCapacity"])
 	d.Set("on_demand_percentage_above_base_capacity", object["OnDemandPercentageAboveBaseCapacity"])
-	d.Set("spot_instance_pools", object["SpotInstancePools"])
+	if object["SpotInstancePools"] != nil {
+		d.Set("spot_instance_pools", object["SpotInstancePools"])
+	}
 	d.Set("spot_instance_remedy", object["SpotInstanceRemedy"])
 	d.Set("group_deletion_protection", object["GroupDeletionProtection"])
 	var polices []string
@@ -313,16 +362,27 @@ func resourceAliyunEssScalingGroupRead(d *schema.ResourceData, meta interface{})
 		}
 	}
 
+	var healthCheckTypes []string
+	if object["HealthCheckTypes"] != nil && len(object["HealthCheckTypes"].(map[string]interface{})["HealthCheckType"].([]interface{})) > 0 {
+		for _, v := range object["HealthCheckTypes"].(map[string]interface{})["HealthCheckType"].([]interface{}) {
+			healthCheckTypes = append(healthCheckTypes, v.(string))
+		}
+	}
+
 	if v := object["LaunchTemplateOverrides"]; v != nil {
 		result := make([]map[string]interface{}, 0)
 		for _, i := range v.(map[string]interface{})["LaunchTemplateOverride"].([]interface{}) {
-			r := i.(map[string]interface{})
-			f, _ := r["SpotPriceLimit"].(json.Number).Float64()
-			spotPriceLimit, _ := strconv.ParseFloat(strconv.FormatFloat(f, 'f', 2, 64), 64)
+			launchTemplateOverride := i.(map[string]interface{})
 			l := map[string]interface{}{
-				"instance_type":     r["InstanceType"],
-				"weighted_capacity": r["WeightedCapacity"],
-				"spot_price_limit":  spotPriceLimit,
+				"instance_type": launchTemplateOverride["InstanceType"],
+			}
+			if launchTemplateOverride["SpotPriceLimit"] != nil {
+				spotPriceLimitFloatformat, _ := launchTemplateOverride["SpotPriceLimit"].(json.Number).Float64()
+				spotPriceLimit, _ := strconv.ParseFloat(strconv.FormatFloat(spotPriceLimitFloatformat, 'f', 2, 64), 64)
+				l["spot_price_limit"] = spotPriceLimit
+			}
+			if launchTemplateOverride["WeightedCapacity"] != nil {
+				l["weighted_capacity"] = launchTemplateOverride["WeightedCapacity"]
 			}
 			result = append(result, l)
 		}
@@ -334,18 +394,29 @@ func resourceAliyunEssScalingGroupRead(d *schema.ResourceData, meta interface{})
 
 	if v := object["AlbServerGroups"]; v != nil {
 		result := make([]map[string]interface{}, 0)
-		for _, i := range v.(map[string]interface{})["AlbServerGroup"].([]interface{}) {
-			r := i.(map[string]interface{})
-			l := map[string]interface{}{
-				"alb_server_group_id": r["AlbServerGroupId"],
-				"weight":              r["Weight"],
-				"port":                r["Port"],
+		if w, ok := d.GetOk("alb_server_group"); ok {
+			albServerGroups := w.(*schema.Set).List()
+			for _, rew := range albServerGroups {
+				item := rew.(map[string]interface{})
+				for _, i := range v.(map[string]interface{})["AlbServerGroup"].([]interface{}) {
+					r := i.(map[string]interface{})
+					uu, _ := r["Port"].(json.Number).Int64()
+					if albServerGroupId, ok := item["alb_server_group_id"].(string); ok && albServerGroupId != "" {
+						if r["AlbServerGroupId"].(string) == albServerGroupId && int64(item["port"].(int)) == uu {
+							l := map[string]interface{}{
+								"alb_server_group_id": r["AlbServerGroupId"],
+								"weight":              r["Weight"],
+								"port":                r["Port"],
+							}
+							result = append(result, l)
+						}
+					}
+				}
+				err := d.Set("alb_server_group", result)
+				if err != nil {
+					return WrapError(err)
+				}
 			}
-			result = append(result, l)
-		}
-		err := d.Set("alb_server_group", result)
-		if err != nil {
-			return WrapError(err)
 		}
 	}
 
@@ -354,6 +425,10 @@ func resourceAliyunEssScalingGroupRead(d *schema.ResourceData, meta interface{})
 	d.Set("launch_template_version", object["LaunchTemplateVersion"])
 	d.Set("group_type", object["GroupType"])
 	d.Set("health_check_type", object["HealthCheckType"])
+	if object["HealthCheckType"] == nil {
+		d.Set("health_check_types", healthCheckTypes)
+	}
+	d.Set("scaling_policy", object["ScalingPolicy"])
 
 	listTagResourcesObject, err := essService.ListTagResources(d.Id(), client)
 	if err != nil {
@@ -403,6 +478,10 @@ func resourceAliyunEssScalingGroupUpdate(d *schema.ResourceData, meta interface{
 		request["HealthCheckType"] = d.Get("health_check_type").(string)
 	}
 
+	if d.HasChange("scaling_policy") {
+		request["ScalingPolicy"] = d.Get("scaling_policy").(string)
+	}
+
 	if d.HasChange("min_size") {
 		request["MinSize"] = requests.NewInteger(d.Get("min_size").(int))
 	}
@@ -415,6 +494,11 @@ func resourceAliyunEssScalingGroupUpdate(d *schema.ResourceData, meta interface{
 			request["DesiredCapacity"] = requests.NewInteger(v.(int))
 		}
 	}
+	if d.HasChange("max_instance_lifetime") {
+		if v, ok := d.GetOkExists("max_instance_lifetime"); ok {
+			request["MaxInstanceLifetime"] = requests.NewInteger(v.(int))
+		}
+	}
 	if d.HasChange("default_cooldown") {
 		request["DefaultCooldown"] = requests.NewInteger(d.Get("default_cooldown").(int))
 	}
@@ -422,6 +506,11 @@ func resourceAliyunEssScalingGroupUpdate(d *schema.ResourceData, meta interface{
 	if d.HasChange("vswitch_ids") {
 		vSwitchIds := expandStringList(d.Get("vswitch_ids").(*schema.Set).List())
 		request["VSwitchIds"] = &vSwitchIds
+	}
+
+	if d.HasChange("health_check_types") {
+		healthCheckTypes := expandStringList(d.Get("health_check_types").([]interface{}))
+		request["HealthCheckTypes"] = &healthCheckTypes
 	}
 
 	if d.HasChange("removal_policies") {
@@ -447,6 +536,18 @@ func resourceAliyunEssScalingGroupUpdate(d *schema.ResourceData, meta interface{
 		request["SpotInstanceRemedy"] = requests.NewBoolean(d.Get("spot_instance_remedy").(bool))
 	}
 
+	if d.HasChange("az_balance") {
+		request["AzBalance"] = requests.NewBoolean(d.Get("az_balance").(bool))
+	}
+
+	if d.HasChange("allocation_strategy") {
+		request["AllocationStrategy"] = d.Get("allocation_strategy").(string)
+	}
+
+	if d.HasChange("spot_allocation_strategy") {
+		request["SpotAllocationStrategy"] = d.Get("spot_allocation_strategy").(string)
+	}
+
 	if d.HasChange("group_deletion_protection") {
 		request["GroupDeletionProtection"] = requests.NewBoolean(d.Get("group_deletion_protection").(bool))
 	}
@@ -460,16 +561,22 @@ func resourceAliyunEssScalingGroupUpdate(d *schema.ResourceData, meta interface{
 	if d.HasChange("launch_template_override") {
 		v, ok := d.GetOk("launch_template_override")
 		if ok {
-			launchTemplateOverrides := make([]ess.ModifyScalingGroupLaunchTemplateOverride, 0)
-			for _, e := range v.(*schema.Set).List() {
-				pack := e.(map[string]interface{})
-				l := ess.ModifyScalingGroupLaunchTemplateOverride{
-					InstanceType:     pack["instance_type"].(string),
-					SpotPriceLimit:   strconv.FormatFloat(pack["spot_price_limit"].(float64), 'f', 2, 64),
-					WeightedCapacity: strconv.Itoa(pack["weighted_capacity"].(int)),
+			launchTemplateOverrides := make([]map[string]interface{}, 0)
+			for _, rew := range v.(*schema.Set).List() {
+				item := rew.(map[string]interface{})
+				l := map[string]interface{}{
+					"InstanceType": item["instance_type"].(string),
+				}
+				if item["spot_price_limit"].(float64) != 0 {
+					l["SpotPriceLimit"] = strconv.FormatFloat(item["spot_price_limit"].(float64), 'f', 2, 64)
+				}
+				if item["weighted_capacity"].(int) != 0 {
+					l["WeightedCapacity"] = strconv.Itoa(item["weighted_capacity"].(int))
 				}
 				launchTemplateOverrides = append(launchTemplateOverrides, l)
 			}
+			request["LaunchTemplateVersion"] = d.Get("launch_template_version").(string)
+			request["LaunchTemplateId"] = d.Get("launch_template_id").(string)
 			request["LaunchTemplateOverride"] = &launchTemplateOverrides
 		}
 	}
@@ -562,6 +669,17 @@ func buildAlicloudEssScalingGroupArgs(d *schema.ResourceData, meta interface{}) 
 		request["ScalingGroupName"] = v
 	}
 
+	if v, ok := d.GetOk("allocation_strategy"); ok && v.(string) != "" {
+		request["AllocationStrategy"] = v
+	}
+	if v, ok := d.GetOk("spot_allocation_strategy"); ok && v.(string) != "" {
+		request["SpotAllocationStrategy"] = v
+	}
+
+	if v, ok := d.GetOk("az_balance"); ok {
+		request["AzBalance"] = v
+	}
+
 	if v, ok := d.GetOk("resource_group_id"); ok {
 		request["ResourceGroupId"] = v
 	}
@@ -570,6 +688,14 @@ func buildAlicloudEssScalingGroupArgs(d *schema.ResourceData, meta interface{}) 
 		count := 1
 		for _, value := range v.(*schema.Set).List() {
 			request[fmt.Sprintf("VSwitchIds.%d", count)] = value
+			count++
+		}
+	}
+
+	if v, ok := d.GetOk("health_check_types"); ok {
+		count := 1
+		for _, value := range v.(*schema.Set).List() {
+			request[fmt.Sprintf("HealthCheckTypes.%d", count)] = value
 			count++
 		}
 	}
@@ -607,6 +733,10 @@ func buildAlicloudEssScalingGroupArgs(d *schema.ResourceData, meta interface{}) 
 		request["DesiredCapacity"] = v
 	}
 
+	if v, ok := d.GetOk("max_instance_lifetime"); ok {
+		request["MaxInstanceLifetime"] = v
+	}
+
 	request["OnDemandBaseCapacity"] = d.Get("on_demand_base_capacity")
 
 	request["OnDemandPercentageAboveBaseCapacity"] = d.Get("on_demand_percentage_above_base_capacity")
@@ -621,6 +751,10 @@ func buildAlicloudEssScalingGroupArgs(d *schema.ResourceData, meta interface{}) 
 
 	if v, ok := d.GetOk("health_check_type"); ok {
 		request["HealthCheckType"] = v
+	}
+
+	if v, ok := d.GetOk("scaling_policy"); ok {
+		request["ScalingPolicy"] = v
 	}
 
 	if v, ok := d.GetOk("group_deletion_protection"); ok {
@@ -641,9 +775,12 @@ func buildAlicloudEssScalingGroupArgs(d *schema.ResourceData, meta interface{}) 
 			if instanceType, ok := item["instance_type"].(string); ok && instanceType != "" {
 				launchTemplateOverridesMap["InstanceType"] = instanceType
 			}
-			launchTemplateOverridesMap["SpotPriceLimit"] = strconv.FormatFloat(item["spot_price_limit"].(float64), 'f', 2, 64)
-			launchTemplateOverridesMap["WeightedCapacity"] = item["weighted_capacity"].(int)
-
+			if item["spot_price_limit"].(float64) != 0 {
+				launchTemplateOverridesMap["SpotPriceLimit"] = strconv.FormatFloat(item["spot_price_limit"].(float64), 'f', 2, 64)
+			}
+			if item["weighted_capacity"].(int) != 0 {
+				launchTemplateOverridesMap["WeightedCapacity"] = item["weighted_capacity"].(int)
+			}
 			launchTemplateOverridesMaps = append(launchTemplateOverridesMaps, launchTemplateOverridesMap)
 		}
 		request["LaunchTemplateOverride"] = launchTemplateOverridesMaps

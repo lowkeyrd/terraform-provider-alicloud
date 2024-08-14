@@ -111,7 +111,6 @@ type Config struct {
 	EciEndpoint                 string
 	OosEndpoint                 string
 	DcdnEndpoint                string
-	MseEndpoint                 string
 	ActiontrailEndpoint         string
 	ConfigEndpoint              string
 	FnfEndpoint                 string
@@ -152,6 +151,7 @@ type Config struct {
 	IotEndpoint                 string
 	ImmEndpoint                 string
 	ClickhouseEndpoint          string
+	SelectDBEndpoint            string
 	DtsEndpoint                 string
 	DgEndpoint                  string
 	CloudssoEndpoint            string

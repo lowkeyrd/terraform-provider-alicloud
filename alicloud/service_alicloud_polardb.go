@@ -643,7 +643,7 @@ func (s *PolarDBService) DescribePolarDBClusterSSL(d *schema.ResourceData) (ssl 
 	request.RegionId = s.client.RegionId
 	request.DBClusterId = dbClusterId
 	var raw interface{}
-	err = resource.Retry(5*time.Minute, func() *resource.RetryError {
+	err = resource.Retry(10*time.Minute, func() *resource.RetryError {
 		raw, err = s.client.WithPolarDBClient(func(polarDBClient *polardb.Client) (interface{}, error) {
 			return polarDBClient.DescribeDBClusterSSL(request)
 		})
@@ -965,7 +965,7 @@ func (s *PolarDBService) ModifyParameters(d *schema.ResourceData) error {
 			value := i.(map[string]interface{})["value"].(string)
 			allConfig[key] = value
 		}
-		if err := s.WaitForPolarDBParameter(d.Id(), DefaultTimeoutMedium, allConfig); err != nil {
+		if err := s.WaitForPolarDBParameter(d.Id(), DefaultLongTimeout, allConfig); err != nil {
 			return WrapError(err)
 		}
 	}
@@ -981,10 +981,11 @@ func (s *PolarDBService) CreateClusterParamsModifyParameters(d *schema.ResourceD
 	allConfig := make(map[string]string)
 	changeParams := []string{"loose_polar_log_bin", "default_time_zone"}
 	for _, i := range changeParams {
-		v := d.Get(i)
-		if v != nil {
-			config[i] = v
-			allConfig[i] = fmt.Sprint(v)
+		if v, ok := d.GetOk(i); ok {
+			if d.HasChange(i) {
+				config[i] = v
+				allConfig[i] = fmt.Sprint(v)
+			}
 		}
 	}
 	cfg, _ := json.Marshal(config)
@@ -1002,7 +1003,7 @@ func (s *PolarDBService) CreateClusterParamsModifyParameters(d *schema.ResourceD
 
 	addDebug(request.GetActionName(), raw, request.RpcRequest, request)
 	// wait instance parameter expect after modifying
-	if err := s.WaitForPolarDBParameter(d.Id(), DefaultLongTimeout, allConfig); err != nil {
+	if err := s.WaitForPolarDBParameter(d.Id(), 1200, allConfig); err != nil {
 		return WrapError(err)
 	}
 	for _, i := range changeParams {

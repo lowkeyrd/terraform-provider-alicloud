@@ -22,6 +22,14 @@ variable "name" {
   default = "terraform-example"
 }
 
+variable "instance_type" {
+  default = "ecs.n4.large"
+}
+
+variable "image_id" {
+  default = "ubuntu_18_04_64_20G_alibase_20190624.vhd"
+}
+
 # Create a new ECS instance for a VPC
 resource "alicloud_security_group" "group" {
   name        = var.name
@@ -38,6 +46,7 @@ resource "alicloud_kms_key" "key" {
 data "alicloud_zones" "default" {
   available_disk_category     = "cloud_efficiency"
   available_resource_creation = "VSwitch"
+  available_instance_type     = var.instance_type
 }
 
 # Create a new ECS instance for VPC
@@ -59,11 +68,11 @@ resource "alicloud_instance" "instance" {
   security_groups   = alicloud_security_group.group.*.id
 
   # series III
-  instance_type              = "ecs.n4.large"
+  instance_type              = var.instance_type
   system_disk_category       = "cloud_efficiency"
   system_disk_name           = var.name
   system_disk_description    = "test_foo_system_disk_description"
-  image_id                   = "ubuntu_18_04_64_20G_alibase_20190624.vhd"
+  image_id                   = var.image_id
   instance_name              = var.name
   vswitch_id                 = alicloud_vswitch.vswitch.id
   internet_max_bandwidth_out = 10
@@ -117,6 +126,7 @@ The following arguments are supported:
 * `password` - (Optional, Sensitive) Password to an instance is a string of 8 to 30 characters. It must contain uppercase/lowercase letters and numerals, but cannot contain special symbols. When it is changed, the instance will reboot to make the change take effect.
 * `kms_encrypted_password` - (Optional, Available since v1.57.1) An KMS encrypts password used to an instance. If the `password` is filled in, this field will be ignored. When it is changed, the instance will reboot to make the change take effect.
 * `kms_encryption_context` - (Optional, MapString, Available since v1.57.1) An KMS encryption context used to decrypt `kms_encrypted_password` before creating or updating an instance with `kms_encrypted_password`. See [Encryption Context](https://www.alibabacloud.com/help/doc-detail/42975.htm). It is valid when `kms_encrypted_password` is set. When it is changed, the instance will reboot to make the change take effect.
+* `vpc_id` - (Optional, Available since v1.227.1) The ID of the VPC.
 * `vswitch_id` - (Optional) The virtual switch ID to launch in VPC. This parameter must be set unless you can create classic network instances. When it is changed, the instance will reboot to make the change take effect.
 * `instance_charge_type` - (Optional) Valid values are `PrePaid`, `PostPaid`, The default is `PostPaid`.
   **NOTE:** Since 1.9.6, it can be changed each other between `PostPaid` and `PrePaid`.
@@ -183,7 +193,7 @@ The following arguments are supported:
 * `network_interfaces` - (Optional, ForceNew, Available since v1.212.0) The list of network interfaces created with instance. See [`network_interfaces`](#network_interfaces) below.
 * `status` - (Optional 1.85.0) The instance status. Valid values: ["Running", "Stopped"]. You can control the instance start and stop through this parameter. Default to `Running`.
 * `hpc_cluster_id` - (Optional, ForceNew, Available since v1.144.0) The ID of the Elastic High Performance Computing (E-HPC) cluster to which to assign the instance.
-* `secondary_private_ips` - (Optional, Available since v1.144.0) A list of Secondary private IP addresses which is selected from within the CIDR block of the VSwitch.
+* `secondary_private_ips` - (Optional, Available since v1.144.0) A list of Secondary private IP addresses which is selected from within the CIDR block of the vSwitch.
 * `secondary_private_ip_address_count` - (Optional, Available since v1.145.0) The number of private IP addresses to be automatically assigned from within the CIDR block of the vswitch. **NOTE:** To assign secondary private IP addresses, you must specify `secondary_private_ips` or `secondary_private_ip_address_count` but not both.
 * `deployment_set_id` - (Optional, Available since v1.176.0) The ID of the deployment set to which to deploy the instance. **NOTE:** From version 1.176.0, instance's deploymentSetId can be removed when 'deployment_set_id' = "".
 * `operator_type` - (Optional, Available since v1.164.0) The operation type. It is valid when `instance_charge_type` is `PrePaid`. Default value: `upgrade`. Valid values: `upgrade`, `downgrade`. **NOTE:**  When the new instance type specified by the `instance_type` parameter has lower specifications than the current instance type, you must set `operator_type` to `downgrade`.
@@ -212,6 +222,11 @@ The following arguments are supported:
 * `launch_template_name` - (Optional, ForceNew, Available since v1.213.1) The name of the launch template.
 * `launch_template_version` - (Optional, ForceNew, Available since v1.213.1) The version of the launch template. If you set `launch_template_id` or `launch_template_name` parameter but do not set the version number of the launch template, the default template version is used.
 * `enable_jumbo_frame` - (Optional, Bool, Available since v1.223.2) Specifies whether to enable the Jumbo Frames feature for the instance. Valid values: `true`, `false`.
+* `network_interface_traffic_mode` - (Optional, ForceNew, Available since v1.227.1) The communication mode of the Primary ENI. Default value: `Standard`. Valid values:
+  - `Standard`: Uses the TCP communication mode.
+  - `HighPerformance`: Uses the remote direct memory access (RDMA) communication mode with Elastic RDMA Interface (ERI) enabled.
+* `network_card_index` - (Optional, ForceNew, Int, Available since v1.227.1)  The index of the network card for Primary ENI.
+* `queue_pair_number` - (Optional, ForceNew, Int, Available since v1.227.1) The number of queues supported by the ERI.
 
 -> **NOTE:** System disk category `cloud` has been outdated and it only can be used none I/O Optimized ECS instances. Recommend `cloud_efficiency` and `cloud_ssd` disk.
 
@@ -264,12 +279,14 @@ The data_disks supports the following:
 
 The network_interfaces supports the following. Currently only one secondary ENI can be specified.
 
-* `network_interface_id` - (Optional, ForceNew) The ID of the secondary ENI.
-* `vswitch_id` - (Optional, ForceNew, Available since v1.223.2) The ID of the vSwitch to which to connect ENI N.
-* `network_interface_traffic_mode` - (Optional, ForceNew, Available since v1.223.2) The communication mode of the ENI. Default value: `Standard`. Valid values:
+* `network_interface_id` - (Optional, ForceNew) The ID of the Secondary ENI.
+* `vswitch_id` - (Optional, ForceNew, Available since v1.223.2) The ID of the vSwitch to which to connect Secondary ENI N.
+* `network_interface_traffic_mode` - (Optional, ForceNew, Available since v1.223.2) The communication mode of the Secondary ENI. Default value: `Standard`. Valid values:
   - `Standard`: Uses the TCP communication mode.
   - `HighPerformance`: Uses the remote direct memory access (RDMA) communication mode with Elastic RDMA Interface (ERI) enabled.
-* `security_group_ids` - (Optional, ForceNew, List, Available since v1.223.2) The ID of security group N to which to assign ENI N.
+* `network_card_index` - (Optional, ForceNew, Int, Available since v1.227.1)  The index of the network card for Secondary ENI.
+* `queue_pair_number` - (Optional, ForceNew, Int, Available since v1.227.1) The number of queues supported by the ERI.
+* `security_group_ids` - (Optional, ForceNew, List, Available since v1.223.2) The ID of security group N to which to assign Secondary ENI N.
 
 ### `maintenance_time`
 
@@ -288,7 +305,7 @@ The following attributes are exported:
 * `memory` - The memory size of the instance. Unit: MiB.
 * `os_type` - The type of the operating system of the instance.
 * `os_name` - The name of the operating system of the instance.
-* `network_interface_id` - The ID of the ENI.
+* `network_interface_id` - The ID of the Primary ENI.
 * `system_disk_id` - (Available since v1.210.0) The ID of system disk.
 * `primary_ip_address` - The primary private IP address of the ENI.
 * `deployment_set_group_no` - The group number of the instance in a deployment set when the deployment set is use.

@@ -33,7 +33,6 @@ func (s *MongoDBService) DescribeMongoDBInstance(id string) (object map[string]i
 	}
 
 	request := map[string]interface{}{
-		"RegionId":     s.client.RegionId,
 		"DBInstanceId": id,
 	}
 
@@ -126,7 +125,6 @@ func (s *MongoDBService) RdsMongodbDBInstanceOrderStateRefreshFunc(id string, fa
 
 func (s *MongoDBService) DescribeMongoDBSecurityIps(instanceId string) (ips []string, err error) {
 	request := dds.CreateDescribeSecurityIpsRequest()
-	request.RegionId = s.client.RegionId
 	request.DBInstanceId = instanceId
 
 	raw, err := s.client.WithDdsClient(func(client *dds.Client) (interface{}, error) {
@@ -171,7 +169,6 @@ func (s *MongoDBService) DescribeMongoDBShardingSecurityIps(instanceId string) (
 	action := "DescribeSecurityIps"
 	request := map[string]interface{}{
 		"DBInstanceId": instanceId,
-		"RegionId":     s.client.RegionId,
 	}
 	runtime := util.RuntimeOptions{}
 	runtime.SetAutoretry(true)
@@ -273,7 +270,6 @@ func (s *MongoDBService) DescribeMongoDBSecurityGroupId(id string) (object []int
 	action := "DescribeSecurityGroupConfiguration"
 	request := map[string]interface{}{
 		"DBInstanceId": id,
-		"RegionId":     s.client.RegionId,
 	}
 	runtime := util.RuntimeOptions{}
 	runtime.SetAutoretry(true)
@@ -314,7 +310,6 @@ func (s *MongoDBService) DescribeMongoDBShardingSecurityGroupId(id string) (obje
 	action := "DescribeSecurityGroupConfiguration"
 	request := map[string]interface{}{
 		"DBInstanceId": id,
-		"RegionId":     s.client.RegionId,
 	}
 	runtime := util.RuntimeOptions{}
 	runtime.SetAutoretry(true)
@@ -513,7 +508,6 @@ func (s *MongoDBService) DescribeMongoDBBackupPolicy(id string) (object map[stri
 	action := "DescribeBackupPolicy"
 	request := map[string]interface{}{
 		"DBInstanceId": id,
-		"RegionId":     s.client.RegionId,
 	}
 
 	runtime := util.RuntimeOptions{}
@@ -555,7 +549,6 @@ func (s *MongoDBService) DescribeMongoDBShardingBackupPolicy(id string) (object 
 	action := "DescribeBackupPolicy"
 	request := map[string]interface{}{
 		"DBInstanceId": id,
-		"RegionId":     s.client.RegionId,
 	}
 	runtime := util.RuntimeOptions{}
 	runtime.SetAutoretry(true)
@@ -596,7 +589,6 @@ func (s *MongoDBService) DescribeMongoDBTDEInfo(id string) (object map[string]in
 	action := "DescribeDBInstanceTDEInfo"
 	request := map[string]interface{}{
 		"DBInstanceId": id,
-		"RegionId":     s.client.RegionId,
 	}
 	runtime := util.RuntimeOptions{}
 	runtime.SetAutoretry(true)
@@ -637,7 +629,6 @@ func (s *MongoDBService) DescribeDBInstanceSSL(id string) (object map[string]int
 	action := "DescribeDBInstanceSSL"
 	request := map[string]interface{}{
 		"DBInstanceId": id,
-		"RegionId":     s.client.RegionId,
 	}
 
 	runtime := util.RuntimeOptions{}
@@ -679,7 +670,6 @@ func (s *MongoDBService) DescribeMongoDBShardingTDEInfo(id string) (object map[s
 	action := "DescribeDBInstanceTDEInfo"
 	request := map[string]interface{}{
 		"DBInstanceId": id,
-		"RegionId":     s.client.RegionId,
 	}
 	runtime := util.RuntimeOptions{}
 	runtime.SetAutoretry(true)
@@ -1516,7 +1506,6 @@ func (s *MongoDBService) DescribeMongoDBShardingInstance(id string) (object map[
 	}
 
 	request := map[string]interface{}{
-		"RegionId":     s.client.RegionId,
 		"DBInstanceId": id,
 	}
 
@@ -1672,7 +1661,6 @@ func (s *MongoDBService) DescribeParameters(id string) (map[string]interface{}, 
 	}
 	action := "DescribeParameters"
 	request := map[string]interface{}{
-		"RegionId":     s.client.RegionId,
 		"DBInstanceId": id,
 		"ExtraParam":   "terraform",
 	}

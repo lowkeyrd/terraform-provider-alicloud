@@ -808,13 +808,15 @@ func (s *EcsService) updateImage(d *schema.ResourceData) error {
 		raw, err := s.client.WithEcsClient(func(ecsClient *ecs.Client) (interface{}, error) {
 			return ecsClient.ModifyImageAttribute(request)
 		})
+		addDebug(request.GetActionName(), raw, request.RpcRequest, request)
+
 		if err != nil {
 			return WrapErrorf(err, DefaultErrorMsg, d.Id(), request.GetActionName(), AlibabaCloudSdkGoERROR)
 		}
+
 		d.SetPartial("name")
 		d.SetPartial("image_name")
 		d.SetPartial("description")
-		addDebug(request.GetActionName(), raw, request.RpcRequest, request)
 	}
 
 	d.Partial(false)
@@ -1096,8 +1098,10 @@ func (s *EcsService) WaitForVpcAttributesChanged(instanceId, vswitchId, privateI
 			return WrapError(err)
 		}
 
-		if len(privateIp) > 0 && instance.VpcAttributes.PrivateIpAddress.IpAddress[0] != privateIp {
-			continue
+		if len(privateIp) > 0 && len(instance.VpcAttributes.PrivateIpAddress.IpAddress) > 0 {
+			if instance.VpcAttributes.PrivateIpAddress.IpAddress[0] != privateIp {
+				continue
+			}
 		}
 
 		if len(vswitchId) > 0 && instance.VpcAttributes.VSwitchId != vswitchId {
@@ -3705,4 +3709,57 @@ func (s *EcsService) EcsElasticityAssuranceStateRefreshFunc(d *schema.ResourceDa
 		}
 		return object, fmt.Sprint(object["Status"]), nil
 	}
+}
+
+func (s *EcsService) isSupportedNetworkCardIndex(instanceType string) (bool, error) {
+	var response map[string]interface{}
+	action := "DescribeInstanceTypes"
+
+	conn, err := s.client.NewEcsClient()
+	if err != nil {
+		return false, WrapError(err)
+	}
+
+	request := map[string]interface{}{
+		"InstanceTypes": []string{instanceType},
+	}
+
+	runtime := util.RuntimeOptions{}
+	runtime.SetAutoretry(true)
+	wait := incrementalWait(3*time.Second, 3*time.Second)
+	err = resource.Retry(5*time.Minute, func() *resource.RetryError {
+		response, err = conn.DoRequest(StringPointer(action), nil, StringPointer("POST"), StringPointer("2014-05-26"), StringPointer("AK"), nil, request, &runtime)
+		if err != nil {
+			if NeedRetry(err) {
+				wait()
+				return resource.RetryableError(err)
+			}
+			return resource.NonRetryableError(err)
+		}
+		return nil
+	})
+	addDebug(action, response, request)
+
+	if err != nil {
+		return false, WrapErrorf(err, DefaultErrorMsg, instanceType, action, AlibabaCloudSdkGoERROR)
+	}
+
+	resp, err := jsonpath.Get("$.InstanceTypes.InstanceType", response)
+	if err != nil {
+		return false, WrapErrorf(err, FailedGetAttributeMsg, instanceType, "$.InstanceTypes.InstanceType", response)
+	}
+
+	if v, ok := resp.([]interface{}); !ok || len(v) < 1 {
+		return false, nil
+	}
+
+	for _, v := range resp.([]interface{}) {
+		if fmt.Sprint(v.(map[string]interface{})["InstanceTypeId"]) == instanceType {
+			if _, ok := v.(map[string]interface{})["NetworkCards"]; ok {
+				return true, nil
+			}
+		}
+	}
+
+	return false, nil
 }

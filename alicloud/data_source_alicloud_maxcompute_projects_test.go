@@ -2,10 +2,9 @@ package alicloud
 
 import (
 	"fmt"
+	"github.com/aliyun/terraform-provider-alicloud/alicloud/connectivity"
 	"strings"
 	"testing"
-
-	"github.com/aliyun/terraform-provider-alicloud/alicloud/connectivity"
 
 	"github.com/hashicorp/terraform-plugin-sdk/helper/acctest"
 )
@@ -16,17 +15,6 @@ func TestAccAlicloudMaxComputeProjectDataSource(t *testing.T) {
 
 	idsConf := dataSourceTestAccConfig{
 		existConfig: testAccCheckAlicloudMaxComputeProjectSourceConfig(rand, map[string]string{
-			"ids":        `["${alicloud_maxcompute_project.default.id}"]`,
-			"name_regex": `"${var.name}"`,
-		}),
-		fakeConfig: testAccCheckAlicloudMaxComputeProjectSourceConfig(rand, map[string]string{
-			"ids":        `["${alicloud_maxcompute_project.default.id}"]`,
-			"name_regex": `"${var.name}_fake"`,
-		}),
-	}
-
-	allConf := dataSourceTestAccConfig{
-		existConfig: testAccCheckAlicloudMaxComputeProjectSourceConfig(rand, map[string]string{
 			"ids": `["${alicloud_maxcompute_project.default.id}"]`,
 		}),
 		fakeConfig: testAccCheckAlicloudMaxComputeProjectSourceConfig(rand, map[string]string{
@@ -34,13 +22,32 @@ func TestAccAlicloudMaxComputeProjectDataSource(t *testing.T) {
 		}),
 	}
 
-	MaxComputeProjectCheckInfo.dataSourceTestCheck(t, rand, idsConf, allConf)
+	nameConf := dataSourceTestAccConfig{
+		existConfig: testAccCheckAlicloudMaxComputeProjectSourceConfig(rand, map[string]string{
+			"name_regex": `"${var.name}"`,
+		}),
+		fakeConfig: testAccCheckAlicloudMaxComputeProjectSourceConfig(rand, map[string]string{
+			"name_regex": `"${var.name}_fake"`,
+		}),
+	}
+
+	allConf := dataSourceTestAccConfig{
+		existConfig: testAccCheckAlicloudMaxComputeProjectSourceConfig(rand, map[string]string{
+			"ids":        `["${alicloud_maxcompute_project.default.id}"]`,
+			"name_regex": `"${var.name}"`,
+		}),
+		fakeConfig: testAccCheckAlicloudMaxComputeProjectSourceConfig(rand, map[string]string{
+			"ids":        `["${alicloud_maxcompute_project.default.id}_fake"]`,
+			"name_regex": `"${var.name}_fake"`,
+		}),
+	}
+
+	MaxComputeProjectCheckInfo.dataSourceTestCheck(t, rand, idsConf, nameConf, allConf)
 }
 
 var existMaxComputeProjectMapFunc = func(rand int) map[string]string {
 	return map[string]string{
 		"projects.#":                       "1",
-		"projects.0.id":                    CHECKSET,
 		"projects.0.comment":               CHECKSET,
 		"projects.0.default_quota":         CHECKSET,
 		"projects.0.owner":                 CHECKSET,
@@ -71,14 +78,48 @@ func testAccCheckAlicloudMaxComputeProjectSourceConfig(rand int, attrMap map[str
 	}
 	config := fmt.Sprintf(`
 variable "name" {
-	default = "tf_testaccmp%d"
+	default = "tf_testaccmaxcp%d"
 }
 
 resource "alicloud_maxcompute_project" "default" {
+  status = "AVAILABLE"
+  ip_white_list {
+    ip_list     = "10.0.0.0/8"
+    vpc_ip_list = "10.0.0.0/8"
+  }
+
+  security_properties {
+    project_protection {
+      protected        = "true"
+      exception_policy = "{\"Version\":\"1\",\"Statement\":[{\"Action\":[\"odps:*\"],\"Resource\":[\"acs:odps:*:projects/ludong/tables/*\"],\"Effect\":\"Allow\",\"Principal\":[\"ALIYUN$ludong@aliyun.com\"]}]}"
+    }
+
+    using_acl                            = "false"
+    using_policy                         = "false"
+    object_creator_has_access_permission = "false"
+    object_creator_has_grant_permission  = "false"
+    label_security                       = "false"
+    enable_download_privilege            = "false"
+  }
+
+  tags = {
+    For     = "Test"
+    Created = "TF-CI"
+  }
   default_quota = "默认后付费Quota"
   project_name  = var.name
-  comment       = var.name
-  product_type  = "PayAsYouGo"
+  comment       = "terraform测试项目"
+  properties {
+    type_system      = "2"
+    sql_metering_max = "10240"
+    encryption {
+      key       = "f58d854d-7bc0-4a6e-9205-160e10ffedec"
+      enable    = "true"
+      algorithm = "AESCTR"
+    }
+
+  }
+
 }
 
 data "alicloud_maxcompute_projects" "default" {

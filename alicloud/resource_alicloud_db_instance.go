@@ -1833,12 +1833,15 @@ func resourceAliCloudDBInstanceRead(d *schema.ResourceData, meta interface{}) er
 	d.Set("acl", sslAction["ACL"])
 	d.Set("replication_acl", sslAction["ReplicationACL"])
 	d.Set("ssl_connection_string", sslAction["ConnectionString"])
-	tdeInfo, err := rdsService.DescribeRdsTDEInfo(d.Id())
-	if err != nil && !IsExpectedErrors(err, DBInstanceTDEErrors) {
-		return WrapError(err)
-	}
-	d.Set("tde_Status", tdeInfo["TDEStatus"])
 
+	//When the instance schema is docker on ECS, TDE encryption is not supported, so the query is not executed.
+	if kindCode, ok := instance["kindCode"]; ok && kindCode != "3" {
+		tdeInfo, err := rdsService.DescribeRdsTDEInfo(d.Id())
+		if err != nil && !IsExpectedErrors(err, DBInstanceTDEErrors) {
+			return WrapError(err)
+		}
+		d.Set("tde_Status", tdeInfo["TDEStatus"])
+	}
 	res, err := rdsService.DescribeHASwitchConfig(d.Id())
 	if err != nil {
 		return WrapError(err)
@@ -2054,6 +2057,10 @@ func buildDBCreateRequest(d *schema.ResourceData, meta interface{}) (map[string]
 
 	if v, ok := d.GetOk("category"); ok {
 		request["Category"] = v
+	}
+
+	if v, ok := d.GetOk("private_ip_address"); ok && v.(string) != "" {
+		request["PrivateIpAddress"] = v
 	}
 
 	if request["PayType"] == string(Serverless) {

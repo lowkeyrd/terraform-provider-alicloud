@@ -48,6 +48,7 @@ func main() {
 	diff, _ := diffparser.Parse(string(byt))
 	resourceNameMap := make(map[string]struct{})
 	for _, file := range diff.Files {
+		isNameCorrect = true
 		resourceName := ""
 		isResource := true
 		fileType := "resource"
@@ -134,8 +135,8 @@ func getSchemaAttr(isResource bool, schema map[string]*schema.Schema,
 	getSchemaAttributes("", schemaAttributes, schema)
 
 	for key, value := range schemaAttributes {
-		// "dry_run" or removed
-		if key == "dry_run" {
+		// "dry_run" or deperacated
+		if key == "dry_run" || value.Deprecated != "" {
 			continue
 		}
 		(*schemaAllSet).Add(key)

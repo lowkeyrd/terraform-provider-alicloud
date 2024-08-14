@@ -68,18 +68,19 @@ resource "alicloud_cloud_storage_gateway_gateway_cache_disk" "default" {
 
 The following arguments are supported:
 
-* `cache_disk_category` - (Optional, ForceNew) The cache disk type. Valid values: `cloud_efficiency`, `cloud_ssd`.
-* `cache_disk_size_in_gb` - (Required) size of the cache disk. Unit: `GB`. The upper limit of the basic gateway cache disk is `1` TB (`1024` GB), that of the standard gateway is `2` TB (`2048` GB), and that of other gateway cache disks is `32` TB (`32768` GB). The lower limit for the file gateway cache disk capacity is `40` GB, and the lower limit for the block gateway cache disk capacity is `20` GB.
 * `gateway_id` - (Required, ForceNew) The ID of the gateway.
+* `cache_disk_size_in_gb` - (Required, Int) The capacity of the cache disk.
+* `cache_disk_category` - (Optional, ForceNew) The type of the cache disk. Valid values: `cloud_efficiency`, `cloud_ssd`, `cloud_essd`. **NOTE:** From version 1.227.0, `cache_disk_category` can be set to `cloud_essd`.
+* `performance_level` - (Optional, ForceNew, Available since v1.227.0) The performance level (PL) of the Enterprise SSD (ESSD). Valid values: `PL1`, `PL2`, `PL3`. **NOTE:** If `cache_disk_category` is set to `cloud_essd`, `performance_level` is required.
 
 ## Attributes Reference
 
 The following attributes are exported:
 
-* `id` - The resource ID of Gateway Cache Disk. The value formats as `<gateway_id>:<cache_id>:<local_file_path>`.
-* `local_file_path` - The cache disk inside the device name.
-* `status` - The status of the resource. Valid values: `0`, `1`, `2`. `0`: Normal. `1`: Is about to expire. `2`: Has expired.
-* `cache_id` - The ID of the cache.
+* `id` - The resource ID in terraform of Gateway Cache Disk. It formats as `<gateway_id>:<cache_id>:<local_file_path>`.
+* `cache_id` - The ID of the cache disk.
+* `local_file_path` - The path of the cache disk.
+* `status` - The status of the Gateway Cache Disk.
 
 ## Import
 

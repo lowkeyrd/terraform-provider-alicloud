@@ -269,13 +269,26 @@ func PostPaidAndRenewDiffSuppressFunc(k, old, new string, d *schema.ResourceData
 }
 
 func redisPostPaidDiffSuppressFunc(k, old, new string, d *schema.ResourceData) bool {
-	return strings.ToLower(d.Get("payment_type").(string)) == "postpaid"
+	if v, ok := d.GetOk("payment_type"); ok && v.(string) == "PrePaid" {
+		return false
+	}
+
+	if v, ok := d.GetOk("instance_charge_type"); ok && v.(string) == "PrePaid" {
+		return false
+	}
+
+	return true
 }
 
 func redisPostPaidAndRenewDiffSuppressFunc(k, old, new string, d *schema.ResourceData) bool {
-	if strings.ToLower(d.Get("payment_type").(string)) == "prepaid" && d.Get("auto_renew").(bool) {
+	if v, ok := d.GetOk("payment_type"); ok && v.(string) == "PrePaid" && d.Get("auto_renew").(bool) {
 		return false
 	}
+
+	if v, ok := d.GetOk("instance_charge_type"); ok && v.(string) == "PrePaid" && d.Get("auto_renew").(bool) {
+		return false
+	}
+
 	return true
 }
 
@@ -364,8 +377,15 @@ func polardbServrelessTypeDiffSuppressFunc(k, old, new string, d *schema.Resourc
 	return true
 }
 
-func polardbProxyTypeDiffSuppressFunc(k, old, new string, d *schema.ResourceData) bool {
+func polardbProxyClassDiffSuppressFunc(k, old, new string, d *schema.ResourceData) bool {
 	if v, ok := d.GetOk("creation_category"); ok && v.(string) == "SENormal" {
+		return false
+	}
+	return true
+}
+
+func polardbProxyTypeDiffSuppressFunc(k, old, new string, d *schema.ResourceData) bool {
+	if d.Get("creation_category").(string) == "SENormal" || d.Get("creation_category").(string) == "Normal" {
 		return false
 	}
 	return true
@@ -569,6 +589,13 @@ func sagClientUserPasswordSuppressFunc(k, old, new string, d *schema.ResourceDat
 		return true
 	}
 	return false
+}
+
+func selectdbPostPaidDiffSuppressFunc(k, old, new string, d *schema.ResourceData) bool {
+	if d.Get("payment_type").(string) == "Subscription" {
+		return false
+	}
+	return true
 }
 
 func cmsClientInfoSuppressFunc(k, old, new string, d *schema.ResourceData) bool {
