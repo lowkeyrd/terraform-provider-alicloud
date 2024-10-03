@@ -24,6 +24,12 @@ You can see detail product introduction [here](https://www.alibabacloud.com/help
 
 ### Create a Mongodb Sharding instance
 
+<div style="display: block;margin-bottom: 40px;"><div class="oics-button" style="float: right;position: absolute;margin-bottom: 10px;">
+  <a href="https://api.aliyun.com/api-tools/terraform?resource=alicloud_mongodb_sharding_instance&exampleId=4a2adea6-e53f-129f-cdc7-a9a46d5c3bc985009ca2&activeTab=example&spm=docs.r.mongodb_sharding_instance.0.4a2adea6e5&intl_lang=EN_US" target="_blank">
+    <img alt="Open in AliCloud" src="https://img.alicdn.com/imgextra/i1/O1CN01hjjqXv1uYUlY56FyX_!!6000000006049-55-tps-254-36.svg" style="max-height: 44px; max-width: 100%;">
+  </a>
+</div></div>
+
 ```terraform
 variable "name" {
   default = "terraform-example"
@@ -83,7 +89,8 @@ The following arguments are supported:
 
 * `engine_version` - (Required) Database version. Value options can refer to the latest docs [CreateDBInstance](https://www.alibabacloud.com/help/en/doc-detail/61884.htm) `EngineVersion`. **NOTE:** From version 1.225.1, `engine_version` can be modified.
 * `storage_engine` (Optional, ForceNew) The storage engine of the instance. Default value: `WiredTiger`. Valid values: `WiredTiger`, `RocksDB`.
-* `storage_type` - (Optional, ForceNew, Available since v1.225.1) The storage type of the instance. Valid values: `cloud_essd1`, `cloud_essd2`, `cloud_essd3`, `local_ssd`.
+* `storage_type` - (Optional, Available since v1.225.1) The storage type of the instance. Valid values: `cloud_essd1`, `cloud_essd2`, `cloud_essd3`, `cloud_auto`, `local_ssd`. **NOTE:** From version 1.229.0, `storage_type` can be modified. However, `storage_type` can only be modified to `cloud_auto`.
+* `provisioned_iops` - (Optional, Int, Available since v1.229.0) The provisioned IOPS. Valid values: `0` to `50000`.
 * `protocol_type` - (Optional, ForceNew, Available since v1.161.0) The type of the access protocol. Valid values: `mongodb` or `dynamodb`.
 * `vpc_id` - (Optional, ForceNew, Available since v1.161.0) The ID of the VPC. -> **NOTE:** `vpc_id` is valid only when `network_type` is set to `VPC`.
 * `vswitch_id` - (Optional, ForceNew) The virtual switch ID to launch DB instances in one VPC.

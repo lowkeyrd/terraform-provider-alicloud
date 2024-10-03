@@ -21,6 +21,12 @@ For information about Eipanycast Anycast Eip Address Attachment and how to use i
 
 Basic Usage
 
+<div style="display: block;margin-bottom: 40px;"><div class="oics-button" style="float: right;position: absolute;margin-bottom: 10px;">
+  <a href="https://api.aliyun.com/api-tools/terraform?resource=alicloud_eipanycast_anycast_eip_address_attachment&exampleId=60808d6d-90eb-3d4f-6291-9cc92150dba73d9e2abf&activeTab=example&spm=docs.r.eipanycast_anycast_eip_address_attachment.0.60808d6d90&intl_lang=EN_US" target="_blank">
+    <img alt="Open in AliCloud" src="https://img.alicdn.com/imgextra/i1/O1CN01hjjqXv1uYUlY56FyX_!!6000000006049-55-tps-254-36.svg" style="max-height: 44px; max-width: 100%;">
+  </a>
+</div></div>
+
 ```terraform
 provider "alicloud" {
   region = "cn-beijing"
@@ -73,6 +79,12 @@ Multiple Usage
 
 -> **NOTE:**  Anycast EIP supports binding cloud resource instances in multiple regions. Only one cloud resource instance is supported as the default origin station, and the rest are normal origin stations. When no access point is specified or an access point is added, the access request is forwarded to the default origin by default.  If you are bound for the first time, the Default value of the binding mode is **Default * *. /li> li> If you are not binding for the first time, you can set the binding mode to **Default**, and the new Default origin will take effect. The original Default origin will be changed to a common origin.
 
+<div style="display: block;margin-bottom: 40px;"><div class="oics-button" style="float: right;position: absolute;margin-bottom: 10px;">
+  <a href="https://api.aliyun.com/api-tools/terraform?resource=alicloud_eipanycast_anycast_eip_address_attachment&exampleId=aa4fd8d3-f48b-e412-01d0-81401540669093b77a06&activeTab=example&spm=docs.r.eipanycast_anycast_eip_address_attachment.1.aa4fd8d3f4&intl_lang=EN_US" target="_blank">
+    <img alt="Open in AliCloud" src="https://img.alicdn.com/imgextra/i1/O1CN01hjjqXv1uYUlY56FyX_!!6000000006049-55-tps-254-36.svg" style="max-height: 44px; max-width: 100%;">
+  </a>
+</div></div>
+
 ```terraform
 variable "name" {
   default = "tf-example"
@@ -89,45 +101,45 @@ provider "alicloud" {
 }
 
 data "alicloud_zones" "default" {
-  provider                    = "alicloud.beijing"
+  provider                    = alicloud.beijing
   available_disk_category     = "cloud_efficiency"
   available_resource_creation = "VSwitch"
 }
 
 data "alicloud_images" "default" {
-  provider    = "alicloud.beijing"
+  provider    = alicloud.beijing
   name_regex  = "^ubuntu_18.*64"
   most_recent = true
   owners      = "system"
 }
 
 data "alicloud_instance_types" "default" {
-  provider          = "alicloud.beijing"
+  provider          = alicloud.beijing
   availability_zone = data.alicloud_zones.default.zones[0].id
   cpu_core_count    = 1
   memory_size       = 2
 }
 
 resource "alicloud_vpc" "defaultVpc" {
-  provider   = "alicloud.beijing"
+  provider   = alicloud.beijing
   vpc_name   = var.name
   cidr_block = "192.168.0.0/16"
 }
 
 resource "alicloud_vswitch" "defaultVsw" {
-  provider   = "alicloud.beijing"
+  provider   = alicloud.beijing
   vpc_id     = alicloud_vpc.defaultVpc.id
   cidr_block = "192.168.0.0/24"
   zone_id    = data.alicloud_zones.default.zones.0.id
 }
 
 resource "alicloud_security_group" "defaultuBsECI" {
-  provider = "alicloud.beijing"
+  provider = alicloud.beijing
   vpc_id   = alicloud_vpc.defaultVpc.id
 }
 
 resource "alicloud_instance" "default9KDlN7" {
-  provider             = "alicloud.beijing"
+  provider             = alicloud.beijing
   image_id             = data.alicloud_images.default.images[0].id
   instance_type        = data.alicloud_instance_types.default.instance_types[0].id
   instance_name        = var.name
@@ -139,50 +151,50 @@ resource "alicloud_instance" "default9KDlN7" {
 }
 
 resource "alicloud_eipanycast_anycast_eip_address" "defaultXkpFRs" {
-  provider         = "alicloud.hangzhou"
+  provider         = alicloud.hangzhou
   service_location = "ChineseMainland"
 }
 
 resource "alicloud_vpc" "defaultVpc2" {
-  provider   = "alicloud.hangzhou"
+  provider   = alicloud.hangzhou
   vpc_name   = "${var.name}6"
   cidr_block = "192.168.0.0/16"
 }
 
 data "alicloud_zones" "default2" {
-  provider                    = "alicloud.hangzhou"
+  provider                    = alicloud.hangzhou
   available_disk_category     = "cloud_efficiency"
   available_resource_creation = "VSwitch"
 }
 
 data "alicloud_images" "default2" {
-  provider    = "alicloud.hangzhou"
+  provider    = alicloud.hangzhou
   name_regex  = "^ubuntu_18.*64"
   most_recent = true
   owners      = "system"
 }
 
 data "alicloud_instance_types" "default2" {
-  provider          = "alicloud.hangzhou"
+  provider          = alicloud.hangzhou
   availability_zone = data.alicloud_zones.default2.zones[0].id
   cpu_core_count    = 1
   memory_size       = 2
 }
 
 resource "alicloud_vswitch" "defaultdsVsw2" {
-  provider   = "alicloud.hangzhou"
+  provider   = alicloud.hangzhou
   vpc_id     = alicloud_vpc.defaultVpc2.id
   cidr_block = "192.168.0.0/24"
   zone_id    = data.alicloud_zones.default2.zones.1.id
 }
 
 resource "alicloud_security_group" "defaultuBsECI2" {
-  provider = "alicloud.hangzhou"
+  provider = alicloud.hangzhou
   vpc_id   = alicloud_vpc.defaultVpc2.id
 }
 
 resource "alicloud_instance" "defaultEcs2" {
-  provider             = "alicloud.hangzhou"
+  provider             = alicloud.hangzhou
   image_id             = data.alicloud_images.default2.images[0].id
   instance_type        = data.alicloud_instance_types.default2.instance_types[0].id
   instance_name        = var.name
@@ -194,7 +206,7 @@ resource "alicloud_instance" "defaultEcs2" {
 }
 
 resource "alicloud_eipanycast_anycast_eip_address_attachment" "defaultEfYBJY" {
-  provider                = "alicloud.beijing"
+  provider                = alicloud.beijing
   bind_instance_id        = alicloud_instance.default9KDlN7.network_interface_id
   bind_instance_type      = "NetworkInterface"
   bind_instance_region_id = "cn-beijing"
@@ -203,7 +215,7 @@ resource "alicloud_eipanycast_anycast_eip_address_attachment" "defaultEfYBJY" {
 }
 
 resource "alicloud_eipanycast_anycast_eip_address_attachment" "normal" {
-  provider                = "alicloud.hangzhou"
+  provider                = alicloud.hangzhou
   bind_instance_id        = alicloud_instance.defaultEcs2.network_interface_id
   bind_instance_type      = "NetworkInterface"
   bind_instance_region_id = "cn-hangzhou"

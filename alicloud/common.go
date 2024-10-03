@@ -913,7 +913,12 @@ func addDebug(action, content interface{}, requestInfo ...interface{}) {
 
 			requestContent := ""
 			if len(requestInfo) > 1 {
-				requestContent = fmt.Sprintf("%#v", requestInfo[1])
+				switch requestInfo[1].(type) {
+				case *tea.SDKError:
+					requestContent = fmt.Sprintf("%#v", requestInfo[1].(*tea.SDKError).Error())
+				default:
+					requestContent = fmt.Sprintf("%#v", requestInfo[1])
+				}
 			}
 
 			if len(requestInfo) == 1 {
@@ -1650,19 +1655,6 @@ func InArray(target string, strArray []string) bool {
 		}
 	}
 	return false
-}
-func genRoaParam(action, method, version, path string) *openapi.Params {
-	return &openapi.Params{
-		Action:      tea.String(action),
-		Version:     tea.String(version),
-		Protocol:    tea.String("HTTPS"),
-		Pathname:    tea.String(path),
-		Method:      tea.String(method),
-		AuthType:    tea.String("AK"),
-		Style:       tea.String("ROA"),
-		ReqBodyType: tea.String("formData"),
-		BodyType:    tea.String("json"),
-	}
 }
 
 func rpcParam(action, method, version string) *openapi.Params {

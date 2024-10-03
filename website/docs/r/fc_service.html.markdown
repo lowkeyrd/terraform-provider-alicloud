@@ -26,6 +26,12 @@ For more details supported regions, see [Service endpoints](https://www.alibabac
 
 Basic Usage
 
+<div style="display: block;margin-bottom: 40px;"><div class="oics-button" style="float: right;position: absolute;margin-bottom: 10px;">
+  <a href="https://api.aliyun.com/api-tools/terraform?resource=alicloud_fc_service&exampleId=35d31535-c004-be8f-b8b6-1bedc610f346729e2f9e&activeTab=example&spm=docs.r.fc_service.0.35d31535c0&intl_lang=EN_US" target="_blank">
+    <img alt="Open in AliCloud" src="https://img.alicdn.com/imgextra/i1/O1CN01hjjqXv1uYUlY56FyX_!!6000000006049-55-tps-254-36.svg" style="max-height: 44px; max-width: 100%;">
+  </a>
+</div></div>
+
 ```terraform
 provider "alicloud" {
   region = "cn-hangzhou"
@@ -41,7 +47,7 @@ resource "alicloud_log_project" "default" {
 }
 
 resource "alicloud_log_store" "default" {
-  project_name  = alicloud_log_project.default.name
+  project_name  = alicloud_log_project.default.project_name
   logstore_name = "example-value"
 }
 
@@ -51,8 +57,8 @@ locals {
 }
 
 resource "alicloud_log_store_index" "example" {
-  project  = alicloud_log_project.default.name
-  logstore = alicloud_log_store.default.name
+  project  = alicloud_log_project.default.project_name
+  logstore = alicloud_log_store.default.logstore_name
   full_text {
     case_sensitive = false
     token          = local.sls_default_token
@@ -251,8 +257,8 @@ resource "alicloud_fc_service" "default" {
   description = "example-value"
   role        = alicloud_ram_role.default.arn
   log_config {
-    project                 = alicloud_log_project.default.name
-    logstore                = alicloud_log_store.default.name
+    project                 = alicloud_log_project.default.project_name
+    logstore                = alicloud_log_store.default.logstore_name
     enable_instance_metrics = true
     enable_request_metrics  = true
   }

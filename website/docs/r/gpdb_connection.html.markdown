@@ -18,6 +18,12 @@ Provides a connection resource to allocate an Internet connection string for ins
 
 ## Example Usage
 
+<div style="display: block;margin-bottom: 40px;"><div class="oics-button" style="float: right;position: absolute;margin-bottom: 10px;">
+  <a href="https://api.aliyun.com/api-tools/terraform?resource=alicloud_gpdb_connection&exampleId=58a46cfe-2619-aa98-09c7-4f43cf4af98ad0f79c2c&activeTab=example&spm=docs.r.gpdb_connection.0.58a46cfe26&intl_lang=EN_US" target="_blank">
+    <img alt="Open in AliCloud" src="https://img.alicdn.com/imgextra/i1/O1CN01hjjqXv1uYUlY56FyX_!!6000000006049-55-tps-254-36.svg" style="max-height: 44px; max-width: 100%;">
+  </a>
+</div></div>
+
 ```terraform
 variable "name" {
   default = "tf-example"
@@ -43,9 +49,7 @@ resource "alicloud_gpdb_instance" "default" {
   zone_id               = data.alicloud_gpdb_zones.default.ids.0
   instance_network_type = "VPC"
   instance_spec         = "2C16G"
-  master_node_num       = 1
   payment_type          = "PayAsYouGo"
-  private_ip_address    = "1.1.1.1"
   seg_storage_type      = "cloud_essd"
   seg_node_num          = 4
   storage_size          = 50

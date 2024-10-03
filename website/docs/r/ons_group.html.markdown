@@ -19,6 +19,12 @@ For more information about how to use it, see [RocketMQ Group Management API](ht
 
 Basic Usage
 
+<div style="display: block;margin-bottom: 40px;"><div class="oics-button" style="float: right;position: absolute;margin-bottom: 10px;">
+  <a href="https://api.aliyun.com/api-tools/terraform?resource=alicloud_ons_group&exampleId=25255a87-5baf-76e0-83b5-ffe9bc1441fdd8202d77&activeTab=example&spm=docs.r.ons_group.0.25255a875b&intl_lang=EN_US" target="_blank">
+    <img alt="Open in AliCloud" src="https://img.alicdn.com/imgextra/i1/O1CN01hjjqXv1uYUlY56FyX_!!6000000006049-55-tps-254-36.svg" style="max-height: 44px; max-width: 100%;">
+  </a>
+</div></div>
+
 ```terraform
 variable "name" {
   default = "GID-tf-example"
@@ -34,7 +40,7 @@ resource "random_integer" "default" {
 }
 
 resource "alicloud_ons_instance" "default" {
-  name = "${var.name}-${random_integer.default.result}"
+  instance_name = "${var.name}-${random_integer.default.result}"
 }
 
 resource "alicloud_ons_group" "default" {

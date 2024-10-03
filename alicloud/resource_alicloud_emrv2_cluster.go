@@ -233,6 +233,7 @@ func resourceAlicloudEmrV2Cluster() *schema.Resource {
 						"deployment_set_strategy": {
 							Type:         schema.TypeString,
 							Optional:     true,
+							ForceNew:     true,
 							Computed:     true,
 							ValidateFunc: validation.StringInSlice([]string{"NONE", "CLUSTER", "NODE_GROUP"}, false),
 						},
@@ -298,21 +299,25 @@ func resourceAlicloudEmrV2Cluster() *schema.Resource {
 						"vswitch_ids": {
 							Type:     schema.TypeSet,
 							Optional: true,
+							ForceNew: true,
 							Elem:     &schema.Schema{Type: schema.TypeString},
 						},
 						"with_public_ip": {
 							Type:     schema.TypeBool,
 							Optional: true,
+							ForceNew: true,
 							Computed: true,
 						},
 						"additional_security_group_ids": {
 							Type:     schema.TypeSet,
 							Optional: true,
+							ForceNew: true,
 							Elem:     &schema.Schema{Type: schema.TypeString},
 						},
 						"instance_types": {
 							Type:     schema.TypeSet,
 							Required: true,
+							ForceNew: true,
 							Elem:     &schema.Schema{Type: schema.TypeString},
 						},
 						"node_count": {
@@ -327,7 +332,7 @@ func resourceAlicloudEmrV2Cluster() *schema.Resource {
 									"category": {
 										Type:         schema.TypeString,
 										Required:     true,
-										ValidateFunc: validation.StringInSlice([]string{"cloud_essd", "cloud_efficiency"}, false),
+										ValidateFunc: validation.StringInSlice([]string{"cloud_essd", "cloud_efficiency", "cloud_ssd"}, false),
 									},
 									"size": {
 										Type:     schema.TypeInt,
@@ -356,7 +361,7 @@ func resourceAlicloudEmrV2Cluster() *schema.Resource {
 									"category": {
 										Type:         schema.TypeString,
 										Required:     true,
-										ValidateFunc: validation.StringInSlice([]string{"cloud_efficiency", "cloud_ssd", "cloud_essd", "cloud", "local_hdd_pro"}, false),
+										ValidateFunc: validation.StringInSlice([]string{"cloud_efficiency", "cloud_ssd", "cloud_essd", "cloud", "local_hdd_pro", "local_disk", "local_ssd_pro"}, false),
 									},
 									"size": {
 										Type:     schema.TypeInt,
@@ -389,6 +394,7 @@ func resourceAlicloudEmrV2Cluster() *schema.Resource {
 						"cost_optimized_config": {
 							Type:     schema.TypeSet,
 							Optional: true,
+							ForceNew: true,
 							Elem: &schema.Resource{
 								Schema: map[string]*schema.Schema{
 									"on_demand_base_capacity": {
@@ -1678,6 +1684,9 @@ func resourceAlicloudEmrV2ClusterUpdate(d *schema.ResourceData, meta interface{}
 		if "PayAsYouGo" == newPaymentType.(string) {
 			return WrapError(Error("EMR cluster can only change paymentType from PayAsYouGo to Subscription."))
 		}
+		if !d.HasChange("node_groups") {
+			return WrapError(Error("Subscription paymentType of emr cluster can not contains PayAsYouGo node group with 'MASTER' or 'CORE'."))
+		}
 	}
 
 	if d.HasChange("node_groups") {
@@ -1743,6 +1752,11 @@ func resourceAlicloudEmrV2ClusterUpdate(d *schema.ResourceData, meta interface{}
 				} else {
 					updateClusterPaymentTypeRequest["AutoPayOrder"] = true
 				}
+				if autoRenew, exists := sc.(*schema.Set).List()[0].(map[string]interface{})["auto_renew"]; exists {
+					updateClusterPaymentTypeRequest["AutoRenew"] = autoRenew.(bool)
+				} else {
+					updateClusterPaymentTypeRequest["AutoRenew"] = false
+				}
 			}
 			var convertNodeGroups []map[string]interface{}
 			for originNodeGroupName := range originNodeGroupMap {
@@ -1752,6 +1766,8 @@ func resourceAlicloudEmrV2ClusterUpdate(d *schema.ResourceData, meta interface{}
 				if newNodeGroup, ok := newNodeGroupMap[originNodeGroupName]; ok {
 					if newNodeGroupValue, newNodeGroupExists := newNodeGroup["payment_type"]; newNodeGroupExists && "Subscription" == newNodeGroupValue {
 						convertNodeGroup["PaymentType"] = newNodeGroupValue
+					} else if "PayAsYouGo" == newNodeGroupValue && ("MASTER" == newNodeGroup["node_group_type"] || "CORE" == newNodeGroup["node_group_type"]) {
+						return WrapError(Error("Subscription paymentType of emr cluster can not contains PayAsYouGo node group with 'MASTER' or 'CORE'."))
 					} else {
 						continue
 					}
@@ -1851,6 +1867,7 @@ func resourceAlicloudEmrV2ClusterUpdate(d *schema.ResourceData, meta interface{}
 					increaseNodesGroup["ClusterId"] = d.Id()
 					increaseNodesGroup["NodeGroupId"] = oldNodeGroup["NodeGroupId"]
 					increaseNodesGroup["IncreaseNodeCount"] = count
+					increaseNodesGroup["AutoRenew"] = false
 					if "Subscription" == newNodeGroup["payment_type"].(string) {
 						subscriptionConfig := newNodeGroup["subscription_config"].(*schema.Set).List()
 						if len(subscriptionConfig) == 1 {
@@ -1861,6 +1878,9 @@ func resourceAlicloudEmrV2ClusterUpdate(d *schema.ResourceData, meta interface{}
 								increaseNodesGroup["AutoPayOrder"] = value.(bool)
 							} else {
 								increaseNodesGroup["AutoPayOrder"] = true
+							}
+							if value, exists := configMap["auto_renew"]; exists {
+								increaseNodesGroup["AutoRenew"] = value.(bool)
 							}
 						}
 					}
@@ -1926,13 +1946,16 @@ func resourceAlicloudEmrV2ClusterUpdate(d *schema.ResourceData, meta interface{}
 					subscriptionMap := newNodeGroup["subscription_config"].(*schema.Set).List()[0].(map[string]interface{})
 					subscriptionConfig["PaymentDurationUnit"] = subscriptionMap["payment_duration_unit"]
 					subscriptionConfig["PaymentDuration"] = subscriptionMap["payment_duration"]
-					subscriptionConfig["AutoRenew"] = subscriptionMap["auto_renew"]
 					subscriptionConfig["AutoRenewDurationUnit"] = subscriptionMap["auto_renew_duration_unit"]
 					subscriptionConfig["AutoRenewDuration"] = subscriptionMap["auto_renew_duration"]
+					subscriptionConfig["AutoRenew"] = false
 					if value, exists := subscriptionMap["auto_pay_order"]; exists {
 						subscriptionConfig["AutoPayOrder"] = value.(bool)
 					} else {
 						subscriptionConfig["AutoPayOrder"] = true
+					}
+					if value, exists := subscriptionMap["auto_renew"]; exists {
+						subscriptionConfig["AutoRenew"] = value.(bool)
 					}
 				}
 				var spotBidPrices []map[string]interface{}
@@ -2086,12 +2109,19 @@ func resourceAlicloudEmrV2ClusterUpdate(d *schema.ResourceData, meta interface{}
 					increaseNodesGroup["NodeGroupId"] = nodeGroupId
 					increaseNodesGroup["IncreaseNodeCount"] = newNodeCount
 					increaseNodesGroup["AutoPayOrder"] = true
+					increaseNodesGroup["AutoRenew"] = false
 					if "Subscription" == newNodeGroup["payment_type"].(string) {
 						subscriptionConfig := newNodeGroup["subscription_config"].(*schema.Set).List()
 						if len(subscriptionConfig) == 1 {
 							configMap := subscriptionConfig[0].(map[string]interface{})
 							increaseNodesGroup["PaymentDuration"] = configMap["payment_duration"]
 							increaseNodesGroup["PaymentDurationUnit"] = configMap["payment_duration_unit"]
+							if value, exists := configMap["auto_pay_order"]; exists {
+								increaseNodesGroup["AutoPayOrder"] = value.(bool)
+							}
+							if value, exists := configMap["auto_renew"]; exists {
+								increaseNodesGroup["AutoRenew"] = value.(bool)
+							}
 						}
 					}
 					increaseNodesGroups = append(increaseNodesGroups, increaseNodesGroup)
@@ -2113,6 +2143,11 @@ func resourceAlicloudEmrV2ClusterUpdate(d *schema.ResourceData, meta interface{}
 				})
 			} else if newNodeGroup["payment_type"] == "Subscription" && oldNodeGroup["PaymentType"] == "PayAsYouGo" &&
 				!isUpdateClusterPaymentType && d.Get("payment_type") == "Subscription" {
+				action = "UpdateNodeGroupPaymentType"
+				UpdateNodeGroupPaymentTypeRequest := map[string]interface{}{
+					"ClusterId": d.Id(),
+					"RegionId":  client.RegionId,
+				}
 				updateNodeGroupPaymentType := map[string]interface{}{
 					"NodeGroupId": oldNodeGroup["NodeGroupId"],
 				}
@@ -2127,19 +2162,19 @@ func resourceAlicloudEmrV2ClusterUpdate(d *schema.ResourceData, meta interface{}
 					if subscriptionConfigValue, subscriptionConfigExists := subscriptionConfigMap["payment_duration_unit"]; subscriptionConfigExists {
 						updateNodeGroupPaymentType["PaymentDurationUnit"] = subscriptionConfigValue
 					}
+					if subscriptionConfigValue, subscriptionConfigExists := subscriptionConfigMap["auto_pay_order"]; subscriptionConfigExists {
+						UpdateNodeGroupPaymentTypeRequest["AutoPayOrder"] = subscriptionConfigValue
+					} else {
+						UpdateNodeGroupPaymentTypeRequest["AutoPayOrder"] = true
+					}
+					if subscriptionConfigValue, subscriptionConfigExists := subscriptionConfigMap["auto_renew"]; subscriptionConfigExists {
+						UpdateNodeGroupPaymentTypeRequest["AutoRenew"] = subscriptionConfigValue
+					} else {
+						UpdateNodeGroupPaymentTypeRequest["AutoRenew"] = false
+					}
 				} else {
 					return WrapError(Error("The '%s' nodeGroup: '%s' is needed parameter 'subscription_config' for changing paymentType.",
 						newNodeGroup["node_group_type"], newNodeGroup["node_group_name"]))
-				}
-				action = "UpdateNodeGroupPaymentType"
-				UpdateNodeGroupPaymentTypeRequest := map[string]interface{}{
-					"ClusterId": d.Id(),
-					"RegionId":  client.RegionId,
-				}
-				if autoPay, ok := newNodeGroup["auto_pay_order"]; ok {
-					UpdateNodeGroupPaymentTypeRequest["AutoPayOrder"] = autoPay.(bool)
-				} else {
-					UpdateNodeGroupPaymentTypeRequest["AutoPayOrder"] = true
 				}
 				UpdateNodeGroupPaymentTypeRequest["NodeGroup"] = updateNodeGroupPaymentType
 				wait = incrementalWait(3*time.Second, 5*time.Second)

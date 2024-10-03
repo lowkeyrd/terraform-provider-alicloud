@@ -201,7 +201,7 @@ var WAFSupportRegions = []Region{Hangzhou}
 var MSCSupportRegions = []Region{Hangzhou}
 var VPCPublicIpAddressPoolCidrBlockSupportRegions = []Region{Hangzhou}
 var RDSInstanceClassesSupportRegions = []Region{Hangzhou}
-var ServerlessSupportRegions = []Region{Shanghai, Qingdao, Beijing, Zhangjiakou, Huhehaote, WuLanChaBu, Shenzhen, ChengDu, Hongkong, Hangzhou}
+var ServerlessSupportRegions = []Region{APSouthEast1, Shanghai, Qingdao, Beijing, Zhangjiakou, Huhehaote, WuLanChaBu, Shenzhen, ChengDu, Hongkong, Hangzhou}
 
 // Other regions requires the custom should have icp
 var FCCustomDomainSupportRegions = []Region{EUCentral1, APSouthEast1}
@@ -259,7 +259,7 @@ var EfloSupportRegions = []Region{WuLanChaBu}
 var ActiontrailGlobalEventsStorageRegionSupportRegions = []Region{Hangzhou, APSouthEast1}
 var OceanBaseSupportRegions = []Region{Hangzhou}
 var ChatbotSupportRegions = []Region{Shanghai}
-var SENormalPolarDBSupportRegions = []Region{Beijing, Shanghai, Shenzhen, Zhangjiakou, APSouthEast1}
+var SENormalPolarDBSupportRegions = []Region{EUWest1, APNorthEast2, APSouthEast2, APSouthEast3, APSouthEast6, APSouthEast7, Huhehaote, Qingdao}
 var GDNPolarDBSupportRegions = []Region{ChengDu}
 var VpcVSwitchCidrReservationSupportRegions = []Region{APSouthEast2}
 var ComputeNestSupportRegions = []Region{Hangzhou}

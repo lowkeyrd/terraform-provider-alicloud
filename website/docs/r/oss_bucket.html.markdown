@@ -19,6 +19,12 @@ Provides a resource to create a oss bucket and set its attribution.
 
 Private Bucket
 
+<div style="display: block;margin-bottom: 40px;"><div class="oics-button" style="float: right;position: absolute;margin-bottom: 10px;">
+  <a href="https://api.aliyun.com/api-tools/terraform?resource=alicloud_oss_bucket&exampleId=b1523857-e8b4-b770-488f-623b9902e4060adc3742&activeTab=example&spm=docs.r.oss_bucket.0.b1523857e8&intl_lang=EN_US" target="_blank">
+    <img alt="Open in AliCloud" src="https://img.alicdn.com/imgextra/i1/O1CN01hjjqXv1uYUlY56FyX_!!6000000006049-55-tps-254-36.svg" style="max-height: 44px; max-width: 100%;">
+  </a>
+</div></div>
+
 ```terraform
 resource "random_integer" "default" {
   max = 99999
@@ -27,11 +33,21 @@ resource "random_integer" "default" {
 
 resource "alicloud_oss_bucket" "bucket-acl" {
   bucket = "example-value-${random_integer.default.result}"
+}
+
+resource "alicloud_oss_bucket_acl" "bucket-acl" {
+  bucket = alicloud_oss_bucket.bucket-acl.bucket
   acl    = "private"
 }
 ```
 
 Static Website
+
+<div style="display: block;margin-bottom: 40px;"><div class="oics-button" style="float: right;position: absolute;margin-bottom: 10px;">
+  <a href="https://api.aliyun.com/api-tools/terraform?resource=alicloud_oss_bucket&exampleId=5092ff58-0422-ce90-478a-1b7d6a4cf2e8545e3e5c&activeTab=example&spm=docs.r.oss_bucket.1.5092ff5804&intl_lang=EN_US" target="_blank">
+    <img alt="Open in AliCloud" src="https://img.alicdn.com/imgextra/i1/O1CN01hjjqXv1uYUlY56FyX_!!6000000006049-55-tps-254-36.svg" style="max-height: 44px; max-width: 100%;">
+  </a>
+</div></div>
 
 ```terraform
 resource "random_integer" "default" {
@@ -50,6 +66,12 @@ resource "alicloud_oss_bucket" "bucket-website" {
 
 Enable Logging
 
+<div style="display: block;margin-bottom: 40px;"><div class="oics-button" style="float: right;position: absolute;margin-bottom: 10px;">
+  <a href="https://api.aliyun.com/api-tools/terraform?resource=alicloud_oss_bucket&exampleId=c9a315e1-ba24-dc11-fd7e-f3de5840bceb09920aa6&activeTab=example&spm=docs.r.oss_bucket.2.c9a315e1ba&intl_lang=EN_US" target="_blank">
+    <img alt="Open in AliCloud" src="https://img.alicdn.com/imgextra/i1/O1CN01hjjqXv1uYUlY56FyX_!!6000000006049-55-tps-254-36.svg" style="max-height: 44px; max-width: 100%;">
+  </a>
+</div></div>
+
 ```terraform
 resource "random_integer" "default" {
   max = 99999
@@ -58,8 +80,13 @@ resource "random_integer" "default" {
 
 resource "alicloud_oss_bucket" "bucket-target" {
   bucket = "example-value-${random_integer.default.result}"
+}
+
+resource "alicloud_oss_bucket_acl" "bucket-target" {
+  bucket = alicloud_oss_bucket.bucket-target.bucket
   acl    = "public-read"
 }
+
 
 resource "alicloud_oss_bucket" "bucket-logging" {
   bucket = "example-logging-${random_integer.default.result}"
@@ -72,6 +99,12 @@ resource "alicloud_oss_bucket" "bucket-logging" {
 
 Referer configuration
 
+<div style="display: block;margin-bottom: 40px;"><div class="oics-button" style="float: right;position: absolute;margin-bottom: 10px;">
+  <a href="https://api.aliyun.com/api-tools/terraform?resource=alicloud_oss_bucket&exampleId=159941e6-def7-9c73-64b7-6c9218903396c5a86caf&activeTab=example&spm=docs.r.oss_bucket.3.159941e6de&intl_lang=EN_US" target="_blank">
+    <img alt="Open in AliCloud" src="https://img.alicdn.com/imgextra/i1/O1CN01hjjqXv1uYUlY56FyX_!!6000000006049-55-tps-254-36.svg" style="max-height: 44px; max-width: 100%;">
+  </a>
+</div></div>
+
 ```terraform
 resource "random_integer" "default" {
   max = 99999
@@ -80,15 +113,25 @@ resource "random_integer" "default" {
 
 resource "alicloud_oss_bucket" "bucket-referer" {
   bucket = "example-value-${random_integer.default.result}"
-  acl    = "private"
   referer_config {
     allow_empty = false
     referers    = ["http://www.aliyun.com", "https://www.aliyun.com"]
   }
 }
+
+resource "alicloud_oss_bucket_acl" "default" {
+  bucket = alicloud_oss_bucket.bucket-referer.bucket
+  acl    = "private"
+}
 ```
 
 Set lifecycle rule
+
+<div style="display: block;margin-bottom: 40px;"><div class="oics-button" style="float: right;position: absolute;margin-bottom: 10px;">
+  <a href="https://api.aliyun.com/api-tools/terraform?resource=alicloud_oss_bucket&exampleId=d537d136-1a72-6fbd-5c50-a2367e6ef480db3a6172&activeTab=example&spm=docs.r.oss_bucket.4.d537d1361a&intl_lang=EN_US" target="_blank">
+    <img alt="Open in AliCloud" src="https://img.alicdn.com/imgextra/i1/O1CN01hjjqXv1uYUlY56FyX_!!6000000006049-55-tps-254-36.svg" style="max-height: 44px; max-width: 100%;">
+  </a>
+</div></div>
 
 ```terraform
 resource "random_integer" "default" {
@@ -98,7 +141,6 @@ resource "random_integer" "default" {
 
 resource "alicloud_oss_bucket" "bucket-lifecycle1" {
   bucket = "example-lifecycle1-${random_integer.default.result}"
-  acl    = "public-read"
 
   lifecycle_rule {
     id      = "rule-days"
@@ -120,9 +162,14 @@ resource "alicloud_oss_bucket" "bucket-lifecycle1" {
   }
 }
 
+resource "alicloud_oss_bucket_acl" "bucket-lifecycle1" {
+  bucket = alicloud_oss_bucket.bucket-lifecycle1.bucket
+  acl    = "public-read"
+}
+
+
 resource "alicloud_oss_bucket" "bucket-lifecycle2" {
   bucket = "example-lifecycle2-${random_integer.default.result}"
-  acl    = "public-read"
 
   lifecycle_rule {
     id      = "rule-days-transition"
@@ -140,9 +187,14 @@ resource "alicloud_oss_bucket" "bucket-lifecycle2" {
   }
 }
 
+resource "alicloud_oss_bucket_acl" "bucket-lifecycle2" {
+  bucket = alicloud_oss_bucket.bucket-lifecycle2.bucket
+  acl    = "public-read"
+}
+
+
 resource "alicloud_oss_bucket" "bucket-lifecycle3" {
   bucket = "example-lifecycle3-${random_integer.default.result}"
-  acl    = "public-read"
 
   lifecycle_rule {
     id      = "rule-days-transition"
@@ -160,9 +212,14 @@ resource "alicloud_oss_bucket" "bucket-lifecycle3" {
   }
 }
 
+resource "alicloud_oss_bucket_acl" "bucket-lifecycle3" {
+  bucket = alicloud_oss_bucket.bucket-lifecycle3.bucket
+  acl    = "public-read"
+}
+
+
 resource "alicloud_oss_bucket" "bucket-lifecycle4" {
   bucket = "example-lifecycle4-${random_integer.default.result}"
-  acl    = "public-read"
 
   lifecycle_rule {
     id      = "rule-abort-multipart-upload"
@@ -175,9 +232,14 @@ resource "alicloud_oss_bucket" "bucket-lifecycle4" {
   }
 }
 
+resource "alicloud_oss_bucket_acl" "bucket-lifecycle4" {
+  bucket = alicloud_oss_bucket.bucket-lifecycle4.bucket
+  acl    = "public-read"
+}
+
+
 resource "alicloud_oss_bucket" "bucket-versioning-lifecycle" {
   bucket = "example-lifecycle5-${random_integer.default.result}"
-  acl    = "private"
 
   versioning {
     status = "Enabled"
@@ -208,9 +270,14 @@ resource "alicloud_oss_bucket" "bucket-versioning-lifecycle" {
   }
 }
 
+resource "alicloud_oss_bucket_acl" "bucket-versioning-lifecycle" {
+  bucket = alicloud_oss_bucket.bucket-versioning-lifecycle.bucket
+  acl    = "private"
+}
+
+
 resource "alicloud_oss_bucket" "bucket-access-monitor-lifecycle" {
   bucket = format("example-lifecycle6-%s", random_integer.default.result)
-  acl    = "private"
 
   access_monitor {
     status = "Enabled"
@@ -230,9 +297,14 @@ resource "alicloud_oss_bucket" "bucket-access-monitor-lifecycle" {
   }
 }
 
+resource "alicloud_oss_bucket_acl" "bucket-access-monitor-lifecycle" {
+  bucket = alicloud_oss_bucket.bucket-access-monitor-lifecycle.bucket
+  acl    = "private"
+}
+
+
 resource "alicloud_oss_bucket" "bucket-tag-lifecycle" {
   bucket = format("example-lifecycle7-%s", random_integer.default.result)
-  acl    = "private"
 
   lifecycle_rule {
     id      = "rule-days-transition"
@@ -249,9 +321,20 @@ resource "alicloud_oss_bucket" "bucket-tag-lifecycle" {
     For     = "example",
   }
 }
+
+resource "alicloud_oss_bucket_acl" "bucket-tag-lifecycle" {
+  bucket = alicloud_oss_bucket.bucket-tag-lifecycle.bucket
+  acl    = "private"
+}
 ```
 
 Set bucket policy 
+
+<div style="display: block;margin-bottom: 40px;"><div class="oics-button" style="float: right;position: absolute;margin-bottom: 10px;">
+  <a href="https://api.aliyun.com/api-tools/terraform?resource=alicloud_oss_bucket&exampleId=ac859beb-d9a3-1c87-9e63-a0b12dcc36541b9feae5&activeTab=example&spm=docs.r.oss_bucket.5.ac859bebd9&intl_lang=EN_US" target="_blank">
+    <img alt="Open in AliCloud" src="https://img.alicdn.com/imgextra/i1/O1CN01hjjqXv1uYUlY56FyX_!!6000000006049-55-tps-254-36.svg" style="max-height: 44px; max-width: 100%;">
+  </a>
+</div></div>
 
 ```terraform
 resource "random_integer" "default" {
@@ -261,7 +344,6 @@ resource "random_integer" "default" {
 
 resource "alicloud_oss_bucket" "bucket-policy" {
   bucket = "example-policy-${random_integer.default.result}"
-  acl    = "private"
 
   policy = <<POLICY
   {"Statement":
@@ -273,9 +355,20 @@ resource "alicloud_oss_bucket" "bucket-policy" {
    "Version":"1"}
   POLICY
 }
+
+resource "alicloud_oss_bucket_acl" "default" {
+  bucket = alicloud_oss_bucket.bucket-policy.bucket
+  acl    = "private"
+}
 ```
 
 IA Bucket
+
+<div style="display: block;margin-bottom: 40px;"><div class="oics-button" style="float: right;position: absolute;margin-bottom: 10px;">
+  <a href="https://api.aliyun.com/api-tools/terraform?resource=alicloud_oss_bucket&exampleId=d2bad287-91f7-8d9d-47ca-a2212bda0c9a38d522fc&activeTab=example&spm=docs.r.oss_bucket.6.d2bad28791&intl_lang=EN_US" target="_blank">
+    <img alt="Open in AliCloud" src="https://img.alicdn.com/imgextra/i1/O1CN01hjjqXv1uYUlY56FyX_!!6000000006049-55-tps-254-36.svg" style="max-height: 44px; max-width: 100%;">
+  </a>
+</div></div>
 
 ```terraform
 resource "random_integer" "default" {
@@ -291,6 +384,12 @@ resource "alicloud_oss_bucket" "default" {
 
 Set bucket server-side encryption rule 
 
+<div style="display: block;margin-bottom: 40px;"><div class="oics-button" style="float: right;position: absolute;margin-bottom: 10px;">
+  <a href="https://api.aliyun.com/api-tools/terraform?resource=alicloud_oss_bucket&exampleId=160d1480-f315-e1b1-53a4-f1f0ee5f48cbddb6294c&activeTab=example&spm=docs.r.oss_bucket.7.160d1480f3&intl_lang=EN_US" target="_blank">
+    <img alt="Open in AliCloud" src="https://img.alicdn.com/imgextra/i1/O1CN01hjjqXv1uYUlY56FyX_!!6000000006049-55-tps-254-36.svg" style="max-height: 44px; max-width: 100%;">
+  </a>
+</div></div>
+
 ```terraform
 resource "random_integer" "default" {
   max = 99999
@@ -299,11 +398,15 @@ resource "random_integer" "default" {
 
 resource "alicloud_oss_bucket" "bucket-sserule" {
   bucket = "terraform-example-${random_integer.default.result}"
-  acl    = "private"
 
   server_side_encryption_rule {
     sse_algorithm = "AES256"
   }
+}
+
+resource "alicloud_oss_bucket_acl" "bucket-sserule" {
+  bucket = alicloud_oss_bucket.bucket-sserule.bucket
+  acl    = "private"
 }
 
 resource "alicloud_kms_key" "kms" {
@@ -314,16 +417,26 @@ resource "alicloud_kms_key" "kms" {
 
 resource "alicloud_oss_bucket" "bucket-kms" {
   bucket = "terraform-example-kms-${random_integer.default.result}"
-  acl    = "private"
 
   server_side_encryption_rule {
     sse_algorithm     = "KMS"
     kms_master_key_id = alicloud_kms_key.kms.id
   }
 }
+
+resource "alicloud_oss_bucket_acl" "bucket-kms" {
+  bucket = alicloud_oss_bucket.bucket-kms.bucket
+  acl    = "private"
+}
 ```
 
 Set bucket tags 
+
+<div style="display: block;margin-bottom: 40px;"><div class="oics-button" style="float: right;position: absolute;margin-bottom: 10px;">
+  <a href="https://api.aliyun.com/api-tools/terraform?resource=alicloud_oss_bucket&exampleId=2a2df177-e6f4-d509-595b-e4f9e6f2a96718df758b&activeTab=example&spm=docs.r.oss_bucket.8.2a2df177e6&intl_lang=EN_US" target="_blank">
+    <img alt="Open in AliCloud" src="https://img.alicdn.com/imgextra/i1/O1CN01hjjqXv1uYUlY56FyX_!!6000000006049-55-tps-254-36.svg" style="max-height: 44px; max-width: 100%;">
+  </a>
+</div></div>
 
 ```terraform
 resource "random_integer" "default" {
@@ -333,16 +446,26 @@ resource "random_integer" "default" {
 
 resource "alicloud_oss_bucket" "bucket-tags" {
   bucket = "terraform-example-${random_integer.default.result}"
-  acl    = "private"
 
   tags = {
     key1 = "value1"
     key2 = "value2"
   }
 }
+
+resource "alicloud_oss_bucket_acl" "bucket-tags" {
+  bucket = alicloud_oss_bucket.bucket-tags.bucket
+  acl    = "private"
+}
 ```
 
 Enable bucket versioning 
+
+<div style="display: block;margin-bottom: 40px;"><div class="oics-button" style="float: right;position: absolute;margin-bottom: 10px;">
+  <a href="https://api.aliyun.com/api-tools/terraform?resource=alicloud_oss_bucket&exampleId=b8d407a9-6b97-1516-1050-161aaadf990c2ef94de1&activeTab=example&spm=docs.r.oss_bucket.9.b8d407a96b&intl_lang=EN_US" target="_blank">
+    <img alt="Open in AliCloud" src="https://img.alicdn.com/imgextra/i1/O1CN01hjjqXv1uYUlY56FyX_!!6000000006049-55-tps-254-36.svg" style="max-height: 44px; max-width: 100%;">
+  </a>
+</div></div>
 
 ```terraform
 resource "random_integer" "default" {
@@ -352,15 +475,24 @@ resource "random_integer" "default" {
 
 resource "alicloud_oss_bucket" "bucket-versioning" {
   bucket = "terraform-example-${random_integer.default.result}"
-  acl    = "private"
-
   versioning {
     status = "Enabled"
   }
 }
+
+resource "alicloud_oss_bucket_acl" "default" {
+  bucket = alicloud_oss_bucket.bucket-versioning.bucket
+  acl    = "private"
+}
 ```
 
 Set bucket redundancy type
+
+<div style="display: block;margin-bottom: 40px;"><div class="oics-button" style="float: right;position: absolute;margin-bottom: 10px;">
+  <a href="https://api.aliyun.com/api-tools/terraform?resource=alicloud_oss_bucket&exampleId=5092ff58-0422-ce90-478a-1b7d6a4cf2e8545e3e5c&activeTab=example&spm=docs.r.oss_bucket.1.5092ff5804&intl_lang=EN_US" target="_blank">
+    <img alt="Open in AliCloud" src="https://img.alicdn.com/imgextra/i1/O1CN01hjjqXv1uYUlY56FyX_!!6000000006049-55-tps-254-36.svg" style="max-height: 44px; max-width: 100%;">
+  </a>
+</div></div>
 
 ```terraform
 resource "random_integer" "default" {
@@ -378,6 +510,12 @@ resource "alicloud_oss_bucket" "bucket-redundancytype" {
 
 Set bucket accelerate configuration
 
+<div style="display: block;margin-bottom: 40px;"><div class="oics-button" style="float: right;position: absolute;margin-bottom: 10px;">
+  <a href="https://api.aliyun.com/api-tools/terraform?resource=alicloud_oss_bucket&exampleId=5092ff58-0422-ce90-478a-1b7d6a4cf2e8545e3e5c&activeTab=example&spm=docs.r.oss_bucket.1.5092ff5804&intl_lang=EN_US" target="_blank">
+    <img alt="Open in AliCloud" src="https://img.alicdn.com/imgextra/i1/O1CN01hjjqXv1uYUlY56FyX_!!6000000006049-55-tps-254-36.svg" style="max-height: 44px; max-width: 100%;">
+  </a>
+</div></div>
+
 ```terraform
 resource "random_integer" "default" {
   max = 99999
@@ -394,6 +532,12 @@ resource "alicloud_oss_bucket" "bucket-accelerate" {
 ```
 
 Set bucket resource group id
+
+<div style="display: block;margin-bottom: 40px;"><div class="oics-button" style="float: right;position: absolute;margin-bottom: 10px;">
+  <a href="https://api.aliyun.com/api-tools/terraform?resource=alicloud_oss_bucket&exampleId=c9a315e1-ba24-dc11-fd7e-f3de5840bceb09920aa6&activeTab=example&spm=docs.r.oss_bucket.2.c9a315e1ba&intl_lang=EN_US" target="_blank">
+    <img alt="Open in AliCloud" src="https://img.alicdn.com/imgextra/i1/O1CN01hjjqXv1uYUlY56FyX_!!6000000006049-55-tps-254-36.svg" style="max-height: 44px; max-width: 100%;">
+  </a>
+</div></div>
 
 ```terraform
 resource "random_integer" "default" {

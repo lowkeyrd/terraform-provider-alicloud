@@ -19,6 +19,12 @@ For information about ECS Launch Template and how to use it, see [What is Launch
 
 Basic Usage
 
+<div style="display: block;margin-bottom: 40px;"><div class="oics-button" style="float: right;position: absolute;margin-bottom: 10px;">
+  <a href="https://api.aliyun.com/api-tools/terraform?resource=alicloud_ecs_launch_template&exampleId=5466eb32-9bb1-6f2c-d8d0-d78c6ec2ff1525b4b0ef&activeTab=example&spm=docs.r.ecs_launch_template.0.5466eb329b&intl_lang=EN_US" target="_blank">
+    <img alt="Open in AliCloud" src="https://img.alicdn.com/imgextra/i1/O1CN01hjjqXv1uYUlY56FyX_!!6000000006049-55-tps-254-36.svg" style="max-height: 44px; max-width: 100%;">
+  </a>
+</div></div>
+
 ```terraform
 data "alicloud_zones" "default" {
   available_disk_category     = "cloud_efficiency"
@@ -210,6 +216,7 @@ The data_disks supports the following:
 * `performance_level` - (Optional) The performance level of the ESSD used as the data disk.
 * `size` - (Optional) The size of the data disk.
 * `snapshot_id` - (Optional) The snapshot ID used to initialize the data disk. If the size specified by snapshot is greater that the size of the disk, use the size specified by snapshot as the size of the data disk.
+* `device` - (Optional, Available since v1.230.1) The mount point of the data disk.
 
 ## Attributes Reference
 

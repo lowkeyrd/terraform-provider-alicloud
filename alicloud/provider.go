@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"github.com/aliyun/credentials-go/credentials"
 	"io/ioutil"
 	"log"
 	"net/http"
@@ -164,6 +165,8 @@ func Provider() terraform.ResourceProvider {
 			},
 		},
 		DataSourcesMap: map[string]*schema.Resource{
+"alicloud_gpdb_data_backups": dataSourceAliCloudGpdbDataBackups(),
+			"alicloud_gpdb_log_backups":       dataSourceAliCloudGpdbLogbackups(),
 			"alicloud_governance_baselines":   dataSourceAliCloudGovernanceBaselines(),
 			"alicloud_vpn_gateway_zones":      dataSourceAliCloudVPNGatewayZones(),
 			"alicloud_account":                dataSourceAlicloudAccount(),
@@ -656,7 +659,7 @@ func Provider() terraform.ResourceProvider {
 			"alicloud_cddc_dedicated_hosts":                             dataSourceAlicloudCddcDedicatedHosts(),
 			"alicloud_oos_parameters":                                   dataSourceAlicloudOosParameters(),
 			"alicloud_oos_state_configurations":                         dataSourceAlicloudOosStateConfigurations(),
-			"alicloud_oos_secret_parameters":                            dataSourceAlicloudOosSecretParameters(),
+			"alicloud_oos_secret_parameters":                            dataSourceAliCloudOosSecretParameters(),
 			"alicloud_click_house_backup_policies":                      dataSourceAlicloudClickHouseBackupPolicies(),
 			"alicloud_cloud_sso_service":                                dataSourceAlicloudCloudSsoService(),
 			"alicloud_mongodb_audit_policies":                           dataSourceAlicloudMongodbAuditPolicies(),
@@ -866,6 +869,19 @@ func Provider() terraform.ResourceProvider {
 			"alicloud_cms_site_monitors":                                dataSourceAliCloudCloudMonitorServiceSiteMonitors(),
 		},
 		ResourcesMap: map[string]*schema.Resource{
+			"alicloud_gpdb_db_instance_ip_array":                            resourceAliCloudGpdbDBInstanceIPArray(),
+			"alicloud_quotas_template_service":                              resourceAliCloudQuotasTemplateService(),
+			"alicloud_fcv3_vpc_binding":                                     resourceAliCloudFcv3VpcBinding(),
+			"alicloud_fcv3_layer_version":                                   resourceAliCloudFcv3LayerVersion(),
+			"alicloud_service_catalog_principal_portfolio_association":      resourceAliCloudServiceCatalogPrincipalPortfolioAssociation(),
+			"alicloud_service_catalog_product_version":                      resourceAliCloudServiceCatalogProductVersion(),
+			"alicloud_service_catalog_product_portfolio_association":        resourceAliCloudServiceCatalogProductPortfolioAssociation(),
+			"alicloud_service_catalog_product":                              resourceAliCloudServiceCatalogProduct(),
+			"alicloud_gpdb_hadoop_data_source":                              resourceAliCloudGpdbHadoopDataSource(),
+			"alicloud_gpdb_jdbc_data_source":                                resourceAliCloudGpdbJdbcDataSource(),
+			"alicloud_fcv3_provision_config":                                resourceAliCloudFcv3ProvisionConfig(),
+			"alicloud_gpdb_streaming_job":                                   resourceAliCloudGpdbStreamingJob(),
+			"alicloud_data_works_project":                                   resourceAliCloudDataWorksProject(),
 			"alicloud_fcv3_function_version":                                resourceAliCloudFcv3FunctionVersion(),
 			"alicloud_governance_account":                                   resourceAliCloudGovernanceAccount(),
 			"alicloud_fcv3_trigger":                                         resourceAliCloudFcv3Trigger(),
@@ -1008,9 +1024,9 @@ func Provider() terraform.ResourceProvider {
 			"alicloud_disk_attachment":                                      resourceAlicloudEcsDiskAttachment(),
 			"alicloud_network_interface":                                    resourceAliCloudEcsNetworkInterface(),
 			"alicloud_network_interface_attachment":                         resourceAliCloudEcsNetworkInterfaceAttachment(),
-			"alicloud_snapshot":                                             resourceAlicloudEcsSnapshot(),
+			"alicloud_snapshot":                                             resourceAliCloudEcsSnapshot(),
 			"alicloud_snapshot_policy":                                      resourceAlicloudEcsAutoSnapshotPolicy(),
-			"alicloud_launch_template":                                      resourceAlicloudEcsLaunchTemplate(),
+			"alicloud_launch_template":                                      resourceAliCloudEcsLaunchTemplate(),
 			"alicloud_security_group":                                       resourceAliyunSecurityGroup(),
 			"alicloud_security_group_rule":                                  resourceAliyunSecurityGroupRule(),
 			"alicloud_db_database":                                          resourceAlicloudDBDatabase(),
@@ -1048,6 +1064,7 @@ func Provider() terraform.ResourceProvider {
 			"alicloud_ess_alarm":                                            resourceAlicloudEssAlarm(),
 			"alicloud_ess_scalinggroup_vserver_groups":                      resourceAlicloudEssScalingGroupVserverGroups(),
 			"alicloud_ess_alb_server_group_attachment":                      resourceAlicloudEssAlbServerGroupAttachment(),
+			"alicloud_ess_server_group_attachment":                          resourceAliCloudEssServerGroupAttachment(),
 			"alicloud_vpc":                                                  resourceAliCloudVpcVpc(),
 			"alicloud_nat_gateway":                                          resourceAlicloudNatGateway(),
 			"alicloud_nas_file_system":                                      resourceAlicloudNasFileSystem(),
@@ -1124,9 +1141,9 @@ func Provider() terraform.ResourceProvider {
 			"alicloud_cr_namespace":                                          resourceAlicloudCRNamespace(),
 			"alicloud_cr_repo":                                               resourceAlicloudCRRepo(),
 			"alicloud_cr_ee_instance":                                        resourceAlicloudCrEEInstance(),
-			"alicloud_cr_ee_namespace":                                       resourceAlicloudCrEENamespace(),
-			"alicloud_cr_ee_repo":                                            resourceAlicloudCrEERepo(),
-			"alicloud_cr_ee_sync_rule":                                       resourceAlicloudCrEESyncRule(),
+			"alicloud_cr_ee_namespace":                                       resourceAliCloudCrEENamespace(),
+			"alicloud_cr_ee_repo":                                            resourceAliCloudCrEERepo(),
+			"alicloud_cr_ee_sync_rule":                                       resourceAliCloudCrEESyncRule(),
 			"alicloud_cdn_domain":                                            resourceAlicloudCdnDomain(),
 			"alicloud_cdn_domain_new":                                        resourceAliCloudCdnDomain(),
 			"alicloud_cdn_domain_config":                                     resourceAliCloudCdnDomainConfig(),
@@ -1342,22 +1359,22 @@ func Provider() terraform.ResourceProvider {
 			"alicloud_quotas_quota_application":                              resourceAliCloudQuotasQuotaApplication(),
 			"alicloud_ecs_auto_snapshot_policy":                              resourceAlicloudEcsAutoSnapshotPolicy(),
 			"alicloud_rds_parameter_group":                                   resourceAlicloudRdsParameterGroup(),
-			"alicloud_ecs_launch_template":                                   resourceAlicloudEcsLaunchTemplate(),
+			"alicloud_ecs_launch_template":                                   resourceAliCloudEcsLaunchTemplate(),
 			"alicloud_resource_manager_control_policy":                       resourceAlicloudResourceManagerControlPolicy(),
 			"alicloud_resource_manager_control_policy_attachment":            resourceAlicloudResourceManagerControlPolicyAttachment(),
 			"alicloud_rds_account":                                           resourceAlicloudRdsAccount(),
 			"alicloud_rds_db_node":                                           resourceAlicloudRdsDBNode(),
 			"alicloud_rds_db_instance_endpoint":                              resourceAlicloudRdsDBInstanceEndpoint(),
 			"alicloud_rds_db_instance_endpoint_address":                      resourceAlicloudRdsDBInstanceEndpointAddress(),
-			"alicloud_ecs_snapshot":                                          resourceAlicloudEcsSnapshot(),
+			"alicloud_ecs_snapshot":                                          resourceAliCloudEcsSnapshot(),
 			"alicloud_ecs_key_pair":                                          resourceAlicloudEcsKeyPair(),
 			"alicloud_ecs_key_pair_attachment":                               resourceAlicloudEcsKeyPairAttachment(),
 			"alicloud_adb_db_cluster":                                        resourceAliCloudAdbDbCluster(),
 			"alicloud_ecs_disk":                                              resourceAlicloudEcsDisk(),
 			"alicloud_ecs_disk_attachment":                                   resourceAlicloudEcsDiskAttachment(),
 			"alicloud_ecs_auto_snapshot_policy_attachment":                   resourceAlicloudEcsAutoSnapshotPolicyAttachment(),
-			"alicloud_ddoscoo_domain_resource":                               resourceAlicloudDdoscooDomainResource(),
-			"alicloud_ddoscoo_port":                                          resourceAlicloudDdoscooPort(),
+			"alicloud_ddoscoo_domain_resource":                               resourceAliCloudDdosCooDomainResource(),
+			"alicloud_ddoscoo_port":                                          resourceAliCloudDdosCooPort(),
 			"alicloud_slb_load_balancer":                                     resourceAlicloudSlbLoadBalancer(),
 			"alicloud_ecs_network_interface":                                 resourceAliCloudEcsNetworkInterface(),
 			"alicloud_ecs_network_interface_attachment":                      resourceAliCloudEcsNetworkInterfaceAttachment(),
@@ -1402,7 +1419,7 @@ func Provider() terraform.ResourceProvider {
 			"alicloud_cddc_dedicated_host_group":                             resourceAlicloudCddcDedicatedHostGroup(),
 			"alicloud_hbr_ecs_backup_client":                                 resourceAlicloudHbrEcsBackupClient(),
 			"alicloud_msc_sub_contact":                                       resourceAlicloudMscSubContact(),
-			"alicloud_express_connect_physical_connection":                   resourceAlicloudExpressConnectPhysicalConnection(),
+			"alicloud_express_connect_physical_connection":                   resourceAliCloudExpressConnectPhysicalConnection(),
 			"alicloud_alb_load_balancer":                                     resourceAliCloudAlbLoadBalancer(),
 			"alicloud_sddp_rule":                                             resourceAliCloudSddpRule(),
 			"alicloud_bastionhost_user_group":                                resourceAlicloudBastionhostUserGroup(),
@@ -1425,7 +1442,7 @@ func Provider() terraform.ResourceProvider {
 			"alicloud_direct_mail_domain":                                    resourceAlicloudDirectMailDomain(),
 			"alicloud_bastionhost_host_group":                                resourceAlicloudBastionhostHostGroup(),
 			"alicloud_vpc_dhcp_options_set":                                  resourceAliCloudVpcDhcpOptionsSet(),
-			"alicloud_alb_health_check_template":                             resourceAlicloudAlbHealthCheckTemplate(),
+			"alicloud_alb_health_check_template":                             resourceAliCloudAlbHealthCheckTemplate(),
 			"alicloud_cdn_real_time_log_delivery":                            resourceAlicloudCdnRealTimeLogDelivery(),
 			"alicloud_click_house_account":                                   resourceAlicloudClickHouseAccount(),
 			"alicloud_selectdb_db_cluster":                                   resourceAlicloudSelectDBDbCluster(),
@@ -1492,7 +1509,7 @@ func Provider() terraform.ResourceProvider {
 			"alicloud_waf_protection_module":                                 resourceAlicloudWafProtectionModule(),
 			"alicloud_ecd_user":                                              resourceAlicloudEcdUser(),
 			"alicloud_vpc_traffic_mirror_session":                            resourceAliCloudVpcTrafficMirrorSession(),
-			"alicloud_gpdb_account":                                          resourceAlicloudGpdbAccount(),
+			"alicloud_gpdb_account":                                          resourceAliCloudGpdbAccount(),
 			"alicloud_security_center_service_linked_role":                   resourceAlicloudSecurityCenterServiceLinkedRole(),
 			"alicloud_event_bridge_service_linked_role":                      resourceAlicloudEventBridgeServiceLinkedRole(),
 			"alicloud_vpc_ipv6_gateway":                                      resourceAliCloudVpcIpv6Gateway(),
@@ -1573,7 +1590,7 @@ func Provider() terraform.ResourceProvider {
 			"alicloud_dbfs_service_linked_role":                              resourceAlicloudDbfsServiceLinkedRole(),
 			"alicloud_resource_manager_service_linked_role":                  resourceAliCloudResourceManagerServiceLinkedRole(),
 			"alicloud_rds_service_linked_role":                               resourceAlicloudRdsServiceLinkedRole(),
-			"alicloud_mongodb_sharding_network_private_address":              resourceAlicloudMongodbShardingNetworkPrivateAddress(),
+			"alicloud_mongodb_sharding_network_private_address":              resourceAliCloudMongodbShardingNetworkPrivateAddress(),
 			"alicloud_ecp_instance":                                          resourceAlicloudEcpInstance(),
 			"alicloud_dcdn_ipa_domain":                                       resourceAlicloudDcdnIpaDomain(),
 			"alicloud_sddp_data_limit":                                       resourceAlicloudSddpDataLimit(),
@@ -1613,7 +1630,7 @@ func Provider() terraform.ResourceProvider {
 			"alicloud_edas_namespace":                                        resourceAlicloudEdasNamespace(),
 			"alicloud_schedulerx_namespace":                                  resourceAlicloudSchedulerxNamespace(),
 			"alicloud_ehpc_cluster":                                          resourceAlicloudEhpcCluster(),
-			"alicloud_cen_traffic_marking_policy":                            resourceAlicloudCenTrafficMarkingPolicy(),
+			"alicloud_cen_traffic_marking_policy":                            resourceAliCloudCenTrafficMarkingPolicy(),
 			"alicloud_ecs_instance_set":                                      resourceAlicloudEcsInstanceSet(),
 			"alicloud_ecd_ram_directory":                                     resourceAlicloudEcdRamDirectory(),
 			"alicloud_service_mesh_user_permission":                          resourceAliCloudServiceMeshUserPermission(),
@@ -1648,7 +1665,7 @@ func Provider() terraform.ResourceProvider {
 			"alicloud_vpc_public_ip_address_pool":                            resourceAliCloudVpcPublicIpAddressPool(),
 			"alicloud_dcdn_waf_policy_domain_attachment":                     resourceAlicloudDcdnWafPolicyDomainAttachment(),
 			"alicloud_nlb_server_group":                                      resourceAliCloudNlbServerGroup(),
-			"alicloud_vpc_peer_connection":                                   resourceAliCloudVpcPeerConnection(),
+			"alicloud_vpc_peer_connection":                                   resourceAliCloudVpcPeerPeerConnection(),
 			"alicloud_ga_access_log":                                         resourceAlicloudGaAccessLog(),
 			"alicloud_ebs_disk_replica_group":                                resourceAlicloudEbsDiskReplicaGroup(),
 			"alicloud_nlb_security_policy":                                   resourceAliCloudNlbSecurityPolicy(),
@@ -1691,7 +1708,7 @@ func Provider() terraform.ResourceProvider {
 			"alicloud_dms_enterprise_proxy_access":                           resourceAlicloudDmsEnterpriseProxyAccess(),
 			"alicloud_threat_detection_vul_whitelist":                        resourceAlicloudThreatDetectionVulWhitelist(),
 			"alicloud_dms_enterprise_logic_database":                         resourceAlicloudDmsEnterpriseLogicDatabase(),
-			"alicloud_amqp_static_account":                                   resourceAlicloudAmqpStaticAccount(),
+			"alicloud_amqp_static_account":                                   resourceAliCloudAmqpStaticAccount(),
 			"alicloud_adb_resource_group":                                    resourceAliCloudAdbResourceGroup(),
 			"alicloud_alb_ascript":                                           resourceAlicloudAlbAscript(),
 			"alicloud_threat_detection_honeypot_node":                        resourceAlicloudThreatDetectionHoneypotNode(),
@@ -1710,7 +1727,7 @@ func Provider() terraform.ResourceProvider {
 			"alicloud_cen_transit_router_multicast_domain_association":       resourceAliCloudCenTransitRouterMulticastDomainAssociation(),
 			"alicloud_threat_detection_honeypot_preset":                      resourceAlicloudThreatDetectionHoneypotPreset(),
 			"alicloud_service_catalog_provisioned_product":                   resourceAlicloudServiceCatalogProvisionedProduct(),
-			"alicloud_vpc_peer_connection_accepter":                          resourceAlicloudVpcPeerConnectionAccepter(),
+			"alicloud_vpc_peer_connection_accepter":                          resourceAliCloudVpcPeerPeerConnectionAccepter(),
 			"alicloud_ebs_dedicated_block_storage_cluster":                   resourceAlicloudEbsDedicatedBlockStorageCluster(),
 			"alicloud_ecs_elasticity_assurance":                              resourceAlicloudEcsElasticityAssurance(),
 			"alicloud_express_connect_grant_rule_to_cen":                     resourceAlicloudExpressConnectGrantRuleToCen(),
@@ -1744,7 +1761,7 @@ func Provider() terraform.ResourceProvider {
 			"alicloud_ocean_base_instance":                                   resourceAliCloudOceanBaseInstance(),
 			"alicloud_chatbot_publish_task":                                  resourceAlicloudChatbotPublishTask(),
 			"alicloud_arms_integration_exporter":                             resourceAlicloudArmsIntegrationExporter(),
-			"alicloud_service_catalog_portfolio":                             resourceAlicloudServiceCatalogPortfolio(),
+			"alicloud_service_catalog_portfolio":                             resourceAliCloudServiceCatalogPortfolio(),
 			"alicloud_arms_remote_write":                                     resourceAliCloudArmsRemoteWrite(),
 			"alicloud_eflo_subnet":                                           resourceAlicloudEfloSubnet(),
 			"alicloud_compute_nest_service_instance":                         resourceAlicloudComputeNestServiceInstance(),
@@ -1817,6 +1834,17 @@ func providerConfigure(d *schema.ResourceData, p *schema.Provider) (interface{},
 		TerraformVersion:     p.TerraformVersion,
 	}
 	log.Println("alicloud provider trace id:", config.TerraformTraceId)
+	if accessKey != "" && secretKey != "" {
+		credentialConfig := new(credentials.Config).SetType("access_key").SetAccessKeyId(accessKey).SetAccessKeySecret(secretKey)
+		if v := strings.TrimSpace(securityToken); v != "" {
+			credentialConfig.SetType("sts").SetSecurityToken(v)
+		}
+		credential, err := credentials.NewCredential(credentialConfig)
+		if err != nil {
+			return nil, err
+		}
+		config.Credential = credential
+	}
 	if v, ok := d.GetOk("security_transport"); config.SecureTransport == "" && ok && v.(string) != "" {
 		config.SecureTransport = v.(string)
 	}

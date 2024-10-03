@@ -16,6 +16,12 @@ Log Service manages all the ECS instances whose logs need to be collected by usi
 
 Basic Usage
 
+<div style="display: block;margin-bottom: 40px;"><div class="oics-button" style="float: right;position: absolute;margin-bottom: 10px;">
+  <a href="https://api.aliyun.com/api-tools/terraform?resource=alicloud_log_machine_group&exampleId=7cb4e15a-0700-f4ee-2227-e3c857285ff16f30f0d9&activeTab=example&spm=docs.r.log_machine_group.0.7cb4e15a07&intl_lang=EN_US" target="_blank">
+    <img alt="Open in AliCloud" src="https://img.alicdn.com/imgextra/i1/O1CN01hjjqXv1uYUlY56FyX_!!6000000006049-55-tps-254-36.svg" style="max-height: 44px; max-width: 100%;">
+  </a>
+</div></div>
+
 ```terraform
 resource "random_integer" "default" {
   max = 99999
@@ -23,12 +29,12 @@ resource "random_integer" "default" {
 }
 
 resource "alicloud_log_project" "example" {
-  name        = "terraform-example-${random_integer.default.result}"
-  description = "terraform-example"
+  project_name = "terraform-example-${random_integer.default.result}"
+  description  = "terraform-example"
 }
 
 resource "alicloud_log_machine_group" "example" {
-  project       = alicloud_log_project.example.name
+  project       = alicloud_log_project.example.project_name
   name          = "terraform-example"
   identify_type = "ip"
   topic         = "terraform"

@@ -19,6 +19,12 @@ For information about Vpc Flow Log and how to use it, see [What is Flow Log](htt
 
 Basic Usage
 
+<div style="display: block;margin-bottom: 40px;"><div class="oics-button" style="float: right;position: absolute;margin-bottom: 10px;">
+  <a href="https://api.aliyun.com/api-tools/terraform?resource=alicloud_vpc_flow_log&exampleId=736bfeac-3fca-11b4-b45a-d933bca5c287ac089a4f&activeTab=example&spm=docs.r.vpc_flow_log.0.736bfeac3f&intl_lang=EN_US" target="_blank">
+    <img alt="Open in AliCloud" src="https://img.alicdn.com/imgextra/i1/O1CN01hjjqXv1uYUlY56FyX_!!6000000006049-55-tps-254-36.svg" style="max-height: 44px; max-width: 100%;">
+  </a>
+</div></div>
+
 ```terraform
 variable "name" {
   default = "tf-example"
@@ -33,13 +39,13 @@ resource "alicloud_vpc" "example" {
 resource "random_uuid" "example" {
 }
 resource "alicloud_log_project" "example" {
-  name        = substr("tf-example-${replace(random_uuid.example.result, "-", "")}", 0, 16)
-  description = var.name
+  project_name = substr("tf-example-${replace(random_uuid.example.result, "-", "")}", 0, 16)
+  description  = var.name
 }
 
 resource "alicloud_log_store" "example" {
-  project               = alicloud_log_project.example.name
-  name                  = var.name
+  project_name          = alicloud_log_project.example.project_name
+  logstore_name         = var.name
   shard_count           = 3
   auto_split            = true
   max_split_shard_count = 60
@@ -48,10 +54,10 @@ resource "alicloud_log_store" "example" {
 
 resource "alicloud_vpc_flow_log" "example" {
   flow_log_name        = var.name
-  log_store_name       = alicloud_log_store.example.name
+  log_store_name       = alicloud_log_store.example.logstore_name
   description          = var.name
   traffic_path         = ["all"]
-  project_name         = alicloud_log_project.example.name
+  project_name         = alicloud_log_project.example.project_name
   resource_type        = "VPC"
   resource_group_id    = data.alicloud_resource_manager_resource_groups.default.ids.0
   resource_id          = alicloud_vpc.example.id

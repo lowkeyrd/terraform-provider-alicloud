@@ -26,6 +26,12 @@ For information about listener and how to use it, please see the following:
 
 Basic Usage
 
+<div style="display: block;margin-bottom: 40px;"><div class="oics-button" style="float: right;position: absolute;margin-bottom: 10px;">
+  <a href="https://api.aliyun.com/api-tools/terraform?resource=alicloud_slb_listener&exampleId=d81ccb9a-e8c9-58fc-3b3c-9413b8fc14c23294f58f&activeTab=example&spm=docs.r.slb_listener.0.d81ccb9ae8&intl_lang=EN_US" target="_blank">
+    <img alt="Open in AliCloud" src="https://img.alicdn.com/imgextra/i1/O1CN01hjjqXv1uYUlY56FyX_!!6000000006049-55-tps-254-36.svg" style="max-height: 44px; max-width: 100%;">
+  </a>
+</div></div>
+
 ```terraform
 variable "name" {
   default = "tf-example"
@@ -183,7 +189,7 @@ The HTTPS Listener supports the following:
 * `idle_timeout` - (Optional, Int) The timeout period of an idle connection. Unit: seconds. Default value: `15`. Valid values: `1` to `60`.
 * `request_timeout` - (Optional, Int) The timeout period of a request. Unit: seconds. Default value: `60`. Valid values: `1` to `180`.
 * `enable_http2` - (Optional) Specifies whether to enable HTTP/2. Default value: `on`. Valid values: `on`, `off`.
-* `tls_cipher_policy` - (Optional) The Transport Layer Security (TLS) security policy. Default value: `tls_cipher_policy_1_0`. Valid values: `tls_cipher_policy_1_0`, `tls_cipher_policy_1_1`, `tls_cipher_policy_1_2`, `tls_cipher_policy_1_2_strict`.
+* `tls_cipher_policy` - (Optional) The Transport Layer Security (TLS) security policy. Default value: `tls_cipher_policy_1_0`. Valid values: `tls_cipher_policy_1_0`, `tls_cipher_policy_1_1`, `tls_cipher_policy_1_2`, `tls_cipher_policy_1_2_strict`, `tls_cipher_policy_1_2_strict_with_1_3`. **NOTE:** From version 1.229.1, `tls_cipher_policy` can be set to `tls_cipher_policy_1_2_strict_with_1_3`.
 * `x_forwarded_for` - (Optional, Set, Available since v1.13.0) Whether to set additional HTTP Header field "X-Forwarded-For". See [`x_forwarded_for`](#x_forwarded_for) below.
 * `description` - (Optional, Available since v1.69.0) The name of the listener. The name must be 1 to 256 characters in length, and can contain letters, digits, hyphens (-), forward slashes (/), periods (.), and underscores (_).
 * `delete_protection_validation` - (Optional, Bool, Available since v1.63.0) Checking DeleteProtection of SLB instance before deleting. If true, this resource will not be deleted when its SLB instance enabled DeleteProtection. Default value: `false`.

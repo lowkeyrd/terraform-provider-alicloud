@@ -24,6 +24,12 @@ You can see detail product introduction [here](https://www.alibabacloud.com/help
 
 ### Create a Mongodb instance
 
+<div style="display: block;margin-bottom: 40px;"><div class="oics-button" style="float: right;position: absolute;margin-bottom: 10px;">
+  <a href="https://api.aliyun.com/api-tools/terraform?resource=alicloud_mongodb_instance&exampleId=2769a854-b7b1-2ac5-c852-950339b763843c914a7d&activeTab=example&spm=docs.r.mongodb_instance.0.2769a854b7&intl_lang=EN_US" target="_blank">
+    <img alt="Open in AliCloud" src="https://img.alicdn.com/imgextra/i1/O1CN01hjjqXv1uYUlY56FyX_!!6000000006049-55-tps-254-36.svg" style="max-height: 44px; max-width: 100%;">
+  </a>
+</div></div>
+
 ```terraform
 variable "name" {
   default = "terraform-example"
@@ -78,7 +84,8 @@ The following arguments are supported:
   - Custom storage space.
   - 10-GB increments.
 * `storage_engine` (Optional, ForceNew) The storage engine of the instance. Default value: `WiredTiger`. Valid values: `WiredTiger`, `RocksDB`.
-* `storage_type` - (Optional, ForceNew, Available since v1.199.0) The storage type of the instance. Valid values: `cloud_essd1`, `cloud_essd2`, `cloud_essd3`, `local_ssd`.
+* `storage_type` - (Optional, Available since v1.199.0) The storage type of the instance. Valid values: `cloud_essd1`, `cloud_essd2`, `cloud_essd3`, `cloud_auto`, `local_ssd`. **NOTE:** From version 1.229.0, `storage_type` can be modified. However, `storage_type` can only be modified to `cloud_auto`.
+* `provisioned_iops` - (Optional, Int, Available since v1.229.0) The provisioned IOPS. Valid values: `0` to `50000`.
 * `vpc_id` - (Optional, ForceNew, Available since v1.161.0) The ID of the VPC. -> **NOTE:** `vpc_id` is valid only when `network_type` is set to `VPC`.
 * `vswitch_id` - (Optional, ForceNew) The virtual switch ID to launch DB instances in one VPC.
 * `zone_id` - (Optional, ForceNew) The Zone to launch the DB instance. it supports multiple zone.
@@ -105,10 +112,14 @@ The following arguments are supported:
 * `backup_time` - (Optional, Available since v1.42.0) MongoDB instance backup time. It is required when `backup_period` was existed. In the format of HH:mmZ- HH:mmZ. Time setting interval is one hour. If not set, the system will return a default, like "23:00Z-24:00Z".
 * `backup_period` - (Optional, List, Available since v1.42.0) MongoDB Instance backup period. It is required when `backup_time` was existed. Valid values: [Monday, Tuesday, Wednesday, Thursday, Friday, Saturday, Sunday]. Default to [Monday, Tuesday, Wednesday, Thursday, Friday, Saturday, Sunday].
 * `backup_retention_period` - (Optional, Int, Available since v1.213.1) The retention period of full backups.
-* `backup_interval` - (Optional, Available since v1.212.0) The frequency at which high-frequency backups are created. Valid values: `-1`, `15`, `30`, `60`, `120`, `180`, `240`, `360`, `480`, `720`.
+* `enable_backup_log` - (Optional, Int, Available since v1.230.1) Specifies whether to enable the log backup feature. Valid values:
+  - `0`: The log backup feature is disabled.
+  - `1 `: The log backup feature is enabled.
+* `log_backup_retention_period` - (Optional, Int, Available since v1.230.1) The number of days for which log backups are retained. Valid values: `7` to `730`. **NOTE:** `log_backup_retention_period` is valid only when `enable_backup_log` is set to `1`.
 * `snapshot_backup_type` - (Optional, Available since v1.212.0) The snapshot backup type. Default value: `Standard`. Valid values:
   - `Standard`: standard backup.
   - `Flash `: single-digit second backup.
+* `backup_interval` - (Optional, Available since v1.212.0) The frequency at which high-frequency backups are created. Valid values: `-1`, `15`, `30`, `60`, `120`, `180`, `240`, `360`, `480`, `720`.
 * `ssl_action` - (Optional, Available since v1.78.0) Actions performed on SSL functions. Valid values:
   - `Open`: turn on SSL encryption.
   - `Close`: turn off SSL encryption.

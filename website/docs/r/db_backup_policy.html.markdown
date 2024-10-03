@@ -18,6 +18,12 @@ Provides an RDS instance backup policy resource and used to configure instance b
 
 ## Example Usage
 
+<div style="display: block;margin-bottom: 40px;"><div class="oics-button" style="float: right;position: absolute;margin-bottom: 10px;">
+  <a href="https://api.aliyun.com/api-tools/terraform?resource=alicloud_db_backup_policy&exampleId=18e9f7ca-02e6-8e35-5036-ddc188df6a4dd42066fb&activeTab=example&spm=docs.r.db_backup_policy.0.18e9f7ca02&intl_lang=EN_US" target="_blank">
+    <img alt="Open in AliCloud" src="https://img.alicdn.com/imgextra/i1/O1CN01hjjqXv1uYUlY56FyX_!!6000000006049-55-tps-254-36.svg" style="max-height: 44px; max-width: 100%;">
+  </a>
+</div></div>
+
 ```terraform
 variable "name" {
   default = "tf-example"
@@ -80,8 +86,8 @@ The following arguments are supported:
   * **None**: No archived backup files are retained.
   * **Lastest**: Only the most recent archived backup file is retained.
   * **All**: All archived backup files are retained.
-* `category` - (Optional, Available since v1.190.0) Whether to enable second level backup.Valid values are `Flash`, `Standard`, Note:It only takes effect when the BackupPolicyMode parameter is DataBackupPolicy. 
--> **NOTE:** You can configure a backup policy by using this parameter and the PreferredBackupPeriod parameter. For example, if you set the PreferredBackupPeriod parameter to Saturday,Sunday and the BackupInterval parameter to -1, a snapshot backup is performed on every Saturday and Sunday.If the instance runs PostgreSQL, the BackupInterval parameter is supported only when the instance is equipped with standard SSDs or enhanced SSDs (ESSDs).This parameter takes effect only when you set the BackupPolicyMode parameter to DataBackupPolicy.
+* `category` - (Optional, Available since v1.190.0) Whether to enable second level backup.Valid values are `Flash`, `Standard`, Note:It only takes effect when the BackupPolicyMode parameter is DataBackupPolicy.
+  -> **NOTE:** You can configure a backup policy by using this parameter and the PreferredBackupPeriod parameter. For example, if you set the PreferredBackupPeriod parameter to Saturday,Sunday and the BackupInterval parameter to -1, a snapshot backup is performed on every Saturday and Sunday.If the instance runs PostgreSQL, the BackupInterval parameter is supported only when the instance is equipped with standard SSDs or enhanced SSDs (ESSDs).This parameter takes effect only when you set the BackupPolicyMode parameter to DataBackupPolicy.
 * `backup_interval` - (Optional, Available since v1.194.0) The frequency at which you want to perform a snapshot backup on the instance. Valid values:
   - -1: No backup frequencies are specified.
   - 30: A snapshot backup is performed once every 30 minutes.
@@ -91,6 +97,20 @@ The following arguments are supported:
   - 360: A snapshot backup is performed once every 360 minutes.
   - 480: A snapshot backup is performed once every 480 minutes.
   - 720: A snapshot backup is performed once every 720 minutes.
+* `backup_priority` - (Optional, Int, Available since v1.229.1) Specifies whether the backup settings of a secondary instance are configured. Valid values:
+  - 1: secondary instance preferred
+  - 2: primary instance preferred
+    ->**NOTE:** This parameter is suitable only for instances that run SQL Server on RDS Cluster Edition. This parameter takes effect only when BackupMethod is set to Physical. If BackupMethod is set to Snapshot, backups are forcefully performed on the primary instance that runs SQL Server on RDS Cluster Edition.
+* `enable_increment_data_backup` - (Optional, Bool, Available since v1.229.1) Specifies whether to enable incremental backup. Valid values:
+  - false (default): disables the feature.
+  - true: enables the feature.
+    ->**NOTE:** This parameter takes effect only on instances that run SQL Server with cloud disks. This parameter takes effect only when BackupPolicyMode is set to DataBackupPolicy.
+* `log_backup_local_retention_number` - (Optional, Int, Available since v1.229.1)  The number of binary log files that you want to retain on the instance. Default value: 60. Valid values: 6 to 100.
+  ->**NOTE:** This parameter takes effect only when you set the BackupPolicyMode parameter to LogBackupPolicy. If the instance runs MySQL, you can set this parameter to -1. The value -1 specifies that an unlimited number of binary log files can be retained on the instance.
+* `backup_method` - (Optional, Available since v1.229.1)  The backup method of the instance. Valid values:
+  - Physical: physical backup
+  - Snapshot: snapshot backup
+    ->**NOTE:** This parameter takes effect only on instances that run SQL Server with cloud disks. This parameter takes effect only when BackupPolicyMode is set to DataBackupPolicy.
 
 -> **NOTE:** Currently, the SQLServer instance does not support to modify `log_backup_retention_period`.
 

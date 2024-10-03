@@ -19,6 +19,12 @@ For information about Cloud Monitor Service Sls Group and how to use it, see [Wh
 
 Basic Usage
 
+<div style="display: block;margin-bottom: 40px;"><div class="oics-button" style="float: right;position: absolute;margin-bottom: 10px;">
+  <a href="https://api.aliyun.com/api-tools/terraform?resource=alicloud_cms_sls_group&exampleId=2bcfe684-0054-dde6-466c-1c3de8d06c1648e8ad59&activeTab=example&spm=docs.r.cms_sls_group.0.2bcfe68400&intl_lang=EN_US" target="_blank">
+    <img alt="Open in AliCloud" src="https://img.alicdn.com/imgextra/i1/O1CN01hjjqXv1uYUlY56FyX_!!6000000006049-55-tps-254-36.svg" style="max-height: 44px; max-width: 100%;">
+  </a>
+</div></div>
+
 ```terraform
 variable "name" {
   default = "tf_example"
@@ -30,12 +36,12 @@ data "alicloud_regions" "default" {
 resource "random_uuid" "default" {
 }
 resource "alicloud_log_project" "default" {
-  name = substr("tf-example-${replace(random_uuid.default.result, "-", "")}", 0, 16)
+  project_name = substr("tf-example-${replace(random_uuid.default.result, "-", "")}", 0, 16)
 }
 
 resource "alicloud_log_store" "default" {
-  project               = alicloud_log_project.default.name
-  name                  = var.name
+  project_name          = alicloud_log_project.default.project_name
+  logstore_name         = var.name
   shard_count           = 3
   auto_split            = true
   max_split_shard_count = 60
@@ -45,8 +51,8 @@ resource "alicloud_log_store" "default" {
 resource "alicloud_cms_sls_group" "default" {
   sls_group_config {
     sls_user_id  = data.alicloud_account.default.id
-    sls_logstore = alicloud_log_store.default.name
-    sls_project  = alicloud_log_project.default.name
+    sls_logstore = alicloud_log_store.default.logstore_name
+    sls_project  = alicloud_log_project.default.project_name
     sls_region   = data.alicloud_regions.default.regions.0.id
   }
   sls_group_description = var.name

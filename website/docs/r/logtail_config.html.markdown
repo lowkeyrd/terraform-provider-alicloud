@@ -20,6 +20,12 @@ Compute Service (ECS) instances in real time in the Log Service console. [Refer 
 
 Basic Usage
 
+<div style="display: block;margin-bottom: 40px;"><div class="oics-button" style="float: right;position: absolute;margin-bottom: 10px;">
+  <a href="https://api.aliyun.com/api-tools/terraform?resource=alicloud_logtail_config&exampleId=df68fc12-a946-986f-b2b3-3eb87aa06f86258bed1a&activeTab=example&spm=docs.r.logtail_config.0.df68fc12a9&intl_lang=EN_US" target="_blank">
+    <img alt="Open in AliCloud" src="https://img.alicdn.com/imgextra/i1/O1CN01hjjqXv1uYUlY56FyX_!!6000000006049-55-tps-254-36.svg" style="max-height: 44px; max-width: 100%;">
+  </a>
+</div></div>
+
 ```terraform
 resource "random_integer" "default" {
   max = 99999
@@ -27,13 +33,13 @@ resource "random_integer" "default" {
 }
 
 resource "alicloud_log_project" "example" {
-  name        = "terraform-example-${random_integer.default.result}"
-  description = "terraform-example"
+  project_name = "terraform-example-${random_integer.default.result}"
+  description  = "terraform-example"
 }
 
 resource "alicloud_log_store" "example" {
-  project               = alicloud_log_project.example.name
-  name                  = "example-store"
+  project_name          = alicloud_log_project.example.project_name
+  logstore_name         = "example-store"
   retention_period      = 3650
   shard_count           = 3
   auto_split            = true
@@ -42,8 +48,8 @@ resource "alicloud_log_store" "example" {
 }
 
 resource "alicloud_logtail_config" "example" {
-  project      = alicloud_log_project.example.name
-  logstore     = alicloud_log_store.example.name
+  project      = alicloud_log_project.example.project_name
+  logstore     = alicloud_log_store.example.logstore_name
   input_type   = "file"
   name         = "terraform-example"
   output_type  = "LogService"

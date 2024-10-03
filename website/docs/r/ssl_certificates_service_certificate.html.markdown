@@ -19,6 +19,12 @@ For information about SSL Certificates Certificate and how to use it, see [What 
 
 Basic Usage
 
+<div style="display: block;margin-bottom: 40px;"><div class="oics-button" style="float: right;position: absolute;margin-bottom: 10px;">
+  <a href="https://api.aliyun.com/api-tools/terraform?resource=alicloud_ssl_certificates_service_certificate&exampleId=b3b447a7-c0fb-b119-a4f1-651e813e56a6b471ff7f&activeTab=example&spm=docs.r.ssl_certificates_service_certificate.0.b3b447a7c0&intl_lang=EN_US" target="_blank">
+    <img alt="Open in AliCloud" src="https://img.alicdn.com/imgextra/i1/O1CN01hjjqXv1uYUlY56FyX_!!6000000006049-55-tps-254-36.svg" style="max-height: 44px; max-width: 100%;">
+  </a>
+</div></div>
+
 ```terraform
 resource "random_integer" "default" {
   min = 10000
@@ -26,7 +32,7 @@ resource "random_integer" "default" {
 }
 
 resource "alicloud_ssl_certificates_service_certificate" "default" {
-  certificate_name = "tf-example-${random_integer.default.result}"
+  certificate_name = "terraform-example-${random_integer.default.result}"
   cert             = <<EOF
 -----BEGIN CERTIFICATE-----
 MIIDeDCCAmCgAwIBAgIEN3ZT6zANBgkqhkiG9w0BAQsFADBVMQswCQYDVQQGEwJD
@@ -89,19 +95,16 @@ The following arguments are supported:
 
 * `cert` - (Required, ForceNew) Cert of the Certificate in which the Certificate will add.
 * `key` - (Required, ForceNew) Key of the Certificate in which the Certificate will add.
-* `certificate_name` - (Optional, ForceNew) Name of the Certificate. 
-  This name without suffix can have a string of 1 to 63 characters, must contain only alphanumeric characters or "-", 
-  and must not begin or end with "-", and "-" must not in the 3th and 4th character positions at the same time. 
-  Suffix .sh and .tel are not supported.
-  **NOTE:** One of `certificate_name` and `name` must be specified.
-* `name` - (Deprecated from 1.129.0, Optional, ForceNew) It has been deprecated from version 1.129.0 and using `certificate_name` instead.
+* `certificate_name` - (Optional, ForceNew) Name of the Certificate. `certificate_name` must contain only alphanumeric characters or "-", and must not begin or end with "-", and "-" must not in the 3th and 4th character positions at the same time. Suffix .sh and .tel are not supported.
+**NOTE:** One of `certificate_name` and `name` must be specified.
+* `name` - (Optional, ForceNew, Deprecated since v1.129.0) It has been deprecated from version 1.129.0 and using `certificate_name` instead.
 * `lang` - (Optional) The lang.
 
 ## Attributes Reference
 
 The following attributes are exported:
 
-* `id` - The cert id.
+* `id` - The resource ID in terraform of Certificate.
 
 ## Import
 

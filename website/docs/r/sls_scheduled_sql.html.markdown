@@ -18,6 +18,12 @@ For information about SLS Scheduled SQL and how to use it, see [What is Schedule
 
 Basic Usage
 
+<div style="display: block;margin-bottom: 40px;"><div class="oics-button" style="float: right;position: absolute;margin-bottom: 10px;">
+  <a href="https://api.aliyun.com/api-tools/terraform?resource=alicloud_sls_scheduled_sql&exampleId=253dde24-19e2-e251-f325-1334d318ade82b5d4233&activeTab=example&spm=docs.r.sls_scheduled_sql.0.253dde2419&intl_lang=EN_US" target="_blank">
+    <img alt="Open in AliCloud" src="https://img.alicdn.com/imgextra/i1/O1CN01hjjqXv1uYUlY56FyX_!!6000000006049-55-tps-254-36.svg" style="max-height: 44px; max-width: 100%;">
+  </a>
+</div></div>
+
 ```terraform
 variable "name" {
   default = "terraform-example"
@@ -33,16 +39,16 @@ resource "random_integer" "default" {
 }
 
 resource "alicloud_log_project" "defaultKIe4KV" {
-  description = "${var.name}-${random_integer.default.result}"
-  name        = "${var.name}-${random_integer.default.result}"
+  description  = "${var.name}-${random_integer.default.result}"
+  project_name = "${var.name}-${random_integer.default.result}"
 }
 
 resource "alicloud_log_store" "default1LI9we" {
   hot_ttl          = "8"
   retention_period = "30"
   shard_count      = "2"
-  project          = alicloud_log_project.defaultKIe4KV.name
-  name             = "${var.name}-${random_integer.default.result}"
+  project_name     = alicloud_log_project.defaultKIe4KV.project_name
+  logstore_name    = "${var.name}-${random_integer.default.result}"
 }
 
 
@@ -60,7 +66,7 @@ resource "alicloud_sls_scheduled_sql" "default" {
     sql_type                = "searchQuery"
     dest_endpoint           = "ap-northeast-1.log.aliyuncs.com"
     dest_project            = "job-e2e-project-jj78kur-ap-southeast-1"
-    source_logstore         = alicloud_log_store.default1LI9we.name
+    source_logstore         = alicloud_log_store.default1LI9we.logstore_name
     dest_logstore           = "example-open-api02"
     role_arn                = "acs:ram::1395894005868720:role/aliyunlogetlrole"
     dest_role_arn           = "acs:ram::1395894005868720:role/aliyunlogetlrole"
@@ -74,7 +80,7 @@ resource "alicloud_sls_scheduled_sql" "default" {
     data_format             = "log2log"
   }
   scheduled_sql_name = var.name
-  project            = alicloud_log_project.defaultKIe4KV.name
+  project            = alicloud_log_project.defaultKIe4KV.project_name
 }
 ```
 

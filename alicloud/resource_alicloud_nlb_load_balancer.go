@@ -1,8 +1,8 @@
-// Package alicloud. This file is generated automatically. Please do not modify it manually, thank you!
 package alicloud
 
 import (
 	"fmt"
+	"hash/crc32"
 	"log"
 	"regexp"
 	"time"
@@ -152,6 +152,9 @@ func resourceAliCloudNlbLoadBalancer() *schema.Resource {
 			"zone_mappings": {
 				Type:     schema.TypeSet,
 				Required: true,
+				Set: func(v interface{}) int {
+					return int(crc32.ChecksumIEEE([]byte(v.(map[string]interface{})["zone_id"].(string))))
+				},
 				Elem: &schema.Resource{
 					Schema: map[string]*schema.Schema{
 						"status": {
@@ -384,6 +387,8 @@ func resourceAliCloudNlbLoadBalancerRead(d *schema.ResourceData, meta interface{
 	d.Set("resource_group_id", objectRaw["ResourceGroupId"])
 	d.Set("status", objectRaw["LoadBalancerStatus"])
 	d.Set("vpc_id", objectRaw["VpcId"])
+	d.Set("dns_name", objectRaw["DNSName"])
+	d.Set("load_balancer_business_status", objectRaw["LoadBalancerBusinessStatus"])
 
 	deletionProtectionConfigMaps := make([]map[string]interface{}, 0)
 	deletionProtectionConfigMap := make(map[string]interface{})
@@ -790,7 +795,7 @@ func resourceAliCloudNlbLoadBalancerUpdate(d *schema.ResourceData, meta interfac
 					request["ClientToken"] = buildClientToken(action)
 
 					if err != nil {
-						if NeedRetry(err) {
+						if IsExpectedErrors(err, []string{"IncorrectStatus.Ipv6Gateway"}) || NeedRetry(err) {
 							wait()
 							return resource.RetryableError(err)
 						}
@@ -823,7 +828,7 @@ func resourceAliCloudNlbLoadBalancerUpdate(d *schema.ResourceData, meta interfac
 					request["ClientToken"] = buildClientToken(action)
 
 					if err != nil {
-						if NeedRetry(err) {
+						if IsExpectedErrors(err, []string{"IncorrectStatus.Ipv6Gateway"}) || NeedRetry(err) {
 							wait()
 							return resource.RetryableError(err)
 						}
@@ -1133,6 +1138,9 @@ func resourceAliCloudNlbLoadBalancerDelete(d *schema.ResourceData, meta interfac
 	})
 
 	if err != nil {
+		if IsExpectedErrors(err, []string{"ResourceNotFound.loadBalancer"}) {
+			return nil
+		}
 		return WrapErrorf(err, DefaultErrorMsg, d.Id(), action, AlibabaCloudSdkGoERROR)
 	}
 

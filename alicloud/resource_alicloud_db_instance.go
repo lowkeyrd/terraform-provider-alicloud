@@ -34,7 +34,7 @@ func resourceAliCloudDBInstance() *schema.Resource {
 		Timeouts: &schema.ResourceTimeout{
 			Create: schema.DefaultTimeout(50 * time.Minute),
 			Update: schema.DefaultTimeout(30 * time.Minute),
-			Delete: schema.DefaultTimeout(20 * time.Minute),
+			Delete: schema.DefaultTimeout(30 * time.Minute),
 		},
 
 		Schema: map[string]*schema.Schema{
@@ -385,7 +385,7 @@ func resourceAliCloudDBInstance() *schema.Resource {
 			},
 			"tde_status": {
 				Type:         schema.TypeString,
-				ValidateFunc: StringInSlice([]string{"Enabled"}, false),
+				ValidateFunc: StringInSlice([]string{"Enabled", "Disabled"}, false),
 				Optional:     true,
 				Computed:     true,
 			},
@@ -419,9 +419,10 @@ func resourceAliCloudDBInstance() *schema.Resource {
 				Computed: true,
 			},
 			"server_cert": {
-				Type:     schema.TypeString,
-				Optional: true,
-				Computed: true,
+				Type:      schema.TypeString,
+				Optional:  true,
+				Computed:  true,
+				Sensitive: true,
 			},
 			"server_key": {
 				Type:     schema.TypeString,
@@ -433,8 +434,9 @@ func resourceAliCloudDBInstance() *schema.Resource {
 				Optional: true,
 			},
 			"client_ca_cert": {
-				Type:     schema.TypeString,
-				Optional: true,
+				Type:      schema.TypeString,
+				Optional:  true,
+				Sensitive: true,
 			},
 			"client_crl_enabled": {
 				Type:     schema.TypeInt,
@@ -996,7 +998,7 @@ func resourceAliCloudDBInstanceUpdate(d *schema.ResourceData, meta interface{}) 
 			request["SSLEnabled"] = 2
 		}
 
-		if sslAction == "Update" && d.Get("engine").(string) == "PostgreSQL" {
+		if sslAction == "Update" && (d.Get("engine").(string) == "PostgreSQL" || d.Get("engine").(string) == "MySQL") {
 			request["SSLEnabled"] = 1
 		}
 
@@ -1052,6 +1054,25 @@ func resourceAliCloudDBInstanceUpdate(d *schema.ResourceData, meta interface{}) 
 				}
 			}
 		}
+
+		if d.Get("engine").(string) == "MySQL" {
+			if d.HasChange("ca_type") {
+				if v, ok := d.GetOk("ca_type"); ok && v.(string) != "" {
+					request["CAType"] = v.(string)
+				}
+			}
+			if d.HasChange("server_cert") {
+				if v, ok := d.GetOk("server_cert"); ok && v.(string) != "" {
+					request["ServerCert"] = v.(string)
+				}
+			}
+			if d.HasChange("server_key") {
+				if v, ok := d.GetOk("server_key"); ok && v.(string) != "" {
+					request["ServerKey"] = v.(string)
+				}
+			}
+		}
+
 		request["ConnectionString"] = instance["ConnectionString"]
 		if d.HasChange("ssl_connection_string") {
 			if v, ok := d.GetOk("ssl_connection_string"); ok && v.(string) != "" {
@@ -1840,7 +1861,7 @@ func resourceAliCloudDBInstanceRead(d *schema.ResourceData, meta interface{}) er
 		if err != nil && !IsExpectedErrors(err, DBInstanceTDEErrors) {
 			return WrapError(err)
 		}
-		d.Set("tde_Status", tdeInfo["TDEStatus"])
+		d.Set("tde_status", tdeInfo["TDEStatus"])
 	}
 	res, err := rdsService.DescribeHASwitchConfig(d.Id())
 	if err != nil {

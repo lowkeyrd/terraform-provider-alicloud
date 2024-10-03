@@ -15,6 +15,12 @@ Information about RDS database exclusive agent and its usage, see [What is RDS D
 
 ## Example Usage
 
+<div style="display: block;margin-bottom: 40px;"><div class="oics-button" style="float: right;position: absolute;margin-bottom: 10px;">
+  <a href="https://api.aliyun.com/api-tools/terraform?resource=alicloud_rds_db_proxy&exampleId=17286700-d627-0c0f-5c6c-18d91eb8572e7b07c365&activeTab=example&spm=docs.r.rds_db_proxy.0.17286700d6&intl_lang=EN_US" target="_blank">
+    <img alt="Open in AliCloud" src="https://img.alicdn.com/imgextra/i1/O1CN01hjjqXv1uYUlY56FyX_!!6000000006049-55-tps-254-36.svg" style="max-height: 44px; max-width: 100%;">
+  </a>
+</div></div>
+
 ```terraform
 variable "name" {
   default = "tf-example"
@@ -97,6 +103,9 @@ The following arguments are supported:
 * `vswitch_id` - (Required, ForceNew)The ID of the vSwitch that is associated with the specified VPC.
 * `db_proxy_connection_prefix` - (Optional)The new prefix of the proxy endpoint. Enter a prefix.
 * `db_proxy_connect_string_port` - (Optional)The port number that is associated with the proxy endpoint.
+* `db_proxy_instance_type` - (Optional, Available since v1.230.0) The database proxy type. Valid values:
+  - common: universal proxy.
+  - exclusive: Exclusive proxy (default).
 * `effective_time` - (Optional)When modifying the number of proxy instances,The time when you want to apply the new database proxy settings.Valid values:
   - Immediate: ApsaraDB RDS immediately applies the new settings.
   - MaintainTime: ApsaraDB RDS applies the new settings during the maintenance window that you specified. For more information, see Modify the maintenance window.
@@ -139,7 +148,7 @@ The following arguments are supported:
 * `upgrade_time` - (Optional) The time when you want to upgrade the database proxy version of the instance. Valid values:
   - MaintainTime: ApsaraDB RDS performs the upgrade during the maintenance window that you specified. This is the default value. For more information, see Modify the maintenance window.
   - Immediate: ApsaraDB RDS immediately performs the upgrade.
-  - SpecificTime: ApsaraDB RDS performs the upgrade at a specified point in time.  
+  - SpecificTime: ApsaraDB RDS performs the upgrade at a specified point in time.
 * `switch_time` - (Optional) The point in time at which you want to upgrade the database proxy version of the instance. Specify the time in the ISO 8601 standard in the yyyy-MM-ddTHH:mm:ssZ format. The time must be in UTC.
 * `resource_group_id` - (Optional) The ID of the resource group.
 

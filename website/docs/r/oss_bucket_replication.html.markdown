@@ -19,6 +19,12 @@ For information about OSS replication and how to use it, see [What is cross-regi
 
 Set bucket replication configuration
 
+<div style="display: block;margin-bottom: 40px;"><div class="oics-button" style="float: right;position: absolute;margin-bottom: 10px;">
+  <a href="https://api.aliyun.com/api-tools/terraform?resource=alicloud_oss_bucket_replication&exampleId=064a8772-d0d7-d8be-a92e-d62443ea11cc1ae7f652&activeTab=example&spm=docs.r.oss_bucket_replication.0.064a8772d0&intl_lang=EN_US" target="_blank">
+    <img alt="Open in AliCloud" src="https://img.alicdn.com/imgextra/i1/O1CN01hjjqXv1uYUlY56FyX_!!6000000006049-55-tps-254-36.svg" style="max-height: 44px; max-width: 100%;">
+  </a>
+</div></div>
+
 ```terraform
 resource "random_integer" "default" {
   max = 99999
@@ -78,7 +84,7 @@ resource "alicloud_ram_policy" "policy" {
 }
 
 resource "alicloud_ram_role_policy_attachment" "attach" {
-  policy_name = alicloud_ram_policy.policy.name
+  policy_name = alicloud_ram_policy.policy.policy_name
   policy_type = alicloud_ram_policy.policy.type
   role_name   = alicloud_ram_role.role.name
 }

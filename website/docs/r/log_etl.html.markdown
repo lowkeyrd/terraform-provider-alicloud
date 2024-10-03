@@ -19,6 +19,12 @@ which is widely applicable to scenarios such as data regularization, enrichment,
 
 Basic Usage
 
+<div style="display: block;margin-bottom: 40px;"><div class="oics-button" style="float: right;position: absolute;margin-bottom: 10px;">
+  <a href="https://api.aliyun.com/api-tools/terraform?resource=alicloud_log_etl&exampleId=5e28831c-93b5-23d6-9643-1c420cbad89739d36582&activeTab=example&spm=docs.r.log_etl.0.5e28831c93&intl_lang=EN_US" target="_blank">
+    <img alt="Open in AliCloud" src="https://img.alicdn.com/imgextra/i1/O1CN01hjjqXv1uYUlY56FyX_!!6000000006049-55-tps-254-36.svg" style="max-height: 44px; max-width: 100%;">
+  </a>
+</div></div>
+
 ```terraform
 resource "random_integer" "default" {
   max = 99999
@@ -26,13 +32,13 @@ resource "random_integer" "default" {
 }
 
 resource "alicloud_log_project" "example" {
-  name        = "terraform-example-${random_integer.default.result}"
-  description = "terraform-example"
+  project_name = "terraform-example-${random_integer.default.result}"
+  description  = "terraform-example"
 }
 
 resource "alicloud_log_store" "example" {
-  project               = alicloud_log_project.example.name
-  name                  = "example-store"
+  project_name          = alicloud_log_project.example.project_name
+  logstore_name         = "example-store"
   retention_period      = 3650
   shard_count           = 3
   auto_split            = true
@@ -41,8 +47,8 @@ resource "alicloud_log_store" "example" {
 }
 
 resource "alicloud_log_store" "example2" {
-  project               = alicloud_log_project.example.name
-  name                  = "example-store2"
+  project_name          = alicloud_log_project.example.project_name
+  logstore_name         = "example-store2"
   retention_period      = 3650
   shard_count           = 3
   auto_split            = true
@@ -51,8 +57,8 @@ resource "alicloud_log_store" "example2" {
 }
 
 resource "alicloud_log_store" "example3" {
-  project               = alicloud_log_project.example.name
-  name                  = "example-store3"
+  project_name          = alicloud_log_project.example.project_name
+  logstore_name         = "example-store3"
   retention_period      = 3650
   shard_count           = 3
   auto_split            = true
@@ -62,28 +68,28 @@ resource "alicloud_log_store" "example3" {
 
 resource "alicloud_log_etl" "example" {
   etl_name          = "terraform-example"
-  project           = alicloud_log_project.example.name
+  project           = alicloud_log_project.example.project_name
   display_name      = "terraform-example"
   description       = "terraform-example"
   access_key_id     = "access_key_id"
   access_key_secret = "access_key_secret"
   script            = "e_set('new','key')"
-  logstore          = alicloud_log_store.example.name
+  logstore          = alicloud_log_store.example.logstore_name
   etl_sinks {
     name              = "target_name"
     access_key_id     = "example2_access_key_id"
     access_key_secret = "example2_access_key_secret"
     endpoint          = "cn-hangzhou.log.aliyuncs.com"
-    project           = alicloud_log_project.example.name
-    logstore          = alicloud_log_store.example2.name
+    project           = alicloud_log_project.example.project_name
+    logstore          = alicloud_log_store.example2.logstore_name
   }
   etl_sinks {
     name              = "target_name2"
     access_key_id     = "example3_access_key_id"
     access_key_secret = "example3_access_key_secret"
     endpoint          = "cn-hangzhou.log.aliyuncs.com"
-    project           = alicloud_log_project.example.name
-    logstore          = alicloud_log_store.example3.name
+    project           = alicloud_log_project.example.project_name
+    logstore          = alicloud_log_store.example3.logstore_name
   }
 }
 ```

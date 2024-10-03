@@ -20,6 +20,12 @@ For information about RDS and how to use it, see [What is ApsaraDB for RDS](http
 
 ### Create RDS MySQL instance
 
+<div style="display: block;margin-bottom: 40px;"><div class="oics-button" style="float: right;position: absolute;margin-bottom: 10px;">
+  <a href="https://api.aliyun.com/api-tools/terraform?resource=alicloud_db_instance&exampleId=68a4ca14-6671-8348-6221-95a96e39e6d6cf8fb824&activeTab=example&spm=docs.r.db_instance.0.68a4ca1466&intl_lang=EN_US" target="_blank">
+    <img alt="Open in AliCloud" src="https://img.alicdn.com/imgextra/i1/O1CN01hjjqXv1uYUlY56FyX_!!6000000006049-55-tps-254-36.svg" style="max-height: 44px; max-width: 100%;">
+  </a>
+</div></div>
+
 ```terraform
 data "alicloud_db_zones" "example" {
   engine                   = "MySQL"
@@ -71,6 +77,12 @@ resource "alicloud_db_instance" "example" {
 ```
 
 ### Create a RDS MySQL instance with specific parameters
+
+<div style="display: block;margin-bottom: 40px;"><div class="oics-button" style="float: right;position: absolute;margin-bottom: 10px;">
+  <a href="https://api.aliyun.com/api-tools/terraform?resource=alicloud_db_instance&exampleId=9778b08f-c1e9-2996-3ae6-309e2e5e9ee604feca12&activeTab=example&spm=docs.r.db_instance.1.9778b08fc1&intl_lang=EN_US" target="_blank">
+    <img alt="Open in AliCloud" src="https://img.alicdn.com/imgextra/i1/O1CN01hjjqXv1uYUlY56FyX_!!6000000006049-55-tps-254-36.svg" style="max-height: 44px; max-width: 100%;">
+  </a>
+</div></div>
 
 ```terraform
 data "alicloud_db_zones" "example" {
@@ -130,6 +142,12 @@ resource "alicloud_db_instance" "example" {
 ```
 ### Create a High Availability RDS MySQL Instance
 
+<div style="display: block;margin-bottom: 40px;"><div class="oics-button" style="float: right;position: absolute;margin-bottom: 10px;">
+  <a href="https://api.aliyun.com/api-tools/terraform?resource=alicloud_db_instance&exampleId=4b50f5e4-5909-8ef5-5859-01c08c1355be7d668db8&activeTab=example&spm=docs.r.db_instance.2.4b50f5e459&intl_lang=EN_US" target="_blank">
+    <img alt="Open in AliCloud" src="https://img.alicdn.com/imgextra/i1/O1CN01hjjqXv1uYUlY56FyX_!!6000000006049-55-tps-254-36.svg" style="max-height: 44px; max-width: 100%;">
+  </a>
+</div></div>
+
 ```terraform
 data "alicloud_db_zones" "example" {
   engine                   = "MySQL"
@@ -184,6 +202,12 @@ resource "alicloud_db_instance" "example" {
 ```
 
 ### Create a High Availability RDS MySQL Instance with multi zones
+
+<div style="display: block;margin-bottom: 40px;"><div class="oics-button" style="float: right;position: absolute;margin-bottom: 10px;">
+  <a href="https://api.aliyun.com/api-tools/terraform?resource=alicloud_db_instance&exampleId=7f44ae17-f632-5f9a-3bcd-bf035cc7d477f677f388&activeTab=example&spm=docs.r.db_instance.3.7f44ae17f6&intl_lang=EN_US" target="_blank">
+    <img alt="Open in AliCloud" src="https://img.alicdn.com/imgextra/i1/O1CN01hjjqXv1uYUlY56FyX_!!6000000006049-55-tps-254-36.svg" style="max-height: 44px; max-width: 100%;">
+  </a>
+</div></div>
 
 ```terraform
 variable "name" {
@@ -242,6 +266,12 @@ resource "alicloud_db_instance" "example" {
 ```
 
 ### Create an Enterprise Edition RDS MySQL Instance
+<div style="display: block;margin-bottom: 40px;"><div class="oics-button" style="float: right;position: absolute;margin-bottom: 10px;">
+  <a href="https://api.aliyun.com/api-tools/terraform?resource=alicloud_db_instance&exampleId=d6a43bad-8e5c-dc3e-ce0e-598136e9cdbb2315fbe8&activeTab=example&spm=docs.r.db_instance.4.d6a43bad8e&intl_lang=EN_US" target="_blank">
+    <img alt="Open in AliCloud" src="https://img.alicdn.com/imgextra/i1/O1CN01hjjqXv1uYUlY56FyX_!!6000000006049-55-tps-254-36.svg" style="max-height: 44px; max-width: 100%;">
+  </a>
+</div></div>
+
 ```terraform
 variable "name" {
   default = "tf-example"
@@ -297,6 +327,12 @@ resource "alicloud_db_instance" "example" {
 ```
 
 ### Create a Serverless RDS MySQL Instance
+
+<div style="display: block;margin-bottom: 40px;"><div class="oics-button" style="float: right;position: absolute;margin-bottom: 10px;">
+  <a href="https://api.aliyun.com/api-tools/terraform?resource=alicloud_db_instance&exampleId=f0cbdff6-c03a-c52b-383c-ae2dd1fd695361ab971c&activeTab=example&spm=docs.r.db_instance.5.f0cbdff6c0&intl_lang=EN_US" target="_blank">
+    <img alt="Open in AliCloud" src="https://img.alicdn.com/imgextra/i1/O1CN01hjjqXv1uYUlY56FyX_!!6000000006049-55-tps-254-36.svg" style="max-height: 44px; max-width: 100%;">
+  </a>
+</div></div>
 
 ```terraform
 variable "name" {
@@ -360,6 +396,12 @@ resource "alicloud_db_instance" "example" {
 
 ### Create a Serverless RDS PostgreSQL Instance
 
+<div style="display: block;margin-bottom: 40px;"><div class="oics-button" style="float: right;position: absolute;margin-bottom: 10px;">
+  <a href="https://api.aliyun.com/api-tools/terraform?resource=alicloud_db_instance&exampleId=3457ee01-3106-7d9d-f1e0-f3690c8b9d53a4f97404&activeTab=example&spm=docs.r.db_instance.6.3457ee0131&intl_lang=EN_US" target="_blank">
+    <img alt="Open in AliCloud" src="https://img.alicdn.com/imgextra/i1/O1CN01hjjqXv1uYUlY56FyX_!!6000000006049-55-tps-254-36.svg" style="max-height: 44px; max-width: 100%;">
+  </a>
+</div></div>
+
 ```terraform
 variable "name" {
   default = "tf-accdbinstance"
@@ -414,6 +456,12 @@ resource "alicloud_db_instance" "example" {
 ```
 
 ### Create a Serverless RDS SQLServer Instance
+
+<div style="display: block;margin-bottom: 40px;"><div class="oics-button" style="float: right;position: absolute;margin-bottom: 10px;">
+  <a href="https://api.aliyun.com/api-tools/terraform?resource=alicloud_db_instance&exampleId=1b056009-c0c0-8b06-5c28-a9f20c80f344d64f33d0&activeTab=example&spm=docs.r.db_instance.7.1b056009c0&intl_lang=EN_US" target="_blank">
+    <img alt="Open in AliCloud" src="https://img.alicdn.com/imgextra/i1/O1CN01hjjqXv1uYUlY56FyX_!!6000000006049-55-tps-254-36.svg" style="max-height: 44px; max-width: 100%;">
+  </a>
+</div></div>
 
 ```terraform
 variable "name" {
@@ -621,11 +669,11 @@ The following arguments are supported:
 * `ssl_connection_string` - (Optional, Available since v1.198.0) The internal or public endpoint for which the server certificate needs to be created or updated.
 * `tde_status` - (Optional, Available since 1.90.0) The TDE(Transparent Data Encryption) status. After TDE is turned on, it cannot be turned off. See more [engine and engineVersion limitation](https://www.alibabacloud.com/help/zh/doc-detail/26256.htm).
 * `encryption_key` - (Optional, Available since 1.109.0) The key id of the KMS. Used for encrypting a disk if not null. Only for PostgreSQL, MySQL and SQLServer.
-* `ca_type` - (Optional, Available since 1.124.1) The type of the server certificate. This parameter is supported only when the instance runs PostgreSQL with standard or enhanced SSDs. If you set the SSLEnabled parameter to 1, the default value of this parameter is aliyun. Value range:
+* `ca_type` - (Optional, Available since 1.124.1) The type of the server certificate. This parameter is supported only when the instance runs PostgreSQL or MySQL with standard or enhanced SSDs. If you set the SSLEnabled parameter to 1, the default value of this parameter is aliyun. **NOTE:** From version 1.231.0, `ca_type` start  support `MySQL` engine. Value range:
   - aliyun: a cloud certificate
   - custom: a custom certificate
-* `server_cert` - (Optional, Available since 1.124.1) The content of the server certificate. This parameter is supported only when the instance runs PostgreSQL with standard or enhanced SSDs. If you set the CAType parameter to custom, you must also specify this parameter.
-* `server_key` - (Optional, Available since 1.124.1) The private key of the server certificate. This parameter is supported only when the instance runs PostgreSQL with standard or enhanced SSDs. If you set the CAType parameter to custom, you must also specify this parameter.
+* `server_cert` - (Optional, Available since 1.124.1) The content of the server certificate. This parameter is supported only when the instance runs PostgreSQL or MySQL with standard or enhanced SSDs. If you set the CAType parameter to custom, you must also specify this parameter. **NOTE:** From version 1.231.0, `server_cert` start  support `MySQL` engine.
+* `server_key` - (Optional, Available since 1.124.1) The private key of the server certificate. This parameter is supported only when the instance runs PostgreSQL or MySQL with standard or enhanced SSDs. If you set the CAType parameter to custom, you must also specify this parameter. **NOTE:** From version 1.231.0, `server_key` start support `MySQL` engine.
 * `client_ca_enabled` - (Optional, Available since 1.124.1) Specifies whether to enable the public key of the CA that issues client certificates. This parameter is supported only when the instance runs PostgreSQL with standard or enhanced SSDs. Valid values:
   - 1: enables the public key
   - 0: disables the public key
@@ -798,8 +846,9 @@ The `timeouts` block allows you to specify [timeouts](https://www.terraform.io/d
 
 * `create` - (Defaults to 50 mins) Used when creating the db instance (until it reaches the initial `Running` status).
 * `update` - (Defaults to 30 mins) Used when updating the db instance (until it reaches the initial `Running` status).
-* `delete` - (Defaults to 20 mins) Used when terminating the db instance.
+* `delete` - (Defaults to 30 mins) Used when terminating the db instance.
 
+-> **NOTE:** If the current instance is an instance of SqlServer _std_ha Standard Edition, you are advised to set the Timeouts time to 100 minutes when releasing the instance.
 ## Import
 
 RDS instance can be imported using the id, e.g.

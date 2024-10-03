@@ -19,6 +19,12 @@ For information about DTS Consumer Channel and how to use it, see [What is Consu
 
 Basic Usage
 
+<div style="display: block;margin-bottom: 40px;"><div class="oics-button" style="float: right;position: absolute;margin-bottom: 10px;">
+  <a href="https://api.aliyun.com/api-tools/terraform?resource=alicloud_dts_consumer_channel&exampleId=7eb9e094-58bc-8836-3b78-8e30349b6d43aaf0a634&activeTab=example&spm=docs.r.dts_consumer_channel.0.7eb9e09458&intl_lang=EN_US" target="_blank">
+    <img alt="Open in AliCloud" src="https://img.alicdn.com/imgextra/i1/O1CN01hjjqXv1uYUlY56FyX_!!6000000006049-55-tps-254-36.svg" style="max-height: 44px; max-width: 100%;">
+  </a>
+</div></div>
+
 ```terraform
 variable "name" {
   default = "terraform-example"
@@ -86,7 +92,7 @@ resource "alicloud_db_database" "example" {
 
 resource "alicloud_db_account_privilege" "example" {
   instance_id  = alicloud_db_instance.example.id
-  account_name = alicloud_rds_account.example.name
+  account_name = alicloud_rds_account.example.account_name
   privilege    = "ReadWrite"
   db_names     = [alicloud_db_database.example.name]
 }

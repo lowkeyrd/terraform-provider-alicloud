@@ -598,6 +598,12 @@ func resourceAlicloudEciContainerGroup() *schema.Resource {
 					},
 				},
 			},
+			"dns_policy": {
+				Type:     schema.TypeString,
+				Optional: true,
+				ForceNew: true,
+				Computed: true,
+			},
 			"dns_config": {
 				Type:     schema.TypeSet,
 				Optional: true,
@@ -1038,6 +1044,10 @@ func resourceAlicloudEciContainerGroupCreate(d *schema.ResourceData, meta interf
 
 	if v, ok := d.GetOk("cpu"); ok {
 		request["Cpu"] = v
+	}
+
+	if v, ok := d.GetOk("dns_policy"); ok {
+		request["DnsPolicy"] = v
 	}
 
 	if v, ok := d.GetOk("dns_config"); ok {
@@ -1528,7 +1538,7 @@ func resourceAlicloudEciContainerGroupRead(d *schema.ResourceData, meta interfac
 		dnsConfigMap["name_servers"] = dnsConfig.(map[string]interface{})["NameServers"]
 
 		optionsSli := make([]map[string]interface{}, 0)
-		if len(dnsConfig.(map[string]interface{})["Options"].([]interface{})) > 0 {
+		if dnsConfig.(map[string]interface{})["Options"] != nil && len(dnsConfig.(map[string]interface{})["Options"].([]interface{})) > 0 {
 			for _, options := range dnsConfig.(map[string]interface{})["Options"].([]interface{}) {
 				optionsMap := make(map[string]interface{})
 				optionsMap["name"] = options.(map[string]interface{})["Name"]
@@ -1718,6 +1728,7 @@ func resourceAlicloudEciContainerGroupRead(d *schema.ResourceData, meta interfac
 	d.Set("zone_id", object["ZoneId"])
 	d.Set("spot_strategy", object["SpotStrategy"])
 	d.Set("spot_price_limit", object["SpotPriceLimit"])
+	d.Set("dns_policy", object["DnsPolicy"])
 	return nil
 }
 

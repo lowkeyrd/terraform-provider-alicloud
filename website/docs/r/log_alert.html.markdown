@@ -20,6 +20,12 @@ For information about SLS Alert and how to use it, see [SLS Alert Overview](http
 
 Basic Usage
 
+<div style="display: block;margin-bottom: 40px;"><div class="oics-button" style="float: right;position: absolute;margin-bottom: 10px;">
+  <a href="https://api.aliyun.com/api-tools/terraform?resource=alicloud_log_alert&exampleId=95292d19-57da-ce57-7642-9f8788f163adb3198a22&activeTab=example&spm=docs.r.log_alert.0.95292d1957&intl_lang=EN_US" target="_blank">
+    <img alt="Open in AliCloud" src="https://img.alicdn.com/imgextra/i1/O1CN01hjjqXv1uYUlY56FyX_!!6000000006049-55-tps-254-36.svg" style="max-height: 44px; max-width: 100%;">
+  </a>
+</div></div>
+
 ```terraform
 resource "random_integer" "default" {
   max = 99999
@@ -82,6 +88,12 @@ resource "alicloud_log_alert" "example" {
 
 Basic Usage for new alert
 
+<div style="display: block;margin-bottom: 40px;"><div class="oics-button" style="float: right;position: absolute;margin-bottom: 10px;">
+  <a href="https://api.aliyun.com/api-tools/terraform?resource=alicloud_log_alert&exampleId=c21c7650-789a-fe6a-59cf-81dc055a64d950d2b31e&activeTab=example&spm=docs.r.log_alert.1.c21c765078&intl_lang=EN_US" target="_blank">
+    <img alt="Open in AliCloud" src="https://img.alicdn.com/imgextra/i1/O1CN01hjjqXv1uYUlY56FyX_!!6000000006049-55-tps-254-36.svg" style="max-height: 44px; max-width: 100%;">
+  </a>
+</div></div>
+
 ```terraform
 resource "random_integer" "default" {
   max = 99999
@@ -89,13 +101,13 @@ resource "random_integer" "default" {
 }
 
 resource "alicloud_log_project" "example" {
-  name        = "terraform-example-${random_integer.default.result}"
-  description = "terraform-example"
+  project_name = "terraform-example-${random_integer.default.result}"
+  description  = "terraform-example"
 }
 
 resource "alicloud_log_store" "example" {
-  project               = alicloud_log_project.example.name
-  name                  = "example-store"
+  project_name          = alicloud_log_project.example.project_name
+  logstore_name         = "example-store"
   retention_period      = 3650
   shard_count           = 3
   auto_split            = true
@@ -106,7 +118,7 @@ resource "alicloud_log_store" "example" {
 resource "alicloud_log_alert" "example-2" {
   version           = "2.0"
   type              = "default"
-  project_name      = alicloud_log_project.example.name
+  project_name      = alicloud_log_project.example.project_name
   alert_name        = "example-alert"
   alert_displayname = "example-alert"
   mute_until        = "1632486684"
@@ -114,7 +126,6 @@ resource "alicloud_log_alert" "example-2" {
   no_data_severity  = 8
   send_resolved     = true
   auto_annotation   = true
-  dashboard         = "example-dashboard"
   schedule {
     type            = "FixedRate"
     interval        = "5m"
@@ -124,26 +135,28 @@ resource "alicloud_log_alert" "example-2" {
     run_immediately = false
   }
   query_list {
-    store          = alicloud_log_store.example.name
+    store          = alicloud_log_store.example.logstore_name
     store_type     = "log"
-    project        = alicloud_log_project.example.name
+    project        = alicloud_log_project.example.project_name
     region         = "cn-heyuan"
     chart_title    = "chart_title"
     start          = "-60s"
     end            = "20s"
     query          = "* AND aliyun | select count(1) as cnt"
     power_sql_mode = "auto"
+    dashboard_id   = "example-dashboard"
   }
   query_list {
-    store          = alicloud_log_store.example.name
+    store          = alicloud_log_store.example.logstore_name
     store_type     = "log"
-    project        = alicloud_log_project.example.name
+    project        = alicloud_log_project.example.project_name
     region         = "cn-heyuan"
     chart_title    = "chart_title"
     start          = "-60s"
     end            = "20s"
     query          = "error | select count(1) as error_cnt"
     power_sql_mode = "enable"
+    dashboard_id   = "example-dashboard"
   }
   labels {
     key   = "env"
@@ -200,6 +213,12 @@ resource "alicloud_log_alert" "example-2" {
 
 Basic Usage for alert template
 
+<div style="display: block;margin-bottom: 40px;"><div class="oics-button" style="float: right;position: absolute;margin-bottom: 10px;">
+  <a href="https://api.aliyun.com/api-tools/terraform?resource=alicloud_log_alert&exampleId=cea67a8f-cee7-ce99-008f-0fa3e60f113cca6b547a&activeTab=example&spm=docs.r.log_alert.2.cea67a8fce&intl_lang=EN_US" target="_blank">
+    <img alt="Open in AliCloud" src="https://img.alicdn.com/imgextra/i1/O1CN01hjjqXv1uYUlY56FyX_!!6000000006049-55-tps-254-36.svg" style="max-height: 44px; max-width: 100%;">
+  </a>
+</div></div>
+
 ```terraform
 resource "random_integer" "default" {
   max = 99999
@@ -207,13 +226,13 @@ resource "random_integer" "default" {
 }
 
 resource "alicloud_log_project" "example" {
-  name        = "terraform-example-${random_integer.default.result}"
-  description = "terraform-example"
+  project_name = "terraform-example-${random_integer.default.result}"
+  description  = "terraform-example"
 }
 
 resource "alicloud_log_store" "example" {
-  project               = alicloud_log_project.example.name
-  name                  = "example-store"
+  project_name          = alicloud_log_project.example.project_name
+  logstore_name         = "example-store"
   retention_period      = 3650
   shard_count           = 3
   auto_split            = true
@@ -224,7 +243,7 @@ resource "alicloud_log_store" "example" {
 resource "alicloud_log_alert" "example-3" {
   version           = "2.0"
   type              = "tpl"
-  project_name      = alicloud_log_project.example.name
+  project_name      = alicloud_log_project.example.project_name
   alert_name        = "example-alert"
   alert_displayname = "example-alert"
   mute_until        = "1632486684"
@@ -246,7 +265,7 @@ resource "alicloud_log_alert" "example-3" {
       "default.action_policy"  = "sls.app.ack.builtin"
       "default.severity"       = "6"
       "sendResolved"           = "false"
-      "default.project"        = "${alicloud_log_project.example.name}"
+      "default.project"        = "${alicloud_log_project.example.project_name}"
       "default.logstore"       = "k8s-event"
       "default.repeatInterval" = "4h"
       "trigger_threshold"      = "1"

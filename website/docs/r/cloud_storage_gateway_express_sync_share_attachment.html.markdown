@@ -19,6 +19,12 @@ For information about Cloud Storage Gateway Express Sync Share Attachment and ho
 
 Basic Usage
 
+<div style="display: block;margin-bottom: 40px;"><div class="oics-button" style="float: right;position: absolute;margin-bottom: 10px;">
+  <a href="https://api.aliyun.com/api-tools/terraform?resource=alicloud_cloud_storage_gateway_express_sync_share_attachment&exampleId=79463bda-8c0a-69f2-1308-f17e96246676e6cc7252&activeTab=example&spm=docs.r.cloud_storage_gateway_express_sync_share_attachment.0.79463bda8c&intl_lang=EN_US" target="_blank">
+    <img alt="Open in AliCloud" src="https://img.alicdn.com/imgextra/i1/O1CN01hjjqXv1uYUlY56FyX_!!6000000006049-55-tps-254-36.svg" style="max-height: 44px; max-width: 100%;">
+  </a>
+</div></div>
+
 ```terraform
 variable "name" {
   default = "tf-example"
@@ -40,6 +46,10 @@ resource "alicloud_cloud_storage_gateway_storage_bundle" "default" {
 
 resource "alicloud_oss_bucket" "default" {
   bucket = substr("tf-example-${replace(random_uuid.default.result, "-", "")}", 0, 16)
+}
+
+resource "alicloud_oss_bucket_acl" "default" {
+  bucket = alicloud_oss_bucket.default.bucket
   acl    = "public-read-write"
 }
 

@@ -13,8 +13,8 @@ require (
 	github.com/aliyun/aliyun-log-go-sdk v0.1.44-0.20230310032108-e8f9ed9bb3c5
 	github.com/aliyun/aliyun-mns-go-sdk v0.0.0-20210305050620-d1b5875bda58
 	github.com/aliyun/aliyun-oss-go-sdk v2.2.9+incompatible
-	github.com/aliyun/aliyun-tablestore-go-sdk v1.7.6
-	github.com/aliyun/credentials-go v1.3.2
+	github.com/aliyun/aliyun-tablestore-go-sdk v1.7.16
+	github.com/aliyun/credentials-go v1.3.9
 	github.com/aliyun/fc-go-sdk v0.0.0-20220622030011-bc7ded2a9050
 	github.com/deckarep/golang-set v1.8.0
 	github.com/denverdino/aliyungo v0.0.0-20220929054937-e3c8bf5ad947
@@ -22,7 +22,7 @@ require (
 	github.com/hashicorp/go-uuid v1.0.3
 	github.com/hashicorp/terraform-plugin-sdk v1.17.2
 	github.com/hashicorp/vault v0.10.4
-	github.com/jmespath/go-jmespath v0.4.0
+	github.com/jmespath/go-jmespath v0.4.0 // indirect
 	github.com/mitchellh/go-homedir v1.1.0
 	github.com/pkg/errors v0.9.1
 	github.com/sirupsen/logrus v1.8.1
@@ -67,7 +67,7 @@ require (
 	github.com/alibabacloud-go/darabonba-map v0.0.2 // indirect
 	github.com/alibabacloud-go/darabonba-signature-util v0.0.7 // indirect
 	github.com/alibabacloud-go/darabonba-string v1.0.2 // indirect
-	github.com/alibabacloud-go/debug v1.0.0 // indirect
+	github.com/alibabacloud-go/debug v1.0.1 // indirect
 	github.com/alibabacloud-go/endpoint-util v1.1.0 // indirect
 	github.com/alibabacloud-go/openapi-util v0.1.0 // indirect
 	github.com/alibabacloud-go/tea-oss-utils v1.1.0 // indirect
@@ -99,7 +99,7 @@ require (
 	github.com/golang/mock v1.6.0 // indirect
 	github.com/golang/protobuf v1.5.4 // indirect
 	github.com/golang/snappy v0.0.4 // indirect
-	github.com/google/flatbuffers v1.11.0 // indirect
+	github.com/google/flatbuffers v23.5.26+incompatible // indirect
 	github.com/google/go-cmp v0.6.0 // indirect
 	github.com/google/gofuzz v1.1.0 // indirect
 	github.com/google/s2a-go v0.1.7 // indirect

@@ -19,6 +19,12 @@ For information about ECI Container Group and how to use it, see [What is Contai
 
 Basic Usage
 
+<div style="display: block;margin-bottom: 40px;"><div class="oics-button" style="float: right;position: absolute;margin-bottom: 10px;">
+  <a href="https://api.aliyun.com/api-tools/terraform?resource=alicloud_eci_container_group&exampleId=f86e77f9-0e1a-75b0-7cf6-56e74d282bd54f7e8421&activeTab=example&spm=docs.r.eci_container_group.0.f86e77f90e&intl_lang=EN_US" target="_blank">
+    <img alt="Open in AliCloud" src="https://img.alicdn.com/imgextra/i1/O1CN01hjjqXv1uYUlY56FyX_!!6000000006049-55-tps-254-36.svg" style="max-height: 44px; max-width: 100%;">
+  </a>
+</div></div>
+
 ```terraform
 provider "alicloud" {
   region = "cn-beijing"
@@ -141,6 +147,7 @@ The following arguments are supported:
 * `eip_instance_id` - (Optional, Available since v1.170.0) The ID of the elastic IP address (EIP).
 * `containers` - (Required, Set) The list of containers. See [`containers`](#containers) below.
 * `init_containers` - (Optional, Set) The list of initContainers. See [`init_containers`](#init_containers) below.
+* `dns_policy` - (Optional, ForceNew) The policy of DNS. Default value: `Default`. Valid values: `Default` and `None`.
 * `dns_config` - (Optional, Set) The structure of dnsConfig. See [`dns_config`](#dns_config) below.
 * `eci_security_context` - (Deprecated since 1.215.0, Optional, ForceNew, Set) The security context of the container group. See [`eci_security_context`](#eci_security_context) below.
 * `security_context` - (Optional, ForceNew, Set, Available since v1.215.0) The security context of the container group. See [`security_context`](#security_context) below.

@@ -19,6 +19,12 @@ For information about EMR New and how to use it, see [Add a domain](https://www.
 
 Basic Usage
 
+<div style="display: block;margin-bottom: 40px;"><div class="oics-button" style="float: right;position: absolute;margin-bottom: 10px;">
+  <a href="https://api.aliyun.com/api-tools/terraform?resource=alicloud_emrv2_cluster&exampleId=5de14baf-18bd-38b6-f72b-9c99227d119a26075001&activeTab=example&spm=docs.r.emrv2_cluster.0.5de14baf18&intl_lang=EN_US" target="_blank">
+    <img alt="Open in AliCloud" src="https://img.alicdn.com/imgextra/i1/O1CN01hjjqXv1uYUlY56FyX_!!6000000006049-55-tps-254-36.svg" style="max-height: 44px; max-width: 100%;">
+  </a>
+</div></div>
+
 ```terraform
 variable "name" {
   default = "tf-example"
@@ -200,7 +206,7 @@ The `subscription_config` block supports the following:
 * `payment_duration_unit` - (Required) If paymentType is Subscription, this should be specified. Supported value: Month or Year.
 * `payment_duration` - (Required) If paymentType is Subscription, this should be specified. Supported value: 1、2、3、4、5、6、7、8、9、12、24、36、48.
 * `auto_renew` - (Optional) Auto renew for prepaid, ’true’ or ‘false’ . Default value: false.
-* `auto_pay_order` - (Optional, Available since v1.219.0) Auto pay order for payment type of subscription, ’true’ or ‘false’ .
+* `auto_pay_order` - (Optional, Available since v1.219.0) Auto pay order for payment type of subscription, ’true’ or ‘false’ .  Default value is ’true’.
 * `auto_renew_duration_unit` - (Optional) If paymentType is Subscription, this should be specified. Supported value: Month or Year.
 * `auto_renew_duration` - (Optional) If paymentType is Subscription, this should be specified. Supported value: 1、2、3、4、5、6、7、8、9、12、24、36、48. 
 
@@ -238,17 +244,17 @@ The node_groups mapping supports the following:
 * `payment_type` - (Optional) Payment Type for this cluster. Supported value: PayAsYouGo or Subscription.
 * `subscription_config` - (Optional) The detail configuration of subscription payment type. See [`subscription_config`](#node_groups-subscription_config) below.
 * `spot_bid_prices` - (Optional) The spot bid prices of a PayAsYouGo instance. See [`spot_bid_prices`](#node_groups-spot_bid_prices) below.
-* `vswitch_ids` - (Optional) Global vSwitch ids, you can also specify it in node group.
-* `with_public_ip` - (Optional) Whether the node has a public IP address enabled.
-* `additional_security_group_ids` - (Optional) Additional security Group IDS for Cluster, you can also specify this key for each node group.
-* `instance_types` - (Required) Host Ecs instance types.
+* `vswitch_ids` - (Optional, ForceNew) Global vSwitch ids, you can also specify it in node group. **NOTE:** From version 1.230.1, `vswitch_ids` can not be modified.
+* `with_public_ip` - (Optional, ForceNew) Whether the node has a public IP address enabled. **NOTE:** From version 1.230.1, `with_public_ip` can not be modified.
+* `additional_security_group_ids` - (Optional, ForceNew) Additional security Group IDS for Cluster, you can also specify this key for each node group. **NOTE:** From version 1.230.1, `additional_security_group_ids` can not be modified.
+* `instance_types` - (Required, ForceNew) Host Ecs instance types. **NOTE:** From version 1.230.1, `instance_types` can not be modified.
 * `node_count` - (Required) Host Ecs number in this node group.
 * `system_disk` - (Required) Host Ecs system disk information in this node group. See [`system_disk`](#node_groups-system_disk) below.
 * `data_disks` - (Required) Host Ecs data disks information in this node group. See [`data_disks`](#node_groups-data_disks) below.
 * `graceful_shutdown` - (Optional) Enable emr cluster of task node graceful decommission, ’true’ or ‘false’ .
 * `spot_instance_remedy` - (Optional) Whether to replace spot instances with newly created spot/onDemand instance when receive a spot recycling message.
-* `cost_optimized_config` - (Optional) The detail cost optimized configuration of emr cluster. See [`cost_optimized_config`](#node_groups-cost_optimized_config) below.
-* `deployment_set_strategy` - (Optional, Available since v1.219.0) Deployment set strategy for this cluster node group. Supported value: NONE, CLUSTER or NODE_GROUP.
+* `cost_optimized_config` - (Optional, ForceNew) The detail cost optimized configuration of emr cluster. See [`cost_optimized_config`](#node_groups-cost_optimized_config) below. **NOTE:** From version 1.230.1, `cost_optimized_config` can not be modified.
+* `deployment_set_strategy` - (Optional, ForceNew, Available since v1.219.0) Deployment set strategy for this cluster node group. Supported value: NONE, CLUSTER or NODE_GROUP. **NOTE:** From version 1.230.1, `deployment_set_strategy` can not be modified.
 * `auto_scaling_policy` - (Optional, Available since v1.227.0) The node group auto scaling policy for emr cluster. See [`auto_scaling_policy`](#node_groups-auto_scaling_policy) below.
 * `node_resize_strategy` - (Optional, Available since v1.219.0) Node resize strategy for this cluster node group. Supported value: PRIORITY, COST_OPTIMIZED.
 
@@ -259,7 +265,7 @@ The subscription_config mapping supports the following:
 * `payment_duration_unit` - (Required) If paymentType is Subscription, this should be specified. Supported value: Month or Year.
 * `payment_duration` - (Required) If paymentType is Subscription, this should be specified. Supported value: 1、2、3、4、5、6、7、8、9、12、24、36、48.
 * `auto_renew` - (Optional) Auto renew for prepaid, ’true’ or ‘false’ . Default value: false.
-* `auto_pay_order` - (Optional, Available since v1.219.0) Auto pay order for payment type of subscription, ’true’ or ‘false’ .
+* `auto_pay_order` - (Optional, Available since v1.219.0) Auto pay order for payment type of subscription, ’true’ or ‘false’ . Default value is ’true’.
 * `auto_renew_duration_unit` - (Optional) If paymentType is Subscription, this should be specified. Supported value: Month or Year.
 * `auto_renew_duration` - (Optional) If paymentType is Subscription, this should be specified. Supported value: 1、2、3、4、5、6、7、8、9、12、24、36、48. 
 
@@ -274,7 +280,7 @@ The spot_bid_prices mapping supports the following:
 
 The system_disk mapping supports the following: 
 
-* `category` - (Required) The type of the data disk. Valid values: `cloud_efficiency` and `cloud_essd`.
+* `category` - (Required) The type of the data disk. Valid values: `cloud_efficiency`, `cloud_essd`, `cloud_ssd`. **NOTE:** Since version v1.230.0, the category `cloud_ssd` is available.
 * `size` - (Required)The size of a data disk, at least 40. Unit: GiB.
 * `performance_level` - (Optional) Worker node data disk performance level, when `category` values `cloud_essd`, the optional values are `PL0`, `PL1`, `PL2` or `PL3`, but the specific performance level is related to the disk capacity.
 * `count` - (Optional) The count of a data disk.
@@ -283,7 +289,7 @@ The system_disk mapping supports the following:
 
 The data_disks mapping supports the following: 
 
-* `category` - (Required) The type of the data disk. Valid values: `cloud_efficiency` and `cloud_essd`.
+* `category` - (Required) The type of the data disk. Valid values: `cloud_efficiency`, `cloud_essd`, `cloud`, `local_hdd_pro`, `local_disk`, `local_ssd_pro`. **NOTE:** Since version v1.230.0, the categories `cloud`, `local_hdd_pro`, `local_disk`, `local_ssd_pro` are available.
 * `size` - (Required)The size of a data disk, at least 40. Unit: GiB.
 * `performance_level` - (Optional) Worker node data disk performance level, when `category` values `cloud_essd`, the optional values are `PL0`, `PL1`, `PL2` or `PL3`, but the specific performance level is related to the disk capacity.
 * `count` - (Optional) The count of a data disk.

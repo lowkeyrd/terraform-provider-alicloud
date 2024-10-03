@@ -19,6 +19,12 @@ For information about Global Accelerator (GA) Forwarding Rule and how to use it,
 
 Basic Usage
 
+<div style="display: block;margin-bottom: 40px;"><div class="oics-button" style="float: right;position: absolute;margin-bottom: 10px;">
+  <a href="https://api.aliyun.com/api-tools/terraform?resource=alicloud_ga_forwarding_rule&exampleId=a297ffc5-af79-4fc9-8f0f-df5b781591abfd9c84f1&activeTab=example&spm=docs.r.ga_forwarding_rule.0.a297ffc5af&intl_lang=EN_US" target="_blank">
+    <img alt="Open in AliCloud" src="https://img.alicdn.com/imgextra/i1/O1CN01hjjqXv1uYUlY56FyX_!!6000000006049-55-tps-254-36.svg" style="max-height: 44px; max-width: 100%;">
+  </a>
+</div></div>
+
 ```terraform
 provider "alicloud" {
   region = var.region
@@ -150,7 +156,7 @@ The following arguments are supported:
 The rule_actions supports the following:
 
 * `order` (Required, Int) Forwarding priority.
-* `rule_action_type` (Required) Forward action type.
+* `rule_action_type` (Required) The type of the forwarding action. Valid values: `ForwardGroup`, `Redirect`, `FixResponse`, `Rewrite`, `AddHeader`, `RemoveHeader`, `Drop`.
 * `rule_action_value` (Optional, Available since v1.207.0) The value of the forwarding action type. For more information, see [How to use it](https://www.alibabacloud.com/help/en/global-accelerator/latest/api-ga-2019-11-20-createforwardingrules).
 * `forward_group_config` (Optional, Set) Forwarding configuration. See [`forward_group_config`](#rule_actions-forward_group_config) below.
 -> **NOTE:** From version 1.207.0, We recommend that you do not use `forward_group_config`, and we recommend that you use the `rule_action_type` and `rule_action_value` to configure forwarding actions.
@@ -171,9 +177,11 @@ The server_group_tuples supports the following:
 
 The rule_conditions supports the following:
 
-* `rule_condition_type` (Required) The type of the forwarding conditions. Valid values: `Host`, `Path`.
+* `rule_condition_type` (Required) The type of the forwarding conditions. Valid values: `Host`, `Path`, `RequestHeader`, `Query`, `Method`, `Cookie`, `SourceIP`. **NOTE:** From version 1.231.0, `rule_condition_type` can be set to `RequestHeader`, `Query`, `Method`, `Cookie`, `SourceIP`.
+* `rule_condition_value` (Optional, Available since v1.231.0) The value of the forwarding condition type. For more information, see [How to use it](https://www.alibabacloud.com/help/en/global-accelerator/latest/api-ga-2019-11-20-createforwardingrules).
 * `path_config` (Optional, Set) The configuration of the path. See [`path_config`](#rule_conditions-path_config) below.
 * `host_config` (Optional, Set) The configuration of the domain name. See [`host_config`](#rule_conditions-host_config) below.
+-> **NOTE:** From version 1.231.0, We recommend that you do not use `path_config` or `host_config`, and we recommend that you use the `rule_condition_type` and `rule_condition_value` to configure forwarding conditions.
 
 ### `rule_conditions-path_config`
 

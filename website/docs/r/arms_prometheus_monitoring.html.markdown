@@ -18,6 +18,12 @@ For information about ARMS Prometheus Monitoring and how to use it, see [What is
 
 Basic Usage
 
+<div style="display: block;margin-bottom: 40px;"><div class="oics-button" style="float: right;position: absolute;margin-bottom: 10px;">
+  <a href="https://api.aliyun.com/api-tools/terraform?resource=alicloud_arms_prometheus_monitoring&exampleId=ffdf6a46-95be-2df8-a19a-0c3ebaf8c3b1c83ce318&activeTab=example&spm=docs.r.arms_prometheus_monitoring.0.ffdf6a4695&intl_lang=EN_US" target="_blank">
+    <img alt="Open in AliCloud" src="https://img.alicdn.com/imgextra/i1/O1CN01hjjqXv1uYUlY56FyX_!!6000000006049-55-tps-254-36.svg" style="max-height: 44px; max-width: 100%;">
+  </a>
+</div></div>
+
 ```terraform
 variable "name" {
   default = "terraform-example"
@@ -78,13 +84,13 @@ resource "alicloud_key_pair" "default" {
 }
 
 resource "alicloud_cs_kubernetes_node_pool" "default" {
-  name                 = "desired_size"
+  node_pool_name       = "desired_size"
   cluster_id           = alicloud_cs_managed_kubernetes.default.id
   vswitch_ids          = [alicloud_vswitch.vswitch.id]
   instance_types       = [data.alicloud_instance_types.default.instance_types.0.id]
   system_disk_category = "cloud_efficiency"
   system_disk_size     = 40
-  key_name             = alicloud_key_pair.default.key_name
+  key_name             = alicloud_key_pair.default.key_pair_name
   desired_size         = 2
 }
 

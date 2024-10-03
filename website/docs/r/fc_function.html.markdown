@@ -20,6 +20,12 @@ Provides a Alicloud Function Compute Function resource. Function allows you to t
 
 Basic Usage
 
+<div style="display: block;margin-bottom: 40px;"><div class="oics-button" style="float: right;position: absolute;margin-bottom: 10px;">
+  <a href="https://api.aliyun.com/api-tools/terraform?resource=alicloud_fc_function&exampleId=845c1d41-b528-e598-35fd-2d8154569f4db35523af&activeTab=example&spm=docs.r.fc_function.0.845c1d41b5&intl_lang=EN_US" target="_blank">
+    <img alt="Open in AliCloud" src="https://img.alicdn.com/imgextra/i1/O1CN01hjjqXv1uYUlY56FyX_!!6000000006049-55-tps-254-36.svg" style="max-height: 44px; max-width: 100%;">
+  </a>
+</div></div>
+
 ```terraform
 provider "alicloud" {
   region = "cn-hangzhou"
@@ -34,7 +40,7 @@ resource "alicloud_log_project" "default" {
 }
 
 resource "alicloud_log_store" "default" {
-  project_name  = alicloud_log_project.default.name
+  project_name  = alicloud_log_project.default.project_name
   logstore_name = "example-value"
 }
 
@@ -71,8 +77,8 @@ resource "alicloud_fc_service" "default" {
   description = "example-value"
   role        = alicloud_ram_role.default.arn
   log_config {
-    project                 = alicloud_log_project.default.name
-    logstore                = alicloud_log_store.default.name
+    project                 = alicloud_log_project.default.project_name
+    logstore                = alicloud_log_store.default.logstore_name
     enable_instance_metrics = true
     enable_request_metrics  = true
   }

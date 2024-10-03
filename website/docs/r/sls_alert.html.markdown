@@ -18,6 +18,12 @@ For information about SLS Alert and how to use it, see [What is Alert](https://w
 
 Basic Usage
 
+<div style="display: block;margin-bottom: 40px;"><div class="oics-button" style="float: right;position: absolute;margin-bottom: 10px;">
+  <a href="https://api.aliyun.com/api-tools/terraform?resource=alicloud_sls_alert&exampleId=6ab20446-3b87-b005-9f15-e6b5ded6ed461c1915db&activeTab=example&spm=docs.r.sls_alert.0.6ab204463b&intl_lang=EN_US" target="_blank">
+    <img alt="Open in AliCloud" src="https://img.alicdn.com/imgextra/i1/O1CN01hjjqXv1uYUlY56FyX_!!6000000006049-55-tps-254-36.svg" style="max-height: 44px; max-width: 100%;">
+  </a>
+</div></div>
+
 ```terraform
 variable "name" {
   default = "terraform-example"
@@ -41,8 +47,8 @@ resource "random_integer" "default" {
 }
 
 resource "alicloud_log_project" "defaultINsMgl" {
-  description = "${var.project_name}-${random_integer.default.result}"
-  name        = "${var.project_name}-${random_integer.default.result}"
+  description  = "${var.project_name}-${random_integer.default.result}"
+  project_name = "${var.project_name}-${random_integer.default.result}"
 }
 
 resource "alicloud_sls_alert" "default" {
@@ -126,7 +132,7 @@ resource "alicloud_sls_alert" "default" {
       role_arn       = "acs:ram::1654218965343050:role/aliyunslsalertmonitorrole"
       query          = "* | select *"
       time_span_type = "Relative"
-      project        = alicloud_log_project.defaultINsMgl.name
+      project        = alicloud_log_project.defaultINsMgl.project_name
       power_sql_mode = "disable"
       dashboard_id   = "wkb-dashboard"
       chart_title    = "wkb-chart"
@@ -179,7 +185,7 @@ resource "alicloud_sls_alert" "default" {
   }
 
   alert_name   = var.alert_name
-  project_name = alicloud_log_project.defaultINsMgl.name
+  project_name = alicloud_log_project.defaultINsMgl.project_name
 }
 ```
 

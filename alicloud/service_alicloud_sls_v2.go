@@ -39,7 +39,7 @@ func (s *SlsServiceV2) DescribeSlsProject(id string) (object map[string]interfac
 	runtime.SetAutoretry(true)
 	wait := incrementalWait(3*time.Second, 5*time.Second)
 	err = resource.Retry(1*time.Minute, func() *resource.RetryError {
-		response, err = conn.Execute(genRoaParam("GetProject", "GET", "2020-12-30", action), &openapi.OpenApiRequest{Query: query, Body: nil, HostMap: hostMap}, &util.RuntimeOptions{})
+		response, err = conn.Execute(client.GenRoaParam("GetProject", "GET", "2020-12-30", action), &openapi.OpenApiRequest{Query: query, Body: nil, HostMap: hostMap}, &util.RuntimeOptions{})
 
 		if err != nil {
 			if NeedRetry(err) {
@@ -82,7 +82,7 @@ func (s *SlsServiceV2) DescribeListTagResources(id string) (object map[string]in
 	runtime.SetAutoretry(true)
 	wait := incrementalWait(3*time.Second, 5*time.Second)
 	err = resource.Retry(1*time.Minute, func() *resource.RetryError {
-		response, err = conn.Execute(genRoaParam("ListTagResources", "GET", "2020-12-30", action), &openapi.OpenApiRequest{Query: query, Body: nil, HostMap: hostMap}, &util.RuntimeOptions{})
+		response, err = conn.Execute(client.GenRoaParam("ListTagResources", "GET", "2020-12-30", action), &openapi.OpenApiRequest{Query: query, Body: nil, HostMap: hostMap}, &util.RuntimeOptions{})
 
 		if err != nil {
 			if NeedRetry(err) {
@@ -168,7 +168,7 @@ func (s *SlsServiceV2) SetResourceTags(d *schema.ResourceData, resourceType stri
 			runtime.SetAutoretry(true)
 			wait := incrementalWait(3*time.Second, 5*time.Second)
 			err = resource.Retry(d.Timeout(schema.TimeoutUpdate), func() *resource.RetryError {
-				response, err = conn.Execute(genRoaParam("UntagResources", "POST", "2020-12-30", action), &openapi.OpenApiRequest{Query: query, Body: body, HostMap: hostMap}, &util.RuntimeOptions{})
+				response, err = conn.Execute(client.GenRoaParam("UntagResources", "POST", "2020-12-30", action), &openapi.OpenApiRequest{Query: query, Body: body, HostMap: hostMap}, &util.RuntimeOptions{})
 
 				if err != nil {
 					if NeedRetry(err) {
@@ -215,7 +215,7 @@ func (s *SlsServiceV2) SetResourceTags(d *schema.ResourceData, resourceType stri
 			runtime.SetAutoretry(true)
 			wait := incrementalWait(3*time.Second, 5*time.Second)
 			err = resource.Retry(d.Timeout(schema.TimeoutUpdate), func() *resource.RetryError {
-				response, err = conn.Execute(genRoaParam("TagResources", "POST", "2020-12-30", action), &openapi.OpenApiRequest{Query: query, Body: body, HostMap: hostMap}, &util.RuntimeOptions{})
+				response, err = conn.Execute(client.GenRoaParam("TagResources", "POST", "2020-12-30", action), &openapi.OpenApiRequest{Query: query, Body: body, HostMap: hostMap}, &util.RuntimeOptions{})
 
 				if err != nil {
 					if NeedRetry(err) {
@@ -247,7 +247,6 @@ func (s *SlsServiceV2) DescribeSlsLogStore(id string) (object map[string]interfa
 	var request map[string]interface{}
 	var response map[string]interface{}
 	var query map[string]*string
-	var hostMap map[string]*string
 	parts := strings.Split(id, ":")
 	if len(parts) != 2 {
 		err = WrapError(fmt.Errorf("invalid Resource Id %s. Expected parts' length %d, got %d", id, 2, len(parts)))
@@ -260,15 +259,14 @@ func (s *SlsServiceV2) DescribeSlsLogStore(id string) (object map[string]interfa
 	}
 	request = make(map[string]interface{})
 	query = make(map[string]*string)
-	hostMap = make(map[string]*string)
-	hostMap["logstore"] = StringPointer(parts[1])
+	hostMap := make(map[string]*string)
 	hostMap["project"] = StringPointer(parts[0])
 
 	runtime := util.RuntimeOptions{}
 	runtime.SetAutoretry(true)
 	wait := incrementalWait(3*time.Second, 5*time.Second)
 	err = resource.Retry(1*time.Minute, func() *resource.RetryError {
-		response, err = conn.Execute(genRoaParam("GetLogStore", "GET", "2020-12-30", action), &openapi.OpenApiRequest{Query: query, Body: nil, HostMap: hostMap}, &util.RuntimeOptions{})
+		response, err = conn.Execute(client.GenRoaParam("GetLogStore", "GET", "2020-12-30", action), &openapi.OpenApiRequest{Query: query, Body: nil, HostMap: hostMap}, &util.RuntimeOptions{})
 
 		if err != nil {
 			if NeedRetry(err) {
@@ -280,22 +278,22 @@ func (s *SlsServiceV2) DescribeSlsLogStore(id string) (object map[string]interfa
 		addDebug(action, response, request)
 		return nil
 	})
-
 	if err != nil {
 		if IsExpectedErrors(err, []string{"LogStoreNotExist"}) {
 			return object, WrapErrorf(Error(GetNotFoundMessage("LogStore", id)), NotFoundMsg, response)
 		}
+		addDebug(action, response, request)
 		return object, WrapErrorf(err, DefaultErrorMsg, id, action, AlibabaCloudSdkGoERROR)
 	}
+	response = response["body"].(map[string]interface{})
 
-	return response["body"].(map[string]interface{}), nil
+	return response, nil
 }
 func (s *SlsServiceV2) DescribeGetLogStoreMeteringMode(id string) (object map[string]interface{}, err error) {
 	client := s.client
 	var request map[string]interface{}
 	var response map[string]interface{}
 	var query map[string]*string
-	var hostMap map[string]*string
 	parts := strings.Split(id, ":")
 	if len(parts) != 2 {
 		err = WrapError(fmt.Errorf("invalid Resource Id %s. Expected parts' length %d, got %d", id, 2, len(parts)))
@@ -308,15 +306,14 @@ func (s *SlsServiceV2) DescribeGetLogStoreMeteringMode(id string) (object map[st
 	}
 	request = make(map[string]interface{})
 	query = make(map[string]*string)
-	hostMap = make(map[string]*string)
-	hostMap["logstore"] = StringPointer(parts[1])
+	hostMap := make(map[string]*string)
 	hostMap["project"] = StringPointer(parts[0])
 
 	runtime := util.RuntimeOptions{}
 	runtime.SetAutoretry(true)
 	wait := incrementalWait(3*time.Second, 5*time.Second)
 	err = resource.Retry(1*time.Minute, func() *resource.RetryError {
-		response, err = conn.Execute(genRoaParam("GetLogStoreMeteringMode", "GET", "2020-12-30", action), &openapi.OpenApiRequest{Query: query, Body: nil, HostMap: hostMap}, &util.RuntimeOptions{})
+		response, err = conn.Execute(client.GenRoaParam("GetLogStoreMeteringMode", "GET", "2020-12-30", action), &openapi.OpenApiRequest{Query: query, Body: nil, HostMap: hostMap}, &util.RuntimeOptions{})
 
 		if err != nil {
 			if NeedRetry(err) {
@@ -328,15 +325,16 @@ func (s *SlsServiceV2) DescribeGetLogStoreMeteringMode(id string) (object map[st
 		addDebug(action, response, request)
 		return nil
 	})
-
 	if err != nil {
 		if IsExpectedErrors(err, []string{"LogStoreNotExist"}) {
 			return object, WrapErrorf(Error(GetNotFoundMessage("LogStore", id)), NotFoundMsg, response)
 		}
+		addDebug(action, response, request)
 		return object, WrapErrorf(err, DefaultErrorMsg, id, action, AlibabaCloudSdkGoERROR)
 	}
+	response = response["body"].(map[string]interface{})
 
-	return response["body"].(map[string]interface{}), nil
+	return response, nil
 }
 
 func (s *SlsServiceV2) SlsLogStoreStateRefreshFunc(id string, field string, failStates []string) resource.StateRefreshFunc {
@@ -389,7 +387,7 @@ func (s *SlsServiceV2) DescribeSlsAlert(id string) (object map[string]interface{
 	runtime.SetAutoretry(true)
 	wait := incrementalWait(3*time.Second, 5*time.Second)
 	err = resource.Retry(1*time.Minute, func() *resource.RetryError {
-		response, err = conn.Execute(genRoaParam("GetAlert", "GET", "2020-12-30", action), &openapi.OpenApiRequest{Query: query, Body: nil, HostMap: hostMap}, &util.RuntimeOptions{})
+		response, err = conn.Execute(client.GenRoaParam("GetAlert", "GET", "2020-12-30", action), &openapi.OpenApiRequest{Query: query, Body: nil, HostMap: hostMap}, &util.RuntimeOptions{})
 
 		if err != nil {
 			if NeedRetry(err) {
@@ -462,7 +460,7 @@ func (s *SlsServiceV2) DescribeSlsScheduledSQL(id string) (object map[string]int
 	runtime.SetAutoretry(true)
 	wait := incrementalWait(3*time.Second, 5*time.Second)
 	err = resource.Retry(1*time.Minute, func() *resource.RetryError {
-		response, err = conn.Execute(genRoaParam("GetScheduledSQL", "GET", "2020-12-30", action), &openapi.OpenApiRequest{Query: query, Body: nil, HostMap: hostMap}, &util.RuntimeOptions{})
+		response, err = conn.Execute(client.GenRoaParam("GetScheduledSQL", "GET", "2020-12-30", action), &openapi.OpenApiRequest{Query: query, Body: nil, HostMap: hostMap}, &util.RuntimeOptions{})
 
 		if err != nil {
 			if NeedRetry(err) {

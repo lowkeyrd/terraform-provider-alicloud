@@ -20,6 +20,12 @@ Provides an Alicloud Function Compute Trigger resource. Based on trigger, execut
 
 Basic Usage
 
+<div style="display: block;margin-bottom: 40px;"><div class="oics-button" style="float: right;position: absolute;margin-bottom: 10px;">
+  <a href="https://api.aliyun.com/api-tools/terraform?resource=alicloud_fc_trigger&exampleId=f10270d0-14d4-416c-f574-29002e67f3a40b4f4fbd&activeTab=example&spm=docs.r.fc_trigger.0.f10270d014&intl_lang=EN_US" target="_blank">
+    <img alt="Open in AliCloud" src="https://img.alicdn.com/imgextra/i1/O1CN01hjjqXv1uYUlY56FyX_!!6000000006049-55-tps-254-36.svg" style="max-height: 44px; max-width: 100%;">
+  </a>
+</div></div>
+
 ```terraform
 data "alicloud_account" "default" {}
 data "alicloud_regions" "default" {
@@ -36,12 +42,12 @@ resource "alicloud_log_project" "default" {
 }
 
 resource "alicloud_log_store" "default" {
-  project_name  = alicloud_log_project.default.name
+  project_name  = alicloud_log_project.default.project_name
   logstore_name = "example-value"
 }
 
 resource "alicloud_log_store" "source_store" {
-  project_name  = alicloud_log_project.default.name
+  project_name  = alicloud_log_project.default.project_name
   logstore_name = "example-source-store"
 }
 
@@ -78,8 +84,8 @@ resource "alicloud_fc_service" "default" {
   description = "example-value"
   role        = alicloud_ram_role.default.arn
   log_config {
-    project                 = alicloud_log_project.default.name
-    logstore                = alicloud_log_store.default.name
+    project                 = alicloud_log_project.default.project_name
+    logstore                = alicloud_log_store.default.logstore_name
     enable_instance_metrics = true
     enable_request_metrics  = true
   }
@@ -112,12 +118,12 @@ resource "alicloud_fc_trigger" "default" {
   function   = alicloud_fc_function.default.name
   name       = "terraform-example"
   role       = alicloud_ram_role.default.arn
-  source_arn = "acs:log:${data.alicloud_regions.default.regions.0.id}:${data.alicloud_account.default.id}:project/${alicloud_log_project.default.name}"
+  source_arn = "acs:log:${data.alicloud_regions.default.regions.0.id}:${data.alicloud_account.default.id}:project/${alicloud_log_project.default.project_name}"
   type       = "log"
   config     = <<EOF
     {
         "sourceConfig": {
-            "logstore": "${alicloud_log_store.source_store.name}",
+            "logstore": "${alicloud_log_store.source_store.logstore_name}",
             "startTime": null
         },
         "jobConfig": {
@@ -129,10 +135,9 @@ resource "alicloud_fc_trigger" "default" {
             "c": "d"
         },
         "logConfig": {
-             "project": "${alicloud_log_project.default.name}",
-            "logstore": "${alicloud_log_store.default.name}"
+             "project": "${alicloud_log_project.default.project_name}",
+            "logstore": "${alicloud_log_store.default.logstore_name}"
         },
-        "targetConfig": null,
         "enable": true
     }
   
@@ -141,6 +146,12 @@ EOF
 ```
 
 MNS topic trigger:
+
+<div style="display: block;margin-bottom: 40px;"><div class="oics-button" style="float: right;position: absolute;margin-bottom: 10px;">
+  <a href="https://api.aliyun.com/api-tools/terraform?resource=alicloud_fc_trigger&exampleId=04f4d0c3-a376-e4c2-9aab-11d153798b2d63b483eb&activeTab=example&spm=docs.r.fc_trigger.1.04f4d0c3a3&intl_lang=EN_US" target="_blank">
+    <img alt="Open in AliCloud" src="https://img.alicdn.com/imgextra/i1/O1CN01hjjqXv1uYUlY56FyX_!!6000000006049-55-tps-254-36.svg" style="max-height: 44px; max-width: 100%;">
+  </a>
+</div></div>
 
 ```terraform
 provider "alicloud" {
@@ -235,6 +246,12 @@ resource "alicloud_fc_trigger" "default" {
 
 CDN events trigger:
 
+<div style="display: block;margin-bottom: 40px;"><div class="oics-button" style="float: right;position: absolute;margin-bottom: 10px;">
+  <a href="https://api.aliyun.com/api-tools/terraform?resource=alicloud_fc_trigger&exampleId=33bbfc00-315e-a4c1-44ac-4df032a1b46a0167ff13&activeTab=example&spm=docs.r.fc_trigger.2.33bbfc0031&intl_lang=EN_US" target="_blank">
+    <img alt="Open in AliCloud" src="https://img.alicdn.com/imgextra/i1/O1CN01hjjqXv1uYUlY56FyX_!!6000000006049-55-tps-254-36.svg" style="max-height: 44px; max-width: 100%;">
+  </a>
+</div></div>
+
 ```terraform
 provider "alicloud" {
   region = "cn-hangzhou"
@@ -312,7 +329,7 @@ resource "alicloud_ram_policy" "default" {
 }
 resource "alicloud_ram_role_policy_attachment" "default" {
   role_name   = alicloud_ram_role.default.name
-  policy_name = alicloud_ram_policy.default.name
+  policy_name = alicloud_ram_policy.default.policy_name
   policy_type = "Custom"
 }
 
@@ -357,6 +374,12 @@ EOF
 ```
 
 EventBridge trigger:
+
+<div style="display: block;margin-bottom: 40px;"><div class="oics-button" style="float: right;position: absolute;margin-bottom: 10px;">
+  <a href="https://api.aliyun.com/api-tools/terraform?resource=alicloud_fc_trigger&exampleId=aa220e34-0eee-113e-1449-1b4a9d07c8185a8662d8&activeTab=example&spm=docs.r.fc_trigger.3.aa220e340e&intl_lang=EN_US" target="_blank">
+    <img alt="Open in AliCloud" src="https://img.alicdn.com/imgextra/i1/O1CN01hjjqXv1uYUlY56FyX_!!6000000006049-55-tps-254-36.svg" style="max-height: 44px; max-width: 100%;">
+  </a>
+</div></div>
 
 ```terraform
 data "alicloud_account" "default" {}

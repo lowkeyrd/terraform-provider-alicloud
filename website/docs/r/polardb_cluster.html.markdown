@@ -19,6 +19,12 @@ databases.
 
 Create a PolarDB MySQL cluster
 
+<div style="display: block;margin-bottom: 40px;"><div class="oics-button" style="float: right;position: absolute;margin-bottom: 10px;">
+  <a href="https://api.aliyun.com/api-tools/terraform?resource=alicloud_polardb_cluster&exampleId=14aedf61-7507-af1c-c239-50c54127fb66a22cd321&activeTab=example&spm=docs.r.polardb_cluster.0.14aedf6175&intl_lang=EN_US" target="_blank">
+    <img alt="Open in AliCloud" src="https://img.alicdn.com/imgextra/i1/O1CN01hjjqXv1uYUlY56FyX_!!6000000006049-55-tps-254-36.svg" style="max-height: 44px; max-width: 100%;">
+  </a>
+</div></div>
+
 ```terraform
 data "alicloud_polardb_node_classes" "default" {
   db_type    = "MySQL"
@@ -61,6 +67,12 @@ resource "alicloud_polardb_cluster" "default" {
 
 When enabling TDE encryption, it is necessary to ensure that there is an AliyunRDSInstanceEncryptionDefaultRole role, and it is authorized under the account. If not, the following code can be used to create it.
 Note: If there is only the role AliyunRDSSInceEncryptionDefaultRole under the account, this example may not be applicable.
+
+<div style="display: block;margin-bottom: 40px;"><div class="oics-button" style="float: right;position: absolute;margin-bottom: 10px;">
+  <a href="https://api.aliyun.com/api-tools/terraform?resource=alicloud_polardb_cluster&exampleId=ad8f542a-4a74-b8d8-7a2c-228ccb357ce050ece07e&activeTab=example&spm=docs.r.polardb_cluster.1.ad8f542a4a&intl_lang=EN_US" target="_blank">
+    <img alt="Open in AliCloud" src="https://img.alicdn.com/imgextra/i1/O1CN01hjjqXv1uYUlY56FyX_!!6000000006049-55-tps-254-36.svg" style="max-height: 44px; max-width: 100%;">
+  </a>
+</div></div>
 
 ```terraform
 data "alicloud_account" "current" {
@@ -115,7 +127,8 @@ The following arguments are supported:
 * `db_version` - (Required, ForceNew) Database version. Value options can refer to the latest docs [CreateDBCluster](https://www.alibabacloud.com/help/en/polardb/latest/createdbcluster-1) `DBVersion`.
 * `db_node_class` - (Required) The db_node_class of cluster node.
 -> **NOTE:** Node specifications are divided into cluster version, single node version and History Library version. They can't change each other, but the general specification and exclusive specification of cluster version can be changed. 
-  From version 1.204.0, If you need to create a Serverless cluster, `db_node_class` can be set to `polar.mysql.sl.small`.
+  From version 1.204.0, If you need to create a Serverless cluster with MySQL , `db_node_class` can be set to `polar.mysql.sl.small`.
+  From version 1.229.1, If you need to create a Serverless cluster with PostgreSQL 14 using the SENormal edition, `db_node_class` can be set to `polar.pg.sl.small.c`(x86 Architecture). Region can refer to the latest docs(https://help.aliyun.com/zh/polardb/polardb-for-postgresql/the-public-preview-of-polardb-for-postgresql-serverless-ends?spm=a2c4g.11186623.0.0.2e9f6cf0B4rIfC).
 * `modify_type` - (Optional, Available since 1.71.2) Use as `db_node_class` change class, define upgrade or downgrade. Valid values are `Upgrade`, `Downgrade`, Default to `Upgrade`.
 * `db_node_count` - (Optional, Available since 1.95.0)Number of the PolarDB cluster nodes, default is 2(Each cluster must contain at least a primary node and a read-only node). Add/remove nodes by modifying this parameter, valid values: [2~16].  
 -> **NOTE:** To avoid adding or removing multiple read-only nodes by mistake, the system allows you to add or remove one read-only node at a time.
@@ -163,8 +176,9 @@ The following arguments are supported:
 * `clone_data_point` - (Optional, Available since 1.179.0) The time point of data to be cloned. Valid values are `LATEST`,`BackupID`,`Timestamp`.Value options can refer to the latest docs [CreateDBCluster](https://www.alibabacloud.com/help/en/polardb/latest/createdbcluster-1) `CloneDataPoint`.
 -> **NOTE:** If CreationOption is set to CloneFromRDS, the value of this parameter must be LATEST.
 * `vpc_id` - (Optional, ForceNew, Computed, Available since v1.185.0) The id of the VPC.
-* `storage_type` - (Optional, ForceNew, Available since v1.203.0) The storage type of the cluster. Enterprise storage type values are `PSL5`, `PSL4`. The standard version storage type values are `ESSDPL1`, `ESSDPL2`, `ESSDPL3`. The standard version only supports MySQL.
--> **NOTE:** Serverless cluster does not support this parameter.
+* `storage_type` - (Optional, ForceNew, Available since v1.203.0) The storage type of the cluster. Enterprise storage type values are `PSL5`, `PSL4`. The standard version storage type values are `ESSDPL1`, `ESSDPL2`, `ESSDPL3`, `ESSDPL0`, `ESSDAUTOPL`. The standard version only supports MySQL and PostgreSQL.
+* `provisioned_iops` - (Optional, ForceNew, Available since v1.229.1) The provisioned read/write IOPS of the ESSD AutoPL disk. Valid values: 0 to min{50,000, 1,000 × Capacity - Baseline IOPS}. Baseline IOPS = min{1,800 + 50 × Capacity, 50,000}.
+-> **NOTE:** This parameter is available only if the StorageType parameter is set to ESSDAUTOPL.
 * `storage_space` - (Optional, Computed, Available since v1.203.0) Storage space charged by space (monthly package). Unit: GB.
 -> **NOTE:**  Valid values for PolarDB for MySQL Standard Edition: 20 to 32000. It is valid when pay_type are `PrePaid` ,`PostPaid`.
 -> **NOTE:**  Valid values for PolarDB for MySQL Enterprise Edition: 50 to 100000.It is valid when pay_type is `PrePaid`.

@@ -19,6 +19,12 @@ For information about Cloud Storage Gateway Gateway Block Volume and how to use 
 
 Basic Usage
 
+<div style="display: block;margin-bottom: 40px;"><div class="oics-button" style="float: right;position: absolute;margin-bottom: 10px;">
+  <a href="https://api.aliyun.com/api-tools/terraform?resource=alicloud_cloud_storage_gateway_gateway_block_volume&exampleId=618b2bca-021c-40f8-be14-548407d915147685e0be&activeTab=example&spm=docs.r.cloud_storage_gateway_gateway_block_volume.0.618b2bca02&intl_lang=EN_US" target="_blank">
+    <img alt="Open in AliCloud" src="https://img.alicdn.com/imgextra/i1/O1CN01hjjqXv1uYUlY56FyX_!!6000000006049-55-tps-254-36.svg" style="max-height: 44px; max-width: 100%;">
+  </a>
+</div></div>
+
 ```terraform
 variable "name" {
   default = "tf-example"
@@ -32,6 +38,10 @@ resource "alicloud_cloud_storage_gateway_storage_bundle" "default" {
 
 resource "alicloud_oss_bucket" "default" {
   bucket = substr("tf-example-${replace(random_uuid.default.result, "-", "")}", 0, 16)
+}
+
+resource "alicloud_oss_bucket_acl" "default" {
+  bucket = alicloud_oss_bucket.default.bucket
   acl    = "public-read-write"
 }
 

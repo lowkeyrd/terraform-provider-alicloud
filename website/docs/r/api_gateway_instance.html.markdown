@@ -18,6 +18,12 @@ For information about Api Gateway Instance and how to use it, see [What is Insta
 
 Basic Usage
 
+<div style="display: block;margin-bottom: 40px;"><div class="oics-button" style="float: right;position: absolute;margin-bottom: 10px;">
+  <a href="https://api.aliyun.com/api-tools/terraform?resource=alicloud_api_gateway_instance&exampleId=d73215ff-a60f-46bb-9711-20b8002b1ac5eca8eb10&activeTab=example&spm=docs.r.api_gateway_instance.0.d73215ffa6&intl_lang=EN_US" target="_blank">
+    <img alt="Open in AliCloud" src="https://img.alicdn.com/imgextra/i1/O1CN01hjjqXv1uYUlY56FyX_!!6000000006049-55-tps-254-36.svg" style="max-height: 44px; max-width: 100%;">
+  </a>
+</div></div>
+
 ```terraform
 variable "name" {
   default = "terraform-example"
@@ -38,6 +44,12 @@ resource "alicloud_api_gateway_instance" "default" {
   instance_type = "normal"
 }
 ```
+
+<div style="display: block;margin-bottom: 40px;"><div class="oics-button" style="float: right;position: absolute;margin-bottom: 10px;">
+  <a href="https://api.aliyun.com/api-tools/terraform?resource=alicloud_api_gateway_instance&exampleId=75a35892-c685-2e89-d544-e3af9724a154f64da7af&activeTab=example&spm=docs.r.api_gateway_instance.1.75a35892c6&intl_lang=EN_US" target="_blank">
+    <img alt="Open in AliCloud" src="https://img.alicdn.com/imgextra/i1/O1CN01hjjqXv1uYUlY56FyX_!!6000000006049-55-tps-254-36.svg" style="max-height: 44px; max-width: 100%;">
+  </a>
+</div></div>
 
 ```terraform
 variable "name" {
@@ -78,19 +90,19 @@ resource "alicloud_api_gateway_instance" "vpc_integration_instance" {
   instance_spec = "api.s1.small"
   instance_type = "vpc_connect"
   payment_type  = "PayAsYouGo"
-  user_vpc_id   = "${alicloud_vpc.vpc.id}"
+  user_vpc_id   = alicloud_vpc.vpc.id
   instance_cidr = "192.168.0.0/16"
   zone_vswitch_security_group {
-    zone_id        = "${alicloud_vswitch.vswitch_1.zone_id}"
-    vswitch_id     = "${alicloud_vswitch.vswitch_1.id}"
-    cidr_block     = "${alicloud_vswitch.vswitch_1.cidr_block}"
-    security_group = "${alicloud_security_group.security_group.id}"
+    zone_id        = alicloud_vswitch.vswitch_1.zone_id
+    vswitch_id     = alicloud_vswitch.vswitch_1.id
+    cidr_block     = alicloud_vswitch.vswitch_1.cidr_block
+    security_group = alicloud_security_group.security_group.id
   }
   zone_vswitch_security_group {
-    zone_id        = "${alicloud_vswitch.vswitch_2.zone_id}"
-    vswitch_id     = "${alicloud_vswitch.vswitch_2.id}"
-    cidr_block     = "${alicloud_vswitch.vswitch_2.cidr_block}"
-    security_group = "${alicloud_security_group.security_group.id}"
+    zone_id        = alicloud_vswitch.vswitch_2.zone_id
+    vswitch_id     = alicloud_vswitch.vswitch_2.id
+    cidr_block     = alicloud_vswitch.vswitch_2.cidr_block
+    security_group = alicloud_security_group.security_group.id
   }
 }
 ```

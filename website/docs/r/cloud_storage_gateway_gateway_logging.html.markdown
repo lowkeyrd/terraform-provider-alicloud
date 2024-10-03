@@ -19,6 +19,12 @@ For information about Cloud Storage Gateway Gateway Logging and how to use it, s
 
 Basic Usage
 
+<div style="display: block;margin-bottom: 40px;"><div class="oics-button" style="float: right;position: absolute;margin-bottom: 10px;">
+  <a href="https://api.aliyun.com/api-tools/terraform?resource=alicloud_cloud_storage_gateway_gateway_logging&exampleId=40fe5e0a-1a92-1909-6369-756c7fdc7690b7cc8fe7&activeTab=example&spm=docs.r.cloud_storage_gateway_gateway_logging.0.40fe5e0a1a&intl_lang=EN_US" target="_blank">
+    <img alt="Open in AliCloud" src="https://img.alicdn.com/imgextra/i1/O1CN01hjjqXv1uYUlY56FyX_!!6000000006049-55-tps-254-36.svg" style="max-height: 44px; max-width: 100%;">
+  </a>
+</div></div>
+
 ```terraform
 variable "name" {
   default = "tf-example"
@@ -72,8 +78,8 @@ resource "alicloud_cloud_storage_gateway_gateway" "default" {
 
 resource "alicloud_cloud_storage_gateway_gateway_logging" "default" {
   gateway_id   = alicloud_cloud_storage_gateway_gateway.default.id
-  sls_logstore = alicloud_log_store.default.name
-  sls_project  = alicloud_log_project.default.name
+  sls_logstore = alicloud_log_store.default.logstore_name
+  sls_project  = alicloud_log_project.default.project_name
 }
 ```
 

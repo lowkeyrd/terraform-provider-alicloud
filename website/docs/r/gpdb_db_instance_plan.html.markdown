@@ -19,6 +19,12 @@ For information about AnalyticDB for PostgreSQL (GPDB) DB Instance Plan and how 
 
 Basic Usage
 
+<div style="display: block;margin-bottom: 40px;"><div class="oics-button" style="float: right;position: absolute;margin-bottom: 10px;">
+  <a href="https://api.aliyun.com/api-tools/terraform?resource=alicloud_gpdb_db_instance_plan&exampleId=183869b9-bbfd-657e-39b2-7ac473806c889eaa53d0&activeTab=example&spm=docs.r.gpdb_db_instance_plan.0.183869b9bb&intl_lang=EN_US" target="_blank">
+    <img alt="Open in AliCloud" src="https://img.alicdn.com/imgextra/i1/O1CN01hjjqXv1uYUlY56FyX_!!6000000006049-55-tps-254-36.svg" style="max-height: 44px; max-width: 100%;">
+  </a>
+</div></div>
+
 ```terraform
 provider "alicloud" {
   region = "cn-hangzhou"
@@ -52,9 +58,7 @@ resource "alicloud_gpdb_instance" "default" {
   zone_id               = data.alicloud_gpdb_zones.default.ids.0
   instance_network_type = "VPC"
   instance_spec         = "2C16G"
-  master_node_num       = 1
   payment_type          = "PayAsYouGo"
-  private_ip_address    = "1.1.1.1"
   seg_storage_type      = "cloud_essd"
   seg_node_num          = 4
   storage_size          = 50
@@ -65,13 +69,15 @@ resource "alicloud_gpdb_instance" "default" {
   }
 }
 
+resource "time_static" "example" {}
+
 resource "alicloud_gpdb_db_instance_plan" "default" {
   db_instance_plan_name = var.name
   plan_desc             = var.name
   plan_type             = "PauseResume"
   plan_schedule_type    = "Regular"
-  plan_start_date       = formatdate("YYYY-MM-DD'T'hh:mm:ss'Z'", timeadd(timestamp(), "1h"))
-  plan_end_date         = formatdate("YYYY-MM-DD'T'hh:mm:ss'Z'", timeadd(timestamp(), "24h"))
+  plan_start_date       = formatdate("YYYY-MM-DD'T'hh:mm:ss'Z'", timeadd(time_static.example.rfc3339, "1h"))
+  plan_end_date         = formatdate("YYYY-MM-DD'T'hh:mm:ss'Z'", timeadd(time_static.example.rfc3339, "24h"))
   plan_config {
     resume {
       plan_cron_time = "0 0 0 1/1 * ? "
@@ -81,11 +87,6 @@ resource "alicloud_gpdb_db_instance_plan" "default" {
     }
   }
   db_instance_id = alicloud_gpdb_instance.default.id
-
-  # for test
-  lifecycle {
-    ignore_changes = [plan_start_date, plan_end_date]
-  }
 }
 ```
 
@@ -111,6 +112,8 @@ The plan_config supports the following:
 * `pause` - (Optional, Set) Pause instance plan config. See [`pause`](#plan_config-pause) below.
 * `scale_in` - (Optional, Set) Scale In instance plan config. See [`scale_in`](#plan_config-scale_in) below.
 * `scale_out` - (Optional, Set) Scale out instance plan config. See [`scale_out`](#plan_config-scale_out) below.
+* `scale_up` - (Optional, Set, Available since v1.231.0) Scale up instance plan config. See [`scale_up`](#plan_config-scale_up) below.
+* `scale_down` - (Optional, Set, Available since v1.231.0) Scale down instance plan config. See [`scale_down`](#plan_config-scale_down) below.
 
 ### `plan_config-resume`
 
@@ -142,12 +145,41 @@ The scale_out supports the following:
 * `execute_time` - (Optional) The executed time of the Plan.
 * `plan_cron_time` - (Optional) The Cron Time of the plan.
 
+### `plan_config-scale_up`
+
+The scale_up supports the following:
+
+* `instance_spec` - (Optional) The specification of segment nodes of the Plan.
+* `execute_time` - (Optional) The executed time of the Plan.
+* `plan_cron_time` - (Optional) The Cron Time of the plan.
+
+### `plan_config-scale_down`
+
+The scale_down supports the following:
+
+* `instance_spec` - (Optional) The specification of segment nodes of the Plan.
+* `execute_time` - (Optional) The executed time of the Plan.
+* `plan_cron_time` - (Optional) The Cron Time of the plan.
+
 ## Attributes Reference
 
 The following attributes are exported:
 
 * `id` - The resource ID in terraform of DB Instance Plan. It formats as `<db_instance_id>:<plan_id>`.
 * `plan_id` - The ID of the plan.
+* `plan_config` - The execution information of the plan. Each element contains the following attributes:
+  * `pause` - Pause instance plan config.
+    * `plan_task_status` - (Available since v1.231.0) The status of the plan task.
+  * `resume` - Resume instance plan config.
+    * `plan_task_status` - (Available since v1.231.0) The status of the plan task.
+  * `scale_out` - Scale out instance plan config.
+    * `plan_task_status` - (Available since v1.231.0) The status of the plan task.
+  * `scale_in` - Scale in instance plan config.
+    * `plan_task_status` - (Available since v1.231.0) The status of the plan task.
+  * `scale_up` - Scale up instance plan config.
+    * `plan_task_status` - (Available since v1.231.0) The status of the plan task.
+  * `scale_down` - Scale down instance plan config.
+    * `plan_task_status` - (Available since v1.231.0) The status of the plan task.
 
 ## Timeouts
 

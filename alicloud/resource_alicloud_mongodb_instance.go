@@ -52,9 +52,12 @@ func resourceAliCloudMongoDBInstance() *schema.Resource {
 			"storage_type": {
 				Type:         schema.TypeString,
 				Optional:     true,
-				ForceNew:     true,
 				Computed:     true,
-				ValidateFunc: StringInSlice([]string{"cloud_essd1", "cloud_essd2", "cloud_essd3", "local_ssd"}, false),
+				ValidateFunc: StringInSlice([]string{"cloud_essd1", "cloud_essd2", "cloud_essd3", "cloud_auto", "local_ssd"}, false),
+			},
+			"provisioned_iops": {
+				Type:     schema.TypeInt,
+				Optional: true,
 			},
 			"vpc_id": {
 				Type:     schema.TypeString,
@@ -185,17 +188,28 @@ func resourceAliCloudMongoDBInstance() *schema.Resource {
 				Optional: true,
 				Computed: true,
 			},
-			"backup_interval": {
-				Type:         schema.TypeString,
+			"enable_backup_log": {
+				Type:         schema.TypeInt,
 				Optional:     true,
 				Computed:     true,
-				ValidateFunc: StringInSlice([]string{"-1", "15", "30", "60", "120", "180", "240", "360", "480", "720"}, false),
+				ValidateFunc: IntInSlice([]int{0, 1}),
+			},
+			"log_backup_retention_period": {
+				Type:     schema.TypeInt,
+				Optional: true,
+				Computed: true,
 			},
 			"snapshot_backup_type": {
 				Type:         schema.TypeString,
 				Optional:     true,
 				Computed:     true,
 				ValidateFunc: StringInSlice([]string{"Standard", "Flash"}, false),
+			},
+			"backup_interval": {
+				Type:         schema.TypeString,
+				Optional:     true,
+				Computed:     true,
+				ValidateFunc: StringInSlice([]string{"-1", "15", "30", "60", "120", "180", "240", "360", "480", "720"}, false),
 			},
 			"ssl_action": {
 				Type:         schema.TypeString,
@@ -346,6 +360,10 @@ func resourceAliCloudMongoDBInstanceCreate(d *schema.ResourceData, meta interfac
 		request["StorageType"] = v
 	}
 
+	if v, ok := d.GetOkExists("provisioned_iops"); ok {
+		request["ProvisionedIops"] = v
+	}
+
 	if v, ok := d.GetOk("vpc_id"); ok {
 		request["VpcId"] = v
 	}
@@ -494,7 +512,8 @@ func resourceAliCloudMongoDBInstanceRead(d *schema.ResourceData, meta interface{
 	d.Set("db_instance_class", object["DBInstanceClass"])
 	d.Set("db_instance_storage", object["DBInstanceStorage"])
 	d.Set("storage_engine", object["StorageEngine"])
-	d.Set("storage_type", object["StorageType"])
+	d.Set("storage_type", convertMongoDBInstanceStorageTypeResponse(fmt.Sprint(object["StorageType"])))
+	d.Set("provisioned_iops", formatInt(object["ProvisionedIops"]))
 	d.Set("vpc_id", object["VPCId"])
 	d.Set("vswitch_id", object["VSwitchId"])
 	d.Set("zone_id", object["ZoneId"])
@@ -551,8 +570,10 @@ func resourceAliCloudMongoDBInstanceRead(d *schema.ResourceData, meta interface{
 	}
 
 	d.Set("backup_retention_period", formatInt(backupPolicy["BackupRetentionPeriod"]))
-	d.Set("backup_interval", backupPolicy["BackupInterval"])
+	d.Set("enable_backup_log", formatInt(backupPolicy["EnableBackupLog"]))
+	d.Set("log_backup_retention_period", formatInt(backupPolicy["LogBackupRetentionPeriod"]))
 	d.Set("snapshot_backup_type", backupPolicy["SnapshotBackupType"])
+	d.Set("backup_interval", backupPolicy["BackupInterval"])
 	d.Set("retention_period", formatInt(backupPolicy["BackupRetentionPeriod"]))
 
 	if object["ReplicationFactor"] != "" && object["ReplicationFactor"] != "1" {
@@ -569,7 +590,7 @@ func resourceAliCloudMongoDBInstanceRead(d *schema.ResourceData, meta interface{
 
 	sslAction, err := ddsService.DescribeDBInstanceSSL(d.Id())
 	if err != nil {
-		if !IsExpectedErrors(err, []string{"StorageTypeOrInstanceTypeNotSupported"}) {
+		if !IsExpectedErrors(err, []string{"StorageTypeOrInstanceTypeNotSupported", "SingleNodeNotSupport"}) {
 			return WrapError(err)
 		}
 	} else {
@@ -709,16 +730,10 @@ func resourceAliCloudMongoDBInstanceUpdate(d *schema.ResourceData, meta interfac
 		modifyDBInstanceSpecReq["ReadonlyReplicas"] = strconv.Itoa(v.(int))
 	}
 
-	if d.HasChange("effective_time") {
-		update = true
-	}
 	if v, ok := d.GetOk("effective_time"); ok {
 		modifyDBInstanceSpecReq["EffectiveTime"] = v
 	}
 
-	if d.HasChange("order_type") {
-		update = true
-	}
 	if v, ok := d.GetOk("order_type"); ok {
 		modifyDBInstanceSpecReq["OrderType"] = v.(string)
 	}
@@ -764,6 +779,62 @@ func resourceAliCloudMongoDBInstanceUpdate(d *schema.ResourceData, meta interfac
 		d.SetPartial("db_instance_storage")
 		d.SetPartial("replication_factor")
 		d.SetPartial("readonly_replicas")
+	}
+
+	update = false
+	modifyDBInstanceDiskTypeReq := map[string]interface{}{
+		"DBInstanceId": d.Id(),
+	}
+
+	if !d.IsNewResource() && d.HasChange("storage_type") {
+		update = true
+	}
+	if v, ok := d.GetOk("storage_type"); ok {
+		modifyDBInstanceDiskTypeReq["DbInstanceStorageType"] = v
+	}
+
+	if !d.IsNewResource() && d.HasChange("provisioned_iops") {
+		update = true
+
+		if v, ok := d.GetOkExists("provisioned_iops"); ok {
+			modifyDBInstanceDiskTypeReq["ProvisionedIops"] = v
+		}
+	}
+
+	if update {
+		action := "ModifyDBInstanceDiskType"
+		conn, err := client.NewDdsClient()
+		if err != nil {
+			return WrapError(err)
+		}
+
+		runtime := util.RuntimeOptions{}
+		runtime.SetAutoretry(true)
+		wait := incrementalWait(3*time.Second, 3*time.Second)
+		err = resource.Retry(client.GetRetryTimeout(d.Timeout(schema.TimeoutUpdate)), func() *resource.RetryError {
+			response, err = conn.DoRequest(StringPointer(action), nil, StringPointer("POST"), StringPointer("2015-12-01"), StringPointer("AK"), nil, modifyDBInstanceDiskTypeReq, &runtime)
+			if err != nil {
+				if NeedRetry(err) {
+					wait()
+					return resource.RetryableError(err)
+				}
+				return resource.NonRetryableError(err)
+			}
+			return nil
+		})
+		addDebug(action, response, modifyDBInstanceDiskTypeReq)
+
+		if err != nil {
+			return WrapErrorf(err, DefaultErrorMsg, d.Id(), action, AlibabaCloudSdkGoERROR)
+		}
+
+		stateConf := BuildStateConf([]string{}, []string{"Running"}, d.Timeout(schema.TimeoutUpdate), 1*time.Minute, ddsService.RdsMongodbDBInstanceStateRefreshFunc(d.Id(), []string{}))
+		if _, err := stateConf.WaitForState(); err != nil {
+			return WrapError(err)
+		}
+
+		d.SetPartial("storage_type")
+		d.SetPartial("provisioned_iops")
 	}
 
 	update = false
@@ -984,7 +1055,7 @@ func resourceAliCloudMongoDBInstanceUpdate(d *schema.ResourceData, meta interfac
 		}
 	}
 
-	if d.HasChange("backup_time") || d.HasChange("backup_period") || d.HasChange("backup_retention_period") || d.HasChange("backup_interval") || d.HasChange("snapshot_backup_type") {
+	if d.HasChange("backup_time") || d.HasChange("backup_period") || d.HasChange("backup_retention_period") || d.HasChange("enable_backup_log") || d.HasChange("log_backup_retention_period") || d.HasChange("snapshot_backup_type") || d.HasChange("backup_interval") {
 		if err := ddsService.ModifyMongoDBBackupPolicy(d); err != nil {
 			return WrapError(err)
 		}
@@ -992,8 +1063,10 @@ func resourceAliCloudMongoDBInstanceUpdate(d *schema.ResourceData, meta interfac
 		d.SetPartial("backup_time")
 		d.SetPartial("backup_period")
 		d.SetPartial("backup_retention_period")
-		d.SetPartial("backup_interval")
+		d.SetPartial("enable_backup_log")
+		d.SetPartial("log_backup_retention_period")
 		d.SetPartial("snapshot_backup_type")
+		d.SetPartial("backup_interval")
 	}
 
 	if d.HasChange("ssl_action") {
@@ -1220,4 +1293,13 @@ func resourceAliCloudMongoDBInstanceDelete(d *schema.ResourceData, meta interfac
 	}
 
 	return nil
+}
+
+func convertMongoDBInstanceStorageTypeResponse(source string) string {
+	switch source {
+	case "cloud_essd":
+		return "cloud_essd1"
+	}
+
+	return source
 }

@@ -18,6 +18,13 @@ For information about SLS Project and how to use it, see [What is Project](https
 
 Basic Usage
 
+
+<div style="display: block;margin-bottom: 40px;"><div class="oics-button" style="float: right;position: absolute;margin-bottom: 10px;">
+  <a href="https://api.aliyun.com/api-tools/terraform?resource=alicloud_log_project&exampleId=d02177bc-72d8-c195-ee67-bd69bfce5817db868e4f&activeTab=example&spm=docs.r.log_project.0.d02177bc72&intl_lang=EN_US" target="_blank">
+    <img alt="Open in AliCloud" src="https://img.alicdn.com/imgextra/i1/O1CN01hjjqXv1uYUlY56FyX_!!6000000006049-55-tps-254-36.svg" style="max-height: 44px; max-width: 100%;">
+  </a>
+</div></div>
+
 ```terraform
 resource "random_integer" "default" {
   max = 99999
@@ -25,8 +32,8 @@ resource "random_integer" "default" {
 }
 
 resource "alicloud_log_project" "example" {
-  name        = "terraform-example-${random_integer.default.result}"
-  description = "terraform-example"
+  project_name = "terraform-example-${random_integer.default.result}"
+  description  = "terraform-example"
   tags = {
     Created = "TF",
     For     = "example",
@@ -36,6 +43,13 @@ resource "alicloud_log_project" "example" {
 
 Project With Policy Usage
 
+
+<div style="display: block;margin-bottom: 40px;"><div class="oics-button" style="float: right;position: absolute;margin-bottom: 10px;">
+  <a href="https://api.aliyun.com/api-tools/terraform?resource=alicloud_log_project&exampleId=5fd3dbc6-77b2-82a8-4d99-137bffbadcb2c329105b&activeTab=example&spm=docs.r.log_project.1.5fd3dbc677&intl_lang=EN_US" target="_blank">
+    <img alt="Open in AliCloud" src="https://img.alicdn.com/imgextra/i1/O1CN01hjjqXv1uYUlY56FyX_!!6000000006049-55-tps-254-36.svg" style="max-height: 44px; max-width: 100%;">
+  </a>
+</div></div>
+
 ```terraform
 resource "random_integer" "default" {
   max = 99999
@@ -43,9 +57,9 @@ resource "random_integer" "default" {
 }
 
 resource "alicloud_log_project" "example_policy" {
-  name        = "terraform-example-${random_integer.default.result}"
-  description = "terraform-example"
-  policy      = <<EOF
+  project_name = "terraform-example-${random_integer.default.result}"
+  description  = "terraform-example"
+  policy       = <<EOF
 {
   "Statement": [
     {

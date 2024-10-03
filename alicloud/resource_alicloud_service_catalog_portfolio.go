@@ -1,3 +1,4 @@
+// Package alicloud. This file is generated automatically. Please do not modify it manually, thank you!
 package alicloud
 
 import (
@@ -5,21 +6,18 @@ import (
 	"log"
 	"time"
 
-	"github.com/hashicorp/terraform-plugin-sdk/helper/validation"
-
-	"github.com/PaesslerAG/jsonpath"
 	util "github.com/alibabacloud-go/tea-utils/service"
 	"github.com/aliyun/terraform-provider-alicloud/alicloud/connectivity"
 	"github.com/hashicorp/terraform-plugin-sdk/helper/resource"
 	"github.com/hashicorp/terraform-plugin-sdk/helper/schema"
 )
 
-func resourceAlicloudServiceCatalogPortfolio() *schema.Resource {
+func resourceAliCloudServiceCatalogPortfolio() *schema.Resource {
 	return &schema.Resource{
-		Create: resourceAlicloudServiceCatalogPortfolioCreate,
-		Read:   resourceAlicloudServiceCatalogPortfolioRead,
-		Update: resourceAlicloudServiceCatalogPortfolioUpdate,
-		Delete: resourceAlicloudServiceCatalogPortfolioDelete,
+		Create: resourceAliCloudServiceCatalogPortfolioCreate,
+		Read:   resourceAliCloudServiceCatalogPortfolioRead,
+		Update: resourceAliCloudServiceCatalogPortfolioUpdate,
+		Delete: resourceAliCloudServiceCatalogPortfolioDelete,
 		Importer: &schema.ResourceImporter{
 			State: schema.ImportStatePassthrough,
 		},
@@ -30,55 +28,54 @@ func resourceAlicloudServiceCatalogPortfolio() *schema.Resource {
 		},
 		Schema: map[string]*schema.Schema{
 			"create_time": {
-				Computed: true,
 				Type:     schema.TypeString,
+				Computed: true,
 			},
 			"description": {
-				Optional:     true,
-				Type:         schema.TypeString,
-				ValidateFunc: validation.StringLenBetween(1, 128),
+				Type:     schema.TypeString,
+				Optional: true,
 			},
 			"portfolio_arn": {
-				Computed: true,
 				Type:     schema.TypeString,
+				Computed: true,
 			},
 			"portfolio_name": {
-				Required:     true,
-				Type:         schema.TypeString,
-				ValidateFunc: validation.StringLenBetween(1, 128),
+				Type:     schema.TypeString,
+				Required: true,
 			},
 			"provider_name": {
-				Required:     true,
-				Type:         schema.TypeString,
-				ValidateFunc: validation.StringLenBetween(1, 128),
+				Type:     schema.TypeString,
+				Required: true,
 			},
 		},
 	}
 }
 
-func resourceAlicloudServiceCatalogPortfolioCreate(d *schema.ResourceData, meta interface{}) error {
+func resourceAliCloudServiceCatalogPortfolioCreate(d *schema.ResourceData, meta interface{}) error {
+
 	client := meta.(*connectivity.AliyunClient)
-	request := make(map[string]interface{})
+
+	action := "CreatePortfolio"
+	var request map[string]interface{}
+	var response map[string]interface{}
+	query := make(map[string]interface{})
 	conn, err := client.NewSrvcatalogClient()
 	if err != nil {
 		return WrapError(err)
 	}
+	request = make(map[string]interface{})
+	query["RegionId"] = client.RegionId
 
 	if v, ok := d.GetOk("description"); ok {
 		request["Description"] = v
 	}
-	if v, ok := d.GetOk("portfolio_name"); ok {
-		request["PortfolioName"] = v
-	}
-	if v, ok := d.GetOk("provider_name"); ok {
-		request["ProviderName"] = v
-	}
-
-	var response map[string]interface{}
-	action := "CreatePortfolio"
-	wait := incrementalWait(3*time.Second, 3*time.Second)
-	err = resource.Retry(client.GetRetryTimeout(d.Timeout(schema.TimeoutCreate)), func() *resource.RetryError {
-		resp, err := conn.DoRequest(StringPointer(action), nil, StringPointer("POST"), StringPointer("2021-09-01"), StringPointer("AK"), nil, request, &util.RuntimeOptions{})
+	request["PortfolioName"] = d.Get("portfolio_name")
+	request["ProviderName"] = d.Get("provider_name")
+	runtime := util.RuntimeOptions{}
+	runtime.SetAutoretry(true)
+	wait := incrementalWait(3*time.Second, 5*time.Second)
+	err = resource.Retry(d.Timeout(schema.TimeoutCreate), func() *resource.RetryError {
+		response, err = conn.DoRequest(StringPointer(action), nil, StringPointer("POST"), StringPointer("2021-09-01"), StringPointer("AK"), query, request, &runtime)
 		if err != nil {
 			if NeedRetry(err) {
 				wait()
@@ -86,63 +83,72 @@ func resourceAlicloudServiceCatalogPortfolioCreate(d *schema.ResourceData, meta 
 			}
 			return resource.NonRetryableError(err)
 		}
-		response = resp
 		addDebug(action, response, request)
 		return nil
 	})
+
 	if err != nil {
 		return WrapErrorf(err, DefaultErrorMsg, "alicloud_service_catalog_portfolio", action, AlibabaCloudSdkGoERROR)
 	}
 
-	if v, err := jsonpath.Get("$.PortfolioId", response); err != nil || v == nil {
-		return WrapErrorf(err, IdMsg, "alicloud_service_catalog_portfolio")
-	} else {
-		d.SetId(fmt.Sprint(v))
-	}
+	d.SetId(fmt.Sprint(response["PortfolioId"]))
 
-	return resourceAlicloudServiceCatalogPortfolioRead(d, meta)
+	return resourceAliCloudServiceCatalogPortfolioRead(d, meta)
 }
 
-func resourceAlicloudServiceCatalogPortfolioRead(d *schema.ResourceData, meta interface{}) error {
+func resourceAliCloudServiceCatalogPortfolioRead(d *schema.ResourceData, meta interface{}) error {
 	client := meta.(*connectivity.AliyunClient)
-	serviceCatalogService := ServicecatalogService{client}
+	serviceCatalogServiceV2 := ServiceCatalogServiceV2{client}
 
-	object, err := serviceCatalogService.DescribeServiceCatalogPortfolio(d.Id())
+	objectRaw, err := serviceCatalogServiceV2.DescribeServiceCatalogPortfolio(d.Id())
 	if err != nil {
 		if !d.IsNewResource() && NotFoundError(err) {
-			log.Printf("[DEBUG] Resource alicloud_service_catalog_portfolio servicecatalogService.DescribeServiceCatalogPortfolio Failed!!! %s", err)
+			log.Printf("[DEBUG] Resource alicloud_service_catalog_portfolio DescribeServiceCatalogPortfolio Failed!!! %s", err)
 			d.SetId("")
 			return nil
 		}
 		return WrapError(err)
 	}
-	d.Set("create_time", object["CreateTime"])
-	d.Set("description", object["Description"])
-	d.Set("portfolio_arn", object["PortfolioArn"])
-	d.Set("portfolio_name", object["PortfolioName"])
-	d.Set("provider_name", object["ProviderName"])
+
+	if objectRaw["CreateTime"] != nil {
+		d.Set("create_time", objectRaw["CreateTime"])
+	}
+	if objectRaw["Description"] != nil {
+		d.Set("description", objectRaw["Description"])
+	}
+	if objectRaw["PortfolioArn"] != nil {
+		d.Set("portfolio_arn", objectRaw["PortfolioArn"])
+	}
+	if objectRaw["PortfolioName"] != nil {
+		d.Set("portfolio_name", objectRaw["PortfolioName"])
+	}
+	if objectRaw["ProviderName"] != nil {
+		d.Set("provider_name", objectRaw["ProviderName"])
+	}
 
 	return nil
 }
 
-func resourceAlicloudServiceCatalogPortfolioUpdate(d *schema.ResourceData, meta interface{}) error {
+func resourceAliCloudServiceCatalogPortfolioUpdate(d *schema.ResourceData, meta interface{}) error {
 	client := meta.(*connectivity.AliyunClient)
-
+	var request map[string]interface{}
+	var response map[string]interface{}
+	var query map[string]interface{}
+	update := false
+	action := "UpdatePortfolio"
 	conn, err := client.NewSrvcatalogClient()
 	if err != nil {
 		return WrapError(err)
 	}
-	update := false
-	request := map[string]interface{}{
-		"PortfolioId": d.Id(),
-	}
-
+	request = make(map[string]interface{})
+	query = make(map[string]interface{})
+	request["PortfolioId"] = d.Id()
+	query["RegionId"] = client.RegionId
 	if d.HasChange("description") {
 		update = true
-		if v, ok := d.GetOk("description"); ok {
-			request["Description"] = v
-		}
+		request["Description"] = d.Get("description")
 	}
+
 	if d.HasChange("portfolio_name") {
 		update = true
 	}
@@ -151,12 +157,12 @@ func resourceAlicloudServiceCatalogPortfolioUpdate(d *schema.ResourceData, meta 
 		update = true
 	}
 	request["ProviderName"] = d.Get("provider_name")
-
 	if update {
-		action := "UpdatePortfolio"
-		wait := incrementalWait(3*time.Second, 3*time.Second)
-		err = resource.Retry(client.GetRetryTimeout(d.Timeout(schema.TimeoutUpdate)), func() *resource.RetryError {
-			resp, err := conn.DoRequest(StringPointer(action), nil, StringPointer("POST"), StringPointer("2021-09-01"), StringPointer("AK"), nil, request, &util.RuntimeOptions{})
+		runtime := util.RuntimeOptions{}
+		runtime.SetAutoretry(true)
+		wait := incrementalWait(3*time.Second, 5*time.Second)
+		err = resource.Retry(d.Timeout(schema.TimeoutUpdate), func() *resource.RetryError {
+			response, err = conn.DoRequest(StringPointer(action), nil, StringPointer("POST"), StringPointer("2021-09-01"), StringPointer("AK"), query, request, &runtime)
 			if err != nil {
 				if NeedRetry(err) {
 					wait()
@@ -164,7 +170,7 @@ func resourceAlicloudServiceCatalogPortfolioUpdate(d *schema.ResourceData, meta 
 				}
 				return resource.NonRetryableError(err)
 			}
-			addDebug(action, resp, request)
+			addDebug(action, response, request)
 			return nil
 		})
 		if err != nil {
@@ -172,24 +178,30 @@ func resourceAlicloudServiceCatalogPortfolioUpdate(d *schema.ResourceData, meta 
 		}
 	}
 
-	return resourceAlicloudServiceCatalogPortfolioRead(d, meta)
+	return resourceAliCloudServiceCatalogPortfolioRead(d, meta)
 }
 
-func resourceAlicloudServiceCatalogPortfolioDelete(d *schema.ResourceData, meta interface{}) error {
+func resourceAliCloudServiceCatalogPortfolioDelete(d *schema.ResourceData, meta interface{}) error {
+
 	client := meta.(*connectivity.AliyunClient)
+	action := "DeletePortfolio"
+	var request map[string]interface{}
+	var response map[string]interface{}
+	query := make(map[string]interface{})
 	conn, err := client.NewSrvcatalogClient()
 	if err != nil {
 		return WrapError(err)
 	}
+	request = make(map[string]interface{})
+	request["PortfolioId"] = d.Id()
+	query["RegionId"] = client.RegionId
 
-	request := map[string]interface{}{
-		"PortfolioId": d.Id(),
-	}
+	runtime := util.RuntimeOptions{}
+	runtime.SetAutoretry(true)
+	wait := incrementalWait(3*time.Second, 5*time.Second)
+	err = resource.Retry(d.Timeout(schema.TimeoutDelete), func() *resource.RetryError {
+		response, err = conn.DoRequest(StringPointer(action), nil, StringPointer("POST"), StringPointer("2021-09-01"), StringPointer("AK"), query, request, &runtime)
 
-	action := "DeletePortfolio"
-	wait := incrementalWait(3*time.Second, 3*time.Second)
-	err = resource.Retry(client.GetRetryTimeout(d.Timeout(schema.TimeoutDelete)), func() *resource.RetryError {
-		resp, err := conn.DoRequest(StringPointer(action), nil, StringPointer("POST"), StringPointer("2021-09-01"), StringPointer("AK"), nil, request, &util.RuntimeOptions{})
 		if err != nil {
 			if NeedRetry(err) {
 				wait()
@@ -197,14 +209,16 @@ func resourceAlicloudServiceCatalogPortfolioDelete(d *schema.ResourceData, meta 
 			}
 			return resource.NonRetryableError(err)
 		}
-		addDebug(action, resp, request)
+		addDebug(action, response, request)
 		return nil
 	})
+
 	if err != nil {
-		if IsExpectedErrors(err, []string{"InvalidPortfolio.NotFound"}) || NotFoundError(err) {
+		if IsExpectedErrors(err, []string{"InvalidPortfolio.NotFound"}) {
 			return nil
 		}
 		return WrapErrorf(err, DefaultErrorMsg, d.Id(), action, AlibabaCloudSdkGoERROR)
 	}
+
 	return nil
 }

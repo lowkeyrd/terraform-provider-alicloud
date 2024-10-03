@@ -19,6 +19,12 @@ For information about OOS Service Setting and how to use it, see [What is Servic
 
 Basic Usage
 
+<div style="display: block;margin-bottom: 40px;"><div class="oics-button" style="float: right;position: absolute;margin-bottom: 10px;">
+  <a href="https://api.aliyun.com/api-tools/terraform?resource=alicloud_oos_service_setting&exampleId=38b88eb0-0982-c5c7-9f9c-2756d361bf6e390ea938&activeTab=example&spm=docs.r.oos_service_setting.0.38b88eb009&intl_lang=EN_US" target="_blank">
+    <img alt="Open in AliCloud" src="https://img.alicdn.com/imgextra/i1/O1CN01hjjqXv1uYUlY56FyX_!!6000000006049-55-tps-254-36.svg" style="max-height: 44px; max-width: 100%;">
+  </a>
+</div></div>
+
 ```terraform
 variable "name" {
   default = "tf-testaccoossetting"
@@ -26,11 +32,15 @@ variable "name" {
 
 resource "alicloud_oss_bucket" "default" {
   bucket = var.name
+}
+
+resource "alicloud_oss_bucket_acl" "default" {
+  bucket = alicloud_oss_bucket.default.bucket
   acl    = "public-read-write"
 }
 
 resource "alicloud_log_project" "default" {
-  name = var.name
+  project_name = var.name
 }
 
 resource "alicloud_oos_service_setting" "default" {
@@ -38,7 +48,7 @@ resource "alicloud_oos_service_setting" "default" {
   delivery_oss_key_prefix   = "path1/"
   delivery_oss_bucket_name  = alicloud_oss_bucket.default.bucket
   delivery_sls_enabled      = true
-  delivery_sls_project_name = alicloud_log_project.default.name
+  delivery_sls_project_name = alicloud_log_project.default.project_name
 }
 ```
 

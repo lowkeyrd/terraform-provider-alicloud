@@ -19,6 +19,12 @@ For information about ALB Acl and how to use it, see [What is Acl](https://www.a
 
 Basic Usage
 
+<div style="display: block;margin-bottom: 40px;"><div class="oics-button" style="float: right;position: absolute;margin-bottom: 10px;">
+  <a href="https://api.aliyun.com/api-tools/terraform?resource=alicloud_alb_acl&exampleId=167b3f5a-4d43-5880-f879-aafc5c887471944649c1&activeTab=example&spm=docs.r.alb_acl.0.167b3f5a4d&intl_lang=EN_US" target="_blank">
+    <img alt="Open in AliCloud" src="https://img.alicdn.com/imgextra/i1/O1CN01hjjqXv1uYUlY56FyX_!!6000000006049-55-tps-254-36.svg" style="max-height: 44px; max-width: 100%;">
+  </a>
+</div></div>
+
 ```terraform
 data "alicloud_resource_manager_resource_groups" "default" {}
 
@@ -34,7 +40,7 @@ The following arguments are supported:
 
 * `acl_entries` - (Optional, Deprecated from v1.166.0+) The list of the ACL entries. You can add up to `20` entries in each call.  See [`acl_entries`](#acl_entries) below for details.
 **NOTE:** "Field 'acl_entries' has been deprecated from provider version 1.166.0 and it will be removed in the future version. Please use the new resource 'alicloud_alb_acl_entry_attachment'.",
-* `acl_name` - (Required) The name of the ACL. The name must be `2` to `128` characters in length, and can contain letters, digits, hyphens (-) and underscores (_). It must start with a letter.
+* `acl_name` - (Optional) The name of the ACL. The name must be `2` to `128` characters in length, and can contain letters, digits, hyphens (-) and underscores (_). It must start with a letter.
 * `dry_run` - (Optional) Specifies whether to precheck the API request. 
 * `resource_group_id` - (Optional, ForceNew) The ID of the resource group.
 * `tags` - (Optional) A mapping of tags to assign to the resource.

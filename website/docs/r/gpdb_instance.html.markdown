@@ -18,6 +18,12 @@ You can see detail product introduction [here](https://www.alibabacloud.com/help
 
 Basic Usage
 
+<div style="display: block;margin-bottom: 40px;"><div class="oics-button" style="float: right;position: absolute;margin-bottom: 10px;">
+  <a href="https://api.aliyun.com/api-tools/terraform?resource=alicloud_gpdb_instance&exampleId=beac6fb2-7bb3-c67b-00d3-4e76327bc40e0120436d&activeTab=example&spm=docs.r.gpdb_instance.0.beac6fb27b&intl_lang=EN_US" target="_blank">
+    <img alt="Open in AliCloud" src="https://img.alicdn.com/imgextra/i1/O1CN01hjjqXv1uYUlY56FyX_!!6000000006049-55-tps-254-36.svg" style="max-height: 44px; max-width: 100%;">
+  </a>
+</div></div>
+
 ```terraform
 variable "name" {
   default = "tf-example"
@@ -112,6 +118,7 @@ The following arguments are supported:
 * `master_node_num` - (Optional, Int, Deprecated since v1.213.0) The number of Master nodes. **NOTE:** Field `master_node_num` has been deprecated from provider version 1.213.0.
 * `private_ip_address` - (Optional, Deprecated since v1.213.0) The private ip address. **NOTE:** Field `private_ip_address` has been deprecated from provider version 1.213.0.
 * `resource_management_mode` - (Optional, Available since v1.225.0) Resource management mode. Valid values: `resourceGroup`, `resourceQueue`.
+* `parameters` - (Optional, Set, Available since v1.231.0) The parameters. See [`parameters`](#parameters) below.
 
 ### `ip_whitelist`
 
@@ -122,6 +129,13 @@ The ip_whitelist supports the following:
 * `ip_group_name` - (Optional) IP whitelist group name.
 * `security_ip_list` - (Optional) List of IP addresses allowed to access all databases of an instance. The list contains up to 1,000 IP addresses, separated by commas. Supported formats include 0.0.0.0/0, 10.23.12.24 (IP), and 10.23.12.24/24 (Classless Inter-Domain Routing (CIDR) mode. /24 represents the length of the prefix in an IP address. The range of the prefix length is [1,32]). System default to `["127.0.0.1"]`.
 
+### `parameters`
+
+The parameters supports the following:
+
+* `name` - (Required, Available since v1.231.0) The name of the parameter.
+* `value` - (Required, Available since v1.231.0) The value of the parameter.
+
 ## Attributes Reference
 
 The following attributes are exported:
@@ -130,6 +144,12 @@ The following attributes are exported:
 * `status` - The status of the instance.
 * `connection_string` - (Available since v1.196.0) The connection string of the instance.
 * `port` - (Available since v1.196.0) The connection port of the instance.
+* `parameters` - (Available since v1.231.0) A list of parameters. Each element contains the following attributes:
+  * `default_value` - (Available since v1.231.0) The default value of the parameter.
+  * `force_restart_instance` - (Available since v1.231.0) Whether to force restart the instance to config the parameter.
+  * `parameter_description` - (Available since v1.231.0) The description of the parameter.
+  * `optional_range` - (Available since v1.231.0) The optional range of the parameter.
+  * `is_changeable_config` - (Available since v1.231.0) Whether the parameter is changeable.
 
 ## Timeouts
 

@@ -18,6 +18,12 @@ For information about NLB Server Group Server Attachment and how to use it, see 
 
 Basic Usage
 
+<div style="display: block;margin-bottom: 40px;"><div class="oics-button" style="float: right;position: absolute;margin-bottom: 10px;">
+  <a href="https://api.aliyun.com/api-tools/terraform?resource=alicloud_nlb_server_group_server_attachment&exampleId=e1fabc3f-0e30-a00c-89cf-fab888d13fc0c7588957&activeTab=example&spm=docs.r.nlb_server_group_server_attachment.0.e1fabc3f0e&intl_lang=EN_US" target="_blank">
+    <img alt="Open in AliCloud" src="https://img.alicdn.com/imgextra/i1/O1CN01hjjqXv1uYUlY56FyX_!!6000000006049-55-tps-254-36.svg" style="max-height: 44px; max-width: 100%;">
+  </a>
+</div></div>
+
 ```terraform
 variable "name" {
   default = "tf-example"
@@ -67,7 +73,7 @@ The following arguments are supported:
 ## Attributes Reference
 
 The following attributes are exported:
-* `id` - The ID of the resource supplied above.The value is formulated as `<server_group_id>:<server_id>:<server_type>:<port>`.
+* `id` - The ID of the resource supplied above. The value is formulated as `<server_group_id>:<server_id>:<server_type>:<port>`.
 * `status` - The status of the resource.
 * `zone_id` - The zoneId of the server.
 

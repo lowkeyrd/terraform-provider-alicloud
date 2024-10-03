@@ -18,6 +18,12 @@ For information about VPC Ipv6 Internet Bandwidth and how to use it, see [What i
 
 Basic Usage
 
+<div style="display: block;margin-bottom: 40px;"><div class="oics-button" style="float: right;position: absolute;margin-bottom: 10px;">
+  <a href="https://api.aliyun.com/api-tools/terraform?resource=alicloud_vpc_ipv6_internet_bandwidth&exampleId=25df92c0-39fb-a6a9-b05a-8728773145e8732c3e14&activeTab=example&spm=docs.r.vpc_ipv6_internet_bandwidth.0.25df92c039&intl_lang=EN_US" target="_blank">
+    <img alt="Open in AliCloud" src="https://img.alicdn.com/imgextra/i1/O1CN01hjjqXv1uYUlY56FyX_!!6000000006049-55-tps-254-36.svg" style="max-height: 44px; max-width: 100%;">
+  </a>
+</div></div>
+
 ```terraform
 variable "name" {
   default = "terraform-example"
@@ -35,8 +41,8 @@ resource "alicloud_vpc" "default" {
 resource "alicloud_vswitch" "vsw" {
   vpc_id               = alicloud_vpc.default.id
   cidr_block           = "172.16.0.0/21"
-  availability_zone    = data.alicloud_zones.default.zones.0.id
-  name                 = var.name
+  zone_id              = data.alicloud_zones.default.zones.0.id
+  vswitch_name         = var.name
   ipv6_cidr_block_mask = "22"
 }
 

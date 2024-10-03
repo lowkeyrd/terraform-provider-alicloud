@@ -1,5 +1,5 @@
 ---
-subcategory: "Elastic High Performance Computing(ehpc)"
+subcategory: "Elastic_High_Performance_Computing(Ehpc)"
 layout: "alicloud"
 page_title: "Alicloud: alicloud_ehpc_job_template"
 sidebar_current: "docs-alicloud-resource-ehpc-job-template"
@@ -7,17 +7,23 @@ description: |-
   Provides a Alicloud Ehpc Job Template resource.
 ---
 
-# alicloud\_ehpc\_job\_template
+# alicloud_ehpc_job_template
 
 Provides a Ehpc Job Template resource.
 
 For information about Ehpc Job Template and how to use it, see [What is Job Template](https://www.alibabacloud.com/help/product/57664.html).
 
--> **NOTE:** Available in v1.133.0+.
+-> **NOTE:** Available since v1.133.0.
 
 ## Example Usage
 
 Basic Usage
+
+<div style="display: block;margin-bottom: 40px;"><div class="oics-button" style="float: right;position: absolute;margin-bottom: 10px;">
+  <a href="https://api.aliyun.com/api-tools/terraform?resource=alicloud_ehpc_job_template&exampleId=1a8bbe0f-24d6-0e5f-5518-208979dbe11b845cdbb2&activeTab=example&spm=docs.r.ehpc_job_template.0.1a8bbe0f24&intl_lang=EN_US" target="_blank">
+    <img alt="Open in AliCloud" src="https://img.alicdn.com/imgextra/i1/O1CN01hjjqXv1uYUlY56FyX_!!6000000006049-55-tps-254-36.svg" style="max-height: 44px; max-width: 100%;">
+  </a>
+</div></div>
 
 ```terraform
 resource "alicloud_ehpc_job_template" "default" {

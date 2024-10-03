@@ -15,6 +15,12 @@ Provides an RDS database resource. A DB database deployed in a DB instance. A DB
 
 ## Example Usage
 
+<div style="display: block;margin-bottom: 40px;"><div class="oics-button" style="float: right;position: absolute;margin-bottom: 10px;">
+  <a href="https://api.aliyun.com/api-tools/terraform?resource=alicloud_db_database&exampleId=a019d9a3-34c1-1d16-a785-63ac687f2aeafc448f0a&activeTab=example&spm=docs.r.db_database.0.a019d9a334&intl_lang=EN_US" target="_blank">
+    <img alt="Open in AliCloud" src="https://img.alicdn.com/imgextra/i1/O1CN01hjjqXv1uYUlY56FyX_!!6000000006049-55-tps-254-36.svg" style="max-height: 44px; max-width: 100%;">
+  </a>
+</div></div>
+
 ```terraform
 variable "name" {
   default = "tf-example"
@@ -56,7 +62,14 @@ resource "alicloud_db_database" "default" {
 The following arguments are supported:
 
 * `instance_id` - (Required, ForceNew) The Id of instance that can run database.
-* `name` - (Required, ForceNew) Name of the database requiring a uniqueness check. It may consist of lower case letters, numbers, and underlines, and must start with a letter and have no more than 64 characters.
+* `name` - (Required, ForceNew) The name of the database. 
+* -> **NOTE:** 
+  The name must be 2 to 64 characters in length.
+  The name must start with a lowercase letter and end with a lowercase letter or digit.
+  The name can contain lowercase letters, digits, underscores (_), and hyphens (-).
+  The name must be unique within the instance.
+  For more information about invalid characters, see [Forbidden keywords table](https://help.aliyun.com/zh/rds/developer-reference/forbidden-keywords?spm=api-workbench.api_explorer.0.0.20e15f16d1z52p).
+
 * `character_set` - (Optional, ForceNew) Character set. The value range is limited to the following:
     - MySQL: [ utf8, gbk, latin1, utf8mb4 ] \(`utf8mb4` only supports versions 5.5 and 5.6\).
     - SQLServer: [ Chinese_PRC_CI_AS, Chinese_PRC_CS_AS, SQL_Latin1_General_CP1_CI_AS, SQL_Latin1_General_CP1_CS_AS, Chinese_PRC_BIN ]
