@@ -20,7 +20,7 @@ For information about Express Connect Vbr Pconn Association and how to use it, s
 Basic Usage
 
 <div style="display: block;margin-bottom: 40px;"><div class="oics-button" style="float: right;position: absolute;margin-bottom: 10px;">
-  <a href="https://api.aliyun.com/terraform?resource=alicloud_express_connect_vbr_pconn_association&exampleId=d9543fa5-a48a-06df-214d-309be13ec1efa422f253&activeTab=example&spm=docs.r.express_connect_vbr_pconn_association.0.d9543fa5a4&intl_lang=EN_US" target="_blank">
+  <a href="https://api.aliyun.com/terraform?resource=alicloud_express_connect_vbr_pconn_association&exampleId=09686d90-b700-a2fa-f87e-512fc88726f36d23fbc2&activeTab=example&spm=docs.r.express_connect_vbr_pconn_association.0.09686d90b7&intl_lang=EN_US" target="_blank">
     <img alt="Open in AliCloud" src="https://img.alicdn.com/imgextra/i1/O1CN01hjjqXv1uYUlY56FyX_!!6000000006049-55-tps-254-36.svg" style="max-height: 44px; max-width: 100%;">
   </a>
 </div></div>
@@ -55,7 +55,7 @@ resource "alicloud_express_connect_virtual_border_router" "default" {
 resource "alicloud_express_connect_vbr_pconn_association" "example" {
   peer_gateway_ip          = "10.0.0.6"
   local_gateway_ip         = "10.0.0.5"
-  physical_connection_id   = data.alicloud_express_connect_physical_connections.example.connections.2.id
+  physical_connection_id   = data.alicloud_express_connect_physical_connections.example.connections.1.id
   vbr_id                   = alicloud_express_connect_virtual_border_router.default.id
   peering_subnet_mask      = "255.255.255.252"
   vlan_id                  = "1122"

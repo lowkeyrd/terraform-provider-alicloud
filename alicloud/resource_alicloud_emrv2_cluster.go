@@ -7,10 +7,10 @@ import (
 	"reflect"
 	"sort"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/PaesslerAG/jsonpath"
-	util "github.com/alibabacloud-go/tea-utils/service"
 	"github.com/hashicorp/terraform-plugin-sdk/helper/resource"
 
 	"github.com/hashicorp/terraform-plugin-sdk/helper/validation"
@@ -211,6 +211,17 @@ func resourceAlicloudEmrV2Cluster() *schema.Resource {
 							ForceNew:     true,
 							ValidateFunc: validation.NoZeroValues,
 						},
+						"system_disk_encrypted": {
+							Type:     schema.TypeBool,
+							Optional: true,
+							ForceNew: true,
+						},
+						"system_disk_kms_key_id": {
+							Type:         schema.TypeString,
+							Optional:     true,
+							ForceNew:     true,
+							ValidateFunc: validation.NoZeroValues,
+						},
 					},
 				},
 				ForceNew: true,
@@ -223,7 +234,7 @@ func resourceAlicloudEmrV2Cluster() *schema.Resource {
 						"node_group_type": {
 							Type:         schema.TypeString,
 							Required:     true,
-							ValidateFunc: validation.StringInSlice([]string{"MASTER", "CORE", "TASK", "GATEWAY"}, false),
+							ValidateFunc: StringInSlice([]string{"MASTER", "CORE", "TASK", "GATEWAY", "MASTER-EXTEND"}, false),
 						},
 						"node_group_name": {
 							Type:     schema.TypeString,
@@ -814,7 +825,7 @@ func resourceAlicloudEmrV2Cluster() *schema.Resource {
 						"execution_moment": {
 							Type:         schema.TypeString,
 							Required:     true,
-							ValidateFunc: validation.StringInSlice([]string{"BEFORE_INSTALL", "AFTER_STARTED"}, false),
+							ValidateFunc: StringInSlice([]string{"BEFORE_INSTALL", "AFTER_STARTED", "BEFORE_START"}, false),
 						},
 						"execution_fail_strategy": {
 							Type:         schema.TypeString,
@@ -877,10 +888,7 @@ func resourceAlicloudEmrV2ClusterCreate(d *schema.ResourceData, meta interface{}
 	client := meta.(*connectivity.AliyunClient)
 	var response map[string]interface{}
 	action := "RunCluster"
-	conn, err := client.NewEmrClient()
-	if err != nil {
-		return WrapError(err)
-	}
+	var err error
 	createClusterRequest := map[string]interface{}{
 		"RegionId": client.RegionId,
 	}
@@ -992,6 +1000,12 @@ func resourceAlicloudEmrV2ClusterCreate(d *schema.ResourceData, meta interface{}
 				"KeyPairName":       nodeAttributesSource["key_pair_name"],
 				"DataDiskEncrypted": nodeAttributesSource["data_disk_encrypted"],
 				"DataDiskKMSKeyId":  nodeAttributesSource["data_disk_kms_key_id"],
+			}
+			if value, exists := nodeAttributesSource["system_disk_encrypted"]; exists {
+				nodeAttributesSourceMap["SystemDiskEncrypted"] = value.(bool)
+			}
+			if value, exists := nodeAttributesSource["system_disk_kms_key_id"]; exists && value.(string) != "" {
+				nodeAttributesSourceMap["SystemDiskKMSKeyId"] = value.(string)
 			}
 			createClusterRequest["NodeAttributes"] = convertMapToJsonStringIgnoreError(nodeAttributesSourceMap)
 		}
@@ -1263,11 +1277,9 @@ func resourceAlicloudEmrV2ClusterCreate(d *schema.ResourceData, meta interface{}
 		createClusterRequest["Tags"], _ = convertListMapToJsonString(tags)
 	}
 
-	runtime := util.RuntimeOptions{}
-	runtime.SetAutoretry(true)
 	wait := incrementalWait(3*time.Second, 5*time.Second)
 	err = resource.Retry(d.Timeout(schema.TimeoutCreate), func() *resource.RetryError {
-		response, err = conn.DoRequest(StringPointer(action), nil, StringPointer("POST"), StringPointer("2021-03-20"), StringPointer("AK"), nil, createClusterRequest, &runtime)
+		response, err = client.RpcPost("Emr", "2021-03-20", action, nil, createClusterRequest, true)
 		if err != nil {
 			if NeedRetry(err) {
 				wait()
@@ -1331,34 +1343,44 @@ func resourceAlicloudEmrV2ClusterRead(d *schema.ResourceData, meta interface{}) 
 	if v, ok := object["NodeAttributes"]; ok {
 		nodeAttributesMap := v.(map[string]interface{})
 		nodeAttribute := map[string]interface{}{
-			"vpc_id":              nodeAttributesMap["VpcId"],
-			"zone_id":             nodeAttributesMap["ZoneId"],
-			"security_group_id":   nodeAttributesMap["SecurityGroupId"],
-			"ram_role":            nodeAttributesMap["RamRole"],
-			"key_pair_name":       nodeAttributesMap["KeyPairName"],
-			"data_disk_encrypted": nodeAttributesMap["DataDiskEncrypted"],
+			"vpc_id":                nodeAttributesMap["VpcId"],
+			"zone_id":               nodeAttributesMap["ZoneId"],
+			"security_group_id":     nodeAttributesMap["SecurityGroupId"],
+			"ram_role":              nodeAttributesMap["RamRole"],
+			"key_pair_name":         nodeAttributesMap["KeyPairName"],
+			"data_disk_encrypted":   nodeAttributesMap["DataDiskEncrypted"],
+			"system_disk_encrypted": nodeAttributesMap["SystemDiskEncrypted"],
 		}
 		if v, exists := nodeAttributesMap["DataDiskKMSKeyId"]; exists && v.(string) != "" {
 			nodeAttribute["data_disk_kms_key_id"] = v
 		}
+		if v, exists := nodeAttributesMap["SystemDiskKMSKeyId"]; exists && v.(string) != "" {
+			nodeAttribute["system_disk_kms_key_id"] = v
+		}
+
+		oldNodeAttributes := d.Get("node_attributes")
+		if oldNodeAttributes != nil && oldNodeAttributes.(*schema.Set).Len() > 0 {
+			oldNodeAttributesMap := d.Get("node_attributes").(*schema.Set).List()[0].(map[string]interface{})
+			if _, exists := oldNodeAttributesMap["system_disk_encrypted"]; exists {
+				nodeAttribute["system_disk_encrypted"] = nodeAttributesMap["SystemDiskEncrypted"]
+			}
+			if value, exists := oldNodeAttributesMap["system_disk_kms_key_id"]; exists && value != "" {
+				nodeAttribute["system_disk_kms_key_id"] = nodeAttributesMap["SystemDiskKMSKeyId"]
+			}
+		}
+
 		nodeAttributes = append(nodeAttributes, nodeAttribute)
 		d.Set("node_attributes", nodeAttributes)
 	}
 	var response map[string]interface{}
-	conn, err := client.NewEmrClient()
-	if err != nil {
-		return WrapError(err)
-	}
 	action := "ListApplications"
 	request := map[string]interface{}{
 		"RegionId":  client.RegionId,
 		"ClusterId": d.Id(),
 	}
-	runtime := util.RuntimeOptions{}
-	runtime.SetAutoretry(true)
 	wait := incrementalWait(3*time.Second, 3*time.Second)
 	err = resource.Retry(5*time.Minute, func() *resource.RetryError {
-		response, err = conn.DoRequest(StringPointer(action), nil, StringPointer("POST"), StringPointer("2021-03-20"), StringPointer("AK"), nil, request, &runtime)
+		response, err = client.RpcPost("Emr", "2021-03-20", action, nil, request, true)
 		if err != nil {
 			if NeedRetry(err) {
 				wait()
@@ -1417,7 +1439,7 @@ func resourceAlicloudEmrV2ClusterRead(d *schema.ResourceData, meta interface{}) 
 		"ScriptType": "BOOTSTRAP",
 	}
 	err = resource.Retry(5*time.Minute, func() *resource.RetryError {
-		response, err = conn.DoRequest(StringPointer(action), nil, StringPointer("POST"), StringPointer("2021-03-20"), StringPointer("AK"), nil, listScriptsRequest, &runtime)
+		response, err = client.RpcPost("Emr", "2021-03-20", action, nil, listScriptsRequest, true)
 		if err != nil {
 			if NeedRetry(err) {
 				wait()
@@ -1501,25 +1523,56 @@ func resourceAlicloudEmrV2ClusterRead(d *schema.ResourceData, meta interface{}) 
 	}
 
 	action = "ListNodeGroups"
-	err = resource.Retry(5*time.Minute, func() *resource.RetryError {
-		response, err = conn.DoRequest(StringPointer(action), nil, StringPointer("POST"), StringPointer("2021-03-20"), StringPointer("AK"), nil, request, &runtime)
-		if err != nil {
-			if NeedRetry(err) {
-				wait()
-				return resource.RetryableError(err)
+	request["MaxResults"] = PageSizeLarge
+	request["NodeGroupStates"] = []string{"RUNNING"}
+	var nodeGroupObjects []interface{}
+
+	for {
+		err = resource.Retry(5*time.Minute, func() *resource.RetryError {
+			response, err = client.RpcPost("Emr", "2021-03-20", action, nil, request, true)
+			if err != nil {
+				if NeedRetry(err) {
+					wait()
+					return resource.RetryableError(err)
+				}
+				return resource.NonRetryableError(err)
 			}
-			return resource.NonRetryableError(err)
+			return nil
+		})
+		addDebug(action, response, request)
+		if err != nil {
+			return WrapErrorf(err, DefaultErrorMsg, d.Id(), action, AlibabaCloudSdkGoERROR)
 		}
-		return nil
-	})
-	addDebug(action, response, request)
-	if err != nil {
-		return WrapErrorf(err, DefaultErrorMsg, d.Id(), action, AlibabaCloudSdkGoERROR)
+
+		nodeGroupResp, err := jsonpath.Get("$.NodeGroups", response)
+		if err != nil {
+			return WrapErrorf(err, FailedGetAttributeMsg, d.Id(), "$.NodeGroups", response)
+		}
+		if nodeGroupResp != nil && len(nodeGroupResp.([]interface{})) > 0 {
+			for _, ngr := range nodeGroupResp.([]interface{}) {
+				nodeGroupObjects = append(nodeGroupObjects, ngr)
+			}
+			_, nextTokenExists := response["NextToken"]
+			if len(nodeGroupResp.([]interface{})) < PageSizeLarge {
+				break
+			} else if len(nodeGroupResp.([]interface{})) == PageSizeLarge && !nextTokenExists {
+				break
+			}
+		} else {
+			break
+		}
+
+		nextToken, err := jsonpath.Get("$.NextToken", response)
+		if err != nil {
+			return WrapErrorf(err, FailedGetAttributeMsg, action, "$.NextToken", response)
+		}
+		request["NextToken"] = nextToken
 	}
-	v, err = jsonpath.Get("$.NodeGroups", response)
-	if err != nil {
-		return WrapErrorf(err, FailedGetAttributeMsg, d.Id(), "$.NodeGroups", response)
+	if len(nodeGroupObjects) > 0 {
+		v = nodeGroupObjects
 	}
+	delete(request, "NextToken")
+
 	if v != nil && len(v.([]interface{})) > 0 {
 		oldNodeGroupsMap := map[string]map[string]interface{}{}
 		indexNodeGroupMap := map[string]int{}
@@ -1955,10 +2008,7 @@ func resourceAlicloudEmrV2ClusterRead(d *schema.ResourceData, meta interface{}) 
 
 func resourceAlicloudEmrV2ClusterUpdate(d *schema.ResourceData, meta interface{}) error {
 	client := meta.(*connectivity.AliyunClient)
-	conn, err := client.NewEmrClient()
-	if err != nil {
-		return WrapError(err)
-	}
+	var err error
 	var response map[string]interface{}
 	d.Partial(true)
 	emrService := EmrService{client}
@@ -1983,7 +2033,7 @@ func resourceAlicloudEmrV2ClusterUpdate(d *schema.ResourceData, meta interface{}
 		}
 		wait := incrementalWait(3*time.Second, 3*time.Second)
 		err = resource.Retry(d.Timeout(schema.TimeoutUpdate), func() *resource.RetryError {
-			response, err = conn.DoRequest(StringPointer(action), nil, StringPointer("POST"), StringPointer("2021-03-20"), StringPointer("AK"), nil, request, &util.RuntimeOptions{})
+			response, err = client.RpcPost("Emr", "2021-03-20", action, nil, request, false)
 			if err != nil {
 				if NeedRetry(err) {
 					wait()
@@ -2014,15 +2064,14 @@ func resourceAlicloudEmrV2ClusterUpdate(d *schema.ResourceData, meta interface{}
 		oldNodeGroupsList, newNodeGroupsList := d.GetChange("node_groups")
 
 		listNodeGroupsRequest := map[string]interface{}{
-			"ClusterId": d.Id(),
-			"RegionId":  client.RegionId,
+			"ClusterId":  d.Id(),
+			"RegionId":   client.RegionId,
+			"MaxResults": PageSizeLarge,
 		}
 		action := "ListNodeGroups"
-		runtime := util.RuntimeOptions{}
-		runtime.SetAutoretry(true)
 		wait := incrementalWait(3*time.Second, 5*time.Second)
 		err = resource.Retry(d.Timeout(schema.TimeoutUpdate), func() *resource.RetryError {
-			response, err = conn.DoRequest(StringPointer(action), nil, StringPointer("POST"), StringPointer("2021-03-20"), StringPointer("AK"), nil, listNodeGroupsRequest, &runtime)
+			response, err = client.RpcPost("Emr", "2021-03-20", action, nil, listNodeGroupsRequest, false)
 			if err != nil {
 				if NeedRetry(err) {
 					wait()
@@ -2110,7 +2159,7 @@ func resourceAlicloudEmrV2ClusterUpdate(d *schema.ResourceData, meta interface{}
 			updateClusterPaymentTypeRequest["NodeGroups"] = convertNodeGroups
 			wait = incrementalWait(3*time.Second, 5*time.Second)
 			err = resource.Retry(d.Timeout(schema.TimeoutUpdate), func() *resource.RetryError {
-				response, err = conn.DoRequest(StringPointer(action), nil, StringPointer("POST"), StringPointer("2021-03-20"), StringPointer("AK"), nil, updateClusterPaymentTypeRequest, &runtime)
+				response, err = client.RpcPost("Emr", "2021-03-20", action, nil, updateClusterPaymentTypeRequest, false)
 				if err != nil {
 					if NeedRetry(err) {
 						wait()
@@ -2144,23 +2193,57 @@ func resourceAlicloudEmrV2ClusterUpdate(d *schema.ResourceData, meta interface{}
 		for nodeGroupName, newNodeGroup := range newNodeGroupMap {
 			if oldNodeGroup, ok := oldNodeGroupMap[nodeGroupName]; ok {
 				if !reflect.DeepEqual(originNodeGroupMap[nodeGroupName]["auto_scaling_policy"], newNodeGroup["auto_scaling_policy"]) {
+					removeScalingPolicy := false
 					if len(newNodeGroup["auto_scaling_policy"].([]interface{})) > 0 {
 						adaptedScalingPolicy := adaptAutoScalingPolicyRequest(newNodeGroup["auto_scaling_policy"].([]interface{})[0].(map[string]interface{}))
+						rulesExists := false
+						constraintsExists := false
 						if aspValue, aspExists := adaptedScalingPolicy["scalingRules"]; aspExists {
+							rulesExists = aspExists
 							adaptedScalingPolicy["ScalingRules"] = aspValue
 							delete(adaptedScalingPolicy, "scalingRules")
 						}
 						if aspValue, aspExists := adaptedScalingPolicy["constraints"]; aspExists {
+							constraintsExists = aspExists
 							adaptedScalingPolicy["Constraints"] = aspValue
 							delete(adaptedScalingPolicy, "constraints")
 						}
-						adaptedScalingPolicy["RegionId"] = client.RegionId
-						adaptedScalingPolicy["ClusterId"] = d.Id()
-						adaptedScalingPolicy["NodeGroupId"] = oldNodeGroup["NodeGroupId"]
+						if rulesExists || constraintsExists {
+							adaptedScalingPolicy["RegionId"] = client.RegionId
+							adaptedScalingPolicy["ClusterId"] = d.Id()
+							adaptedScalingPolicy["NodeGroupId"] = oldNodeGroup["NodeGroupId"]
 
-						action = "PutAutoScalingPolicy"
+							action = "PutAutoScalingPolicy"
+							err = resource.Retry(d.Timeout(schema.TimeoutUpdate), func() *resource.RetryError {
+								response, err = client.RpcPost("Emr", "2021-03-20", action, nil, adaptedScalingPolicy, false)
+								if err != nil {
+									if NeedRetry(err) {
+										wait()
+										return resource.RetryableError(err)
+									}
+									return resource.NonRetryableError(err)
+								}
+								return nil
+							})
+							addDebug(action, response, adaptedScalingPolicy)
+							if err != nil {
+								return WrapErrorf(err, DefaultErrorMsg, d.Id(), action, AlibabaCloudSdkGoERROR)
+							}
+						} else {
+							removeScalingPolicy = true
+						}
+					} else {
+						removeScalingPolicy = true
+					}
+					if removeScalingPolicy {
+						removeScalingPolicyRequest := map[string]interface{}{
+							"RegionId":    client.RegionId,
+							"ClusterId":   d.Id(),
+							"NodeGroupId": oldNodeGroup["NodeGroupId"],
+						}
+						action = "RemoveAutoScalingPolicy"
 						err = resource.Retry(d.Timeout(schema.TimeoutUpdate), func() *resource.RetryError {
-							response, err = conn.DoRequest(StringPointer(action), nil, StringPointer("POST"), StringPointer("2021-03-20"), StringPointer("AK"), nil, adaptedScalingPolicy, &runtime)
+							response, err = client.RpcPost("Emr", "2021-03-20", action, nil, removeScalingPolicyRequest, false)
 							if err != nil {
 								if NeedRetry(err) {
 									wait()
@@ -2170,7 +2253,7 @@ func resourceAlicloudEmrV2ClusterUpdate(d *schema.ResourceData, meta interface{}
 							}
 							return nil
 						})
-						addDebug(action, response, adaptedScalingPolicy)
+						addDebug(action, response, removeScalingPolicyRequest)
 						if err != nil {
 							return WrapErrorf(err, DefaultErrorMsg, d.Id(), action, AlibabaCloudSdkGoERROR)
 						}
@@ -2187,7 +2270,7 @@ func resourceAlicloudEmrV2ClusterUpdate(d *schema.ResourceData, meta interface{}
 						}
 						action = "UpdateNodeGroupAttributes"
 						err = resource.Retry(d.Timeout(schema.TimeoutUpdate), func() *resource.RetryError {
-							response, err = conn.DoRequest(StringPointer(action), nil, StringPointer("POST"), StringPointer("2021-03-20"), StringPointer("AK"), nil, updateNodeGroupAttributesRequest, &runtime)
+							response, err = client.RpcPost("Emr", "2021-03-20", action, nil, updateNodeGroupAttributesRequest, false)
 							if err != nil {
 								if NeedRetry(err) {
 									wait()
@@ -2272,11 +2355,9 @@ func resourceAlicloudEmrV2ClusterUpdate(d *schema.ResourceData, meta interface{}
 							},
 						},
 					}
-					runtime := util.RuntimeOptions{}
-					runtime.SetAutoretry(true)
 					wait := incrementalWait(3*time.Second, 5*time.Second)
 					err = resource.Retry(d.Timeout(schema.TimeoutUpdate), func() *resource.RetryError {
-						response, err = conn.DoRequest(StringPointer(action), nil, StringPointer("POST"), StringPointer("2021-03-20"), StringPointer("AK"), nil, increaseNodeDiskSizeRequest, &runtime)
+						response, err = client.RpcPost("Emr", "2021-03-20", action, nil, increaseNodeDiskSizeRequest, false)
 						if err != nil {
 							if NeedRetry(err) {
 								wait()
@@ -2413,7 +2494,7 @@ func resourceAlicloudEmrV2ClusterUpdate(d *schema.ResourceData, meta interface{}
 
 				action = "CreateNodeGroup"
 				err = resource.Retry(d.Timeout(schema.TimeoutUpdate), func() *resource.RetryError {
-					response, err = conn.DoRequest(StringPointer(action), nil, StringPointer("POST"), StringPointer("2021-03-20"), StringPointer("AK"), nil, createNodeGroupRequest, &runtime)
+					response, err = client.RpcPost("Emr", "2021-03-20", action, nil, createNodeGroupRequest, false)
 					if err != nil {
 						if NeedRetry(err) {
 							wait()
@@ -2435,7 +2516,7 @@ func resourceAlicloudEmrV2ClusterUpdate(d *schema.ResourceData, meta interface{}
 				}
 				action = "ListNodeGroups"
 				err = resource.Retry(d.Timeout(schema.TimeoutUpdate), func() *resource.RetryError {
-					response, err = conn.DoRequest(StringPointer(action), nil, StringPointer("POST"), StringPointer("2021-03-20"), StringPointer("AK"), nil, listNodeGroupsRequest, &runtime)
+					response, err = client.RpcPost("Emr", "2021-03-20", action, nil, listNodeGroupsRequest, false)
 					if err != nil {
 						if NeedRetry(err) {
 							wait()
@@ -2538,7 +2619,7 @@ func resourceAlicloudEmrV2ClusterUpdate(d *schema.ResourceData, meta interface{}
 				UpdateNodeGroupPaymentTypeRequest["NodeGroup"] = updateNodeGroupPaymentType
 				wait = incrementalWait(3*time.Second, 5*time.Second)
 				err = resource.Retry(d.Timeout(schema.TimeoutUpdate), func() *resource.RetryError {
-					response, err = conn.DoRequest(StringPointer(action), nil, StringPointer("POST"), StringPointer("2021-03-20"), StringPointer("AK"), nil, UpdateNodeGroupPaymentTypeRequest, &runtime)
+					response, err = client.RpcPost("Emr", "2021-03-20", action, nil, UpdateNodeGroupPaymentTypeRequest, false)
 					if err != nil {
 						if NeedRetry(err) {
 							wait()
@@ -2570,14 +2651,15 @@ func resourceAlicloudEmrV2ClusterUpdate(d *schema.ResourceData, meta interface{}
 			}
 		}
 
+		var wg sync.WaitGroup
+		var cm sync.Map
+		waitFlag := false
 		for _, increaseNodesGroupRequest := range increaseNodesGroups {
+			waitFlag = true
 			action := "IncreaseNodes"
-			runtime := util.RuntimeOptions{}
-			runtime.SetAutoretry(true)
 			wait := incrementalWait(3*time.Second, 5*time.Second)
 			err = resource.Retry(d.Timeout(schema.TimeoutUpdate), func() *resource.RetryError {
-				response, err = conn.DoRequest(StringPointer(action), nil, StringPointer("POST"),
-					StringPointer("2021-03-20"), StringPointer("AK"), nil, increaseNodesGroupRequest, &runtime)
+				response, err = client.RpcPost("Emr", "2021-03-20", action, nil, increaseNodesGroupRequest, false)
 				if err != nil {
 					if NeedRetry(err) {
 						wait()
@@ -2591,16 +2673,20 @@ func resourceAlicloudEmrV2ClusterUpdate(d *schema.ResourceData, meta interface{}
 			if err != nil {
 				return WrapErrorf(err, DefaultErrorMsg, d.Id(), action, AlibabaCloudSdkGoERROR)
 			}
+			resp, err := jsonpath.Get("$.OperationId", response)
+			if err != nil {
+				return WrapErrorf(err, FailedGetAttributeMsg, d.Id(), "$.OperationId", response)
+			}
+			wg.Add(1)
+			go emrService.WaitForEmrV2Operation(d.Id(), increaseNodesGroupRequest["NodeGroupId"].(string), resp.(string), 2*Timeout5Minute, &wg, &cm)
 		}
 
 		for _, decreaseNodesGroupRequest := range decreaseNodesGroups {
+			waitFlag = true
 			action := "DecreaseNodes"
-			runtime := util.RuntimeOptions{}
-			runtime.SetAutoretry(true)
 			wait := incrementalWait(3*time.Second, 5*time.Second)
 			err = resource.Retry(d.Timeout(schema.TimeoutUpdate), func() *resource.RetryError {
-				response, err = conn.DoRequest(StringPointer(action), nil, StringPointer("POST"),
-					StringPointer("2021-03-20"), StringPointer("AK"), nil, decreaseNodesGroupRequest, &runtime)
+				response, err = client.RpcPost("Emr", "2021-03-20", action, nil, decreaseNodesGroupRequest, false)
 				if err != nil {
 					if NeedRetry(err) {
 						wait()
@@ -2614,16 +2700,32 @@ func resourceAlicloudEmrV2ClusterUpdate(d *schema.ResourceData, meta interface{}
 			if err != nil {
 				return WrapErrorf(err, DefaultErrorMsg, d.Id(), action, AlibabaCloudSdkGoERROR)
 			}
+			resp, err := jsonpath.Get("$.OperationId", response)
+			if err != nil {
+				return WrapErrorf(err, FailedGetAttributeMsg, d.Id(), "$.OperationId", response)
+			}
+			wg.Add(1)
+			go emrService.WaitForEmrV2Operation(d.Id(), decreaseNodesGroupRequest["NodeGroupId"].(string), resp.(string), 2*Timeout5Minute, &wg, &cm)
+		}
+		if waitFlag {
+			wg.Wait()
+			var failedNodeGroupId []string
+			cm.Range(func(k, v interface{}) bool {
+				if v != nil && v.(bool) == false {
+					failedNodeGroupId = append(failedNodeGroupId, k.(string))
+				}
+				return true
+			})
+			if len(failedNodeGroupId) > 0 {
+				return WrapError(Error(fmt.Sprintf("EMR cluster resize found error result with the failed nodeGroupIds: [%s].", strings.Join(failedNodeGroupId, ","))))
+			}
 		}
 
 		for _, deleteNodeGroupRequest := range deleteNodeGroups {
 			action := "DeleteNodeGroup"
-			runtime := util.RuntimeOptions{}
-			runtime.SetAutoretry(true)
 			wait := incrementalWait(3*time.Second, 5*time.Second)
 			err = resource.Retry(d.Timeout(schema.TimeoutUpdate), func() *resource.RetryError {
-				response, err = conn.DoRequest(StringPointer(action), nil, StringPointer("POST"),
-					StringPointer("2021-03-20"), StringPointer("AK"), nil, deleteNodeGroupRequest, &runtime)
+				response, err = client.RpcPost("Emr", "2021-03-20", action, nil, deleteNodeGroupRequest, false)
 				if err != nil {
 					if NeedRetry(err) {
 						wait()
@@ -2650,11 +2752,9 @@ func resourceAlicloudEmrV2ClusterUpdate(d *schema.ResourceData, meta interface{}
 			"ScriptType": "BOOTSTRAP",
 		}
 		action := "ListScripts"
-		runtime := util.RuntimeOptions{}
-		runtime.SetAutoretry(true)
 		wait := incrementalWait(3*time.Second, 5*time.Second)
 		err = resource.Retry(d.Timeout(schema.TimeoutUpdate), func() *resource.RetryError {
-			response, err = conn.DoRequest(StringPointer(action), nil, StringPointer("POST"), StringPointer("2021-03-20"), StringPointer("AK"), nil, listScriptsRequest, &runtime)
+			response, err = client.RpcPost("Emr", "2021-03-20", action, nil, listScriptsRequest, false)
 			if err != nil {
 				if NeedRetry(err) {
 					wait()
@@ -2686,7 +2786,7 @@ func resourceAlicloudEmrV2ClusterUpdate(d *schema.ResourceData, meta interface{}
 				deleteScriptRequest["ScriptId"] = scriptMap["ScriptId"]
 
 				err = resource.Retry(d.Timeout(schema.TimeoutUpdate), func() *resource.RetryError {
-					response, err = conn.DoRequest(StringPointer(action), nil, StringPointer("POST"), StringPointer("2021-03-20"), StringPointer("AK"), nil, deleteScriptRequest, &runtime)
+					response, err = client.RpcPost("Emr", "2021-03-20", action, nil, deleteScriptRequest, false)
 					if err != nil {
 						if NeedRetry(err) {
 							wait()
@@ -2764,7 +2864,7 @@ func resourceAlicloudEmrV2ClusterUpdate(d *schema.ResourceData, meta interface{}
 			createScriptRequest["Scripts"] = newScripts
 			action = "CreateScript"
 			err = resource.Retry(d.Timeout(schema.TimeoutUpdate), func() *resource.RetryError {
-				response, err = conn.DoRequest(StringPointer(action), nil, StringPointer("POST"), StringPointer("2021-03-20"), StringPointer("AK"), nil, createScriptRequest, &runtime)
+				response, err = client.RpcPost("Emr", "2021-03-20", action, nil, createScriptRequest, false)
 				if err != nil {
 					if NeedRetry(err) {
 						wait()
@@ -2790,10 +2890,7 @@ func resourceAlicloudEmrV2ClusterDelete(d *schema.ResourceData, meta interface{}
 	client := meta.(*connectivity.AliyunClient)
 	emrService := EmrService{client}
 	var response map[string]interface{}
-	conn, err := client.NewEmrClient()
-	if err != nil {
-		return WrapError(err)
-	}
+	var err error
 	if paymentType, ok := d.GetOk("payment_type"); ok && paymentType.(string) == "Subscription" {
 		v, err := emrService.ListEmrV2NodeGroups(d.Id(), []string{})
 		if err != nil {
@@ -2805,8 +2902,6 @@ func resourceAlicloudEmrV2ClusterDelete(d *schema.ResourceData, meta interface{}
 				"ClusterId": d.Id(),
 				"RegionId":  client.RegionId,
 			}
-			runtime := util.RuntimeOptions{}
-			runtime.SetAutoretry(true)
 			wait := incrementalWait(3*time.Second, 5*time.Second)
 			for _, item := range v {
 				nodeGroupMap := item.(map[string]interface{})
@@ -2814,7 +2909,7 @@ func resourceAlicloudEmrV2ClusterDelete(d *schema.ResourceData, meta interface{}
 					request["MaxResults"] = 100
 					request["NodeGroupIds"] = []string{nodeGroupMap["NodeGroupId"].(string)}
 					err = resource.Retry(d.Timeout(schema.TimeoutDelete), func() *resource.RetryError {
-						response, err = conn.DoRequest(StringPointer(action), nil, StringPointer("POST"), StringPointer("2021-03-20"), StringPointer("AK"), nil, request, &runtime)
+						response, err = client.RpcPost("Emr", "2021-03-20", action, nil, request, true)
 						if err != nil {
 							if NeedRetry(err) {
 								wait()
@@ -2847,11 +2942,9 @@ func resourceAlicloudEmrV2ClusterDelete(d *schema.ResourceData, meta interface{}
 		"ClusterId": d.Id(),
 		"RegionId":  client.RegionId,
 	}
-	runtime := util.RuntimeOptions{}
-	runtime.SetAutoretry(true)
 	wait := incrementalWait(3*time.Second, 5*time.Second)
 	err = resource.Retry(d.Timeout(schema.TimeoutDelete), func() *resource.RetryError {
-		response, err = conn.DoRequest(StringPointer(action), nil, StringPointer("POST"), StringPointer("2021-03-20"), StringPointer("AK"), nil, request, &runtime)
+		response, err = client.RpcPost("Emr", "2021-03-20", action, nil, request, true)
 		if err != nil {
 			if NeedRetry(err) || strings.Contains(err.Error(), "cluster exists nonempty pre-paid nodeGroups") {
 				wait()

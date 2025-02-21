@@ -2,10 +2,10 @@ package alicloud
 
 import (
 	"fmt"
+	"sync"
 	"time"
 
 	"github.com/PaesslerAG/jsonpath"
-	util "github.com/alibabacloud-go/tea-utils/service"
 	"github.com/hashicorp/terraform-plugin-sdk/helper/resource"
 	"github.com/hashicorp/terraform-plugin-sdk/helper/schema"
 
@@ -19,20 +19,15 @@ type EmrService struct {
 
 func (s *EmrService) DescribeEmrCluster(id string) (object map[string]interface{}, err error) {
 	var response map[string]interface{}
-	conn, err := s.client.NewEmrClient()
-	if err != nil {
-		return nil, WrapError(err)
-	}
+	client := s.client
 	action := "DescribeClusterV2"
 	request := map[string]interface{}{
 		"RegionId": s.client.RegionId,
 		"Id":       id,
 	}
-	runtime := util.RuntimeOptions{}
-	runtime.SetAutoretry(true)
 	wait := incrementalWait(3*time.Second, 3*time.Second)
 	err = resource.Retry(5*time.Minute, func() *resource.RetryError {
-		response, err = conn.DoRequest(StringPointer(action), nil, StringPointer("POST"), StringPointer("2016-04-08"), StringPointer("AK"), nil, request, &runtime)
+		response, err = client.RpcPost("Emr", "2016-04-08", action, nil, request, true)
 		if err != nil {
 			if NeedRetry(err) {
 				wait()
@@ -59,20 +54,15 @@ func (s *EmrService) DescribeEmrCluster(id string) (object map[string]interface{
 
 func (s *EmrService) GetEmrV2Cluster(id string) (object map[string]interface{}, err error) {
 	var response map[string]interface{}
-	conn, err := s.client.NewEmrClient()
-	if err != nil {
-		return nil, WrapError(err)
-	}
+	client := s.client
 	action := "GetCluster"
 	request := map[string]interface{}{
 		"RegionId":  s.client.RegionId,
 		"ClusterId": id,
 	}
-	runtime := util.RuntimeOptions{}
-	runtime.SetAutoretry(true)
 	wait := incrementalWait(3*time.Second, 3*time.Second)
 	err = resource.Retry(5*time.Minute, func() *resource.RetryError {
-		response, err = conn.DoRequest(StringPointer(action), nil, StringPointer("POST"), StringPointer("2021-03-20"), StringPointer("AK"), nil, request, &runtime)
+		response, err = client.RpcPost("Emr", "2021-03-20", action, nil, request, true)
 		if err != nil {
 			if NeedRetry(err) {
 				wait()
@@ -97,25 +87,55 @@ func (s *EmrService) GetEmrV2Cluster(id string) (object map[string]interface{}, 
 	return object, nil
 }
 
+func (s *EmrService) GetEmrV2Operation(id string, operationID string) (object map[string]interface{}, err error) {
+	var response map[string]interface{}
+	client := s.client
+	action := "GetOperation"
+	request := map[string]interface{}{
+		"RegionId":    s.client.RegionId,
+		"ClusterId":   id,
+		"OperationId": operationID,
+	}
+	wait := incrementalWait(3*time.Second, 3*time.Second)
+	err = resource.Retry(3*time.Minute, func() *resource.RetryError {
+		response, err = client.RpcPost("Emr", "2021-03-20", action, nil, request, true)
+		if err != nil {
+			if NeedRetry(err) {
+				wait()
+				return resource.RetryableError(err)
+			}
+			return resource.NonRetryableError(err)
+		}
+		return nil
+	})
+	addDebug(action, response, request)
+	if err != nil {
+		return object, WrapErrorf(err, DefaultErrorMsg, id, action, AlibabaCloudSdkGoERROR)
+	}
+	v, err := jsonpath.Get("$.Operation", response)
+	if err != nil {
+		return object, WrapErrorf(err, FailedGetAttributeMsg, id, "$.Operation", response)
+	}
+	object = v.(map[string]interface{})
+	return object, nil
+}
+
 func (s *EmrService) ListEmrV2NodeGroups(clusterId string, nodeGroupIds []string) (object []interface{}, err error) {
 	var response map[string]interface{}
-	conn, err := s.client.NewEmrClient()
-	if err != nil {
-		return nil, WrapError(err)
-	}
+	client := s.client
 	action := "ListNodeGroups"
 	request := map[string]interface{}{
-		"RegionId":  s.client.RegionId,
-		"ClusterId": clusterId,
+		"RegionId":        s.client.RegionId,
+		"ClusterId":       clusterId,
+		"NodeGroupStates": []string{"RUNNING"},
+		"MaxResults":      PageSizeXLarge,
 	}
 	if nodeGroupIds != nil && len(nodeGroupIds) > 0 {
 		request["NodeGroupIds"] = nodeGroupIds
 	}
-	runtime := util.RuntimeOptions{}
-	runtime.SetAutoretry(true)
 	wait := incrementalWait(3*time.Second, 3*time.Second)
 	err = resource.Retry(5*time.Minute, func() *resource.RetryError {
-		response, err = conn.DoRequest(StringPointer(action), nil, StringPointer("POST"), StringPointer("2021-03-20"), StringPointer("AK"), nil, request, &runtime)
+		response, err = client.RpcPost("Emr", "2021-03-20", action, nil, request, true)
 		if err != nil {
 			if NeedRetry(err) {
 				wait()
@@ -141,20 +161,15 @@ func (s *EmrService) ListEmrV2NodeGroups(clusterId string, nodeGroupIds []string
 
 func (s *EmrService) DataSourceDescribeEmrCluster(id string) (object map[string]interface{}, err error) {
 	var response map[string]interface{}
-	conn, err := s.client.NewEmrClient()
-	if err != nil {
-		return nil, WrapError(err)
-	}
+	client := s.client
 	action := "DescribeClusterV2"
 	request := map[string]interface{}{
 		"RegionId": s.client.RegionId,
 		"Id":       id,
 	}
-	runtime := util.RuntimeOptions{}
-	runtime.SetAutoretry(true)
 	wait := incrementalWait(3*time.Second, 3*time.Second)
 	err = resource.Retry(5*time.Minute, func() *resource.RetryError {
-		response, err = conn.DoRequest(StringPointer(action), nil, StringPointer("POST"), StringPointer("2016-04-08"), StringPointer("AK"), nil, request, &runtime)
+		response, err = client.RpcPost("Emr", "2016-04-08", action, nil, request, true)
 		if err != nil {
 			if NeedRetry(err) {
 				wait()
@@ -226,6 +241,30 @@ func (s *EmrService) WaitForEmrV2Cluster(id string, status Status, timeout int) 
 		}
 	}
 	return nil
+}
+
+func (s *EmrService) WaitForEmrV2Operation(id string, nodeGroupId string, operationID string, timeout int, wg *sync.WaitGroup, cm *sync.Map) {
+	defer wg.Done()
+	deadline := time.Now().Add(time.Duration(timeout) * time.Second)
+	for {
+		object, _ := s.GetEmrV2Operation(id, operationID)
+		if object != nil {
+			if object["OperationState"].(string) == "COMPLETED" || object["OperationState"].(string) == "PARTIAL_COMPLETED" {
+				cm.Store(nodeGroupId, true)
+				return
+			}
+
+			if object["OperationState"].(string) == "FAILED" || object["OperationState"].(string) == "TERMINATED" {
+				cm.Store(nodeGroupId, false)
+				return
+			}
+		}
+		time.Sleep(DefaultIntervalMedium * time.Second)
+		if time.Now().After(deadline) {
+			cm.Store(nodeGroupId, false)
+			return
+		}
+	}
 }
 
 func (s *EmrService) EmrClusterStateRefreshFunc(id string, failStates []string) resource.StateRefreshFunc {
@@ -376,10 +415,7 @@ func (s *EmrService) tagsToMap(tags []emr.TagResource) map[string]string {
 }
 
 func (s *EmrService) ListTagResources(id string, resourceType string) (object interface{}, err error) {
-	conn, err := s.client.NewEmrClient()
-	if err != nil {
-		return nil, WrapError(err)
-	}
+	client := s.client
 	action := "ListTagResources"
 	request := map[string]interface{}{
 		"RegionId":     s.client.RegionId,
@@ -392,7 +428,7 @@ func (s *EmrService) ListTagResources(id string, resourceType string) (object in
 	for {
 		wait := incrementalWait(3*time.Second, 5*time.Second)
 		err = resource.Retry(5*time.Minute, func() *resource.RetryError {
-			response, err := conn.DoRequest(StringPointer(action), nil, StringPointer("POST"), StringPointer("2016-04-08"), StringPointer("AK"), nil, request, &util.RuntimeOptions{})
+			response, err := client.RpcPost("Emr", "2016-04-08", action, nil, request, false)
 			if err != nil {
 				if IsExpectedErrors(err, []string{Throttling}) {
 					wait()
@@ -425,10 +461,7 @@ func (s *EmrService) ListTagResources(id string, resourceType string) (object in
 
 func (s *EmrService) SetEmrClusterTagsNew(d *schema.ResourceData) error {
 	if d.HasChange("tags") {
-		conn, err := s.client.NewEmrClient()
-		if err != nil {
-			return WrapError(err)
-		}
+		client := s.client
 		_, nraw := d.GetChange("tags")
 
 		var createTags []map[string]interface{}
@@ -462,8 +495,7 @@ func (s *EmrService) SetEmrClusterTagsNew(d *schema.ResourceData) error {
 				"Tags":         createTags,
 			}
 			err = resource.Retry(5*time.Minute, func() *resource.RetryError {
-				_, err = conn.DoRequest(StringPointer(action), nil, StringPointer("POST"),
-					StringPointer("2021-03-20"), StringPointer("AK"), nil, tagResourcesRequest, &util.RuntimeOptions{})
+				_, err = client.RpcPost("Emr", "2021-03-20", action, nil, tagResourcesRequest, false)
 				if err != nil {
 					return resource.NonRetryableError(err)
 				}
@@ -484,8 +516,7 @@ func (s *EmrService) SetEmrClusterTagsNew(d *schema.ResourceData) error {
 				"Tags":         deleteTagKeys,
 			}
 			err = resource.Retry(5*time.Minute, func() *resource.RetryError {
-				_, err = conn.DoRequest(StringPointer(action), nil, StringPointer("POST"),
-					StringPointer("2021-03-20"), StringPointer("AK"), nil, unTagResourcesRequest, &util.RuntimeOptions{})
+				_, err = client.RpcPost("Emr", "2021-03-20", action, nil, unTagResourcesRequest, false)
 				if err != nil {
 					return resource.NonRetryableError(err)
 				}
@@ -504,10 +535,7 @@ func (s *EmrService) SetEmrClusterTagsNew(d *schema.ResourceData) error {
 }
 
 func (s *EmrService) ListTagResourcesNew(id string, resourceType string) (object interface{}, err error) {
-	conn, err := s.client.NewEmrClient()
-	if err != nil {
-		return nil, WrapError(err)
-	}
+	client := s.client
 	action := "ListTagResources"
 	request := map[string]interface{}{
 		"RegionId":     s.client.RegionId,
@@ -520,7 +548,7 @@ func (s *EmrService) ListTagResourcesNew(id string, resourceType string) (object
 	for {
 		wait := incrementalWait(3*time.Second, 5*time.Second)
 		err = resource.Retry(5*time.Minute, func() *resource.RetryError {
-			response, err := conn.DoRequest(StringPointer(action), nil, StringPointer("POST"), StringPointer("2021-03-20"), StringPointer("AK"), nil, request, &util.RuntimeOptions{})
+			response, err := client.RpcPost("Emr", "2021-03-20", action, nil, request, false)
 			if err != nil {
 				if IsExpectedErrors(err, []string{Throttling}) {
 					wait()
@@ -555,10 +583,7 @@ func (s *EmrService) SetResourceTags(d *schema.ResourceData, resourceType string
 
 	if d.HasChange("tags") {
 		added, removed := parsingTags(d)
-		conn, err := s.client.NewEmrClient()
-		if err != nil {
-			return WrapError(err)
-		}
+		client := s.client
 
 		removedTagKeys := make([]string, 0)
 		for _, v := range removed {
@@ -578,7 +603,7 @@ func (s *EmrService) SetResourceTags(d *schema.ResourceData, resourceType string
 			}
 			wait := incrementalWait(2*time.Second, 1*time.Second)
 			err := resource.Retry(10*time.Minute, func() *resource.RetryError {
-				response, err := conn.DoRequest(StringPointer(action), nil, StringPointer("POST"), StringPointer("2016-04-08"), StringPointer("AK"), nil, request, &util.RuntimeOptions{})
+				response, err := client.RpcPost("Emr", "2016-04-08", action, nil, request, false)
 				if err != nil {
 					if NeedRetry(err) {
 						wait()
@@ -610,7 +635,7 @@ func (s *EmrService) SetResourceTags(d *schema.ResourceData, resourceType string
 
 			wait := incrementalWait(2*time.Second, 1*time.Second)
 			err := resource.Retry(10*time.Minute, func() *resource.RetryError {
-				response, err := conn.DoRequest(StringPointer(action), nil, StringPointer("POST"), StringPointer("2016-04-08"), StringPointer("AK"), nil, request, &util.RuntimeOptions{})
+				response, err := client.RpcPost("Emr", "2016-04-08", action, nil, request, false)
 				if err != nil {
 					if NeedRetry(err) {
 						wait()
@@ -632,20 +657,15 @@ func (s *EmrService) SetResourceTags(d *schema.ResourceData, resourceType string
 }
 func (s *EmrService) DescribeClusterBasicInfo(id string) (object map[string]interface{}, err error) {
 	var response map[string]interface{}
-	conn, err := s.client.NewEmrClient()
-	if err != nil {
-		return nil, WrapError(err)
-	}
+	client := s.client
 	action := "DescribeClusterBasicInfo"
 	request := map[string]interface{}{
 		"RegionId":  s.client.RegionId,
 		"ClusterId": id,
 	}
-	runtime := util.RuntimeOptions{}
-	runtime.SetAutoretry(true)
 	wait := incrementalWait(3*time.Second, 3*time.Second)
 	err = resource.Retry(5*time.Minute, func() *resource.RetryError {
-		response, err = conn.DoRequest(StringPointer(action), nil, StringPointer("POST"), StringPointer("2016-04-08"), StringPointer("AK"), nil, request, &runtime)
+		response, err = client.RpcPost("Emr", "2016-04-08", action, nil, request, true)
 		if err != nil {
 			if NeedRetry(err) {
 				wait()
@@ -668,20 +688,15 @@ func (s *EmrService) DescribeClusterBasicInfo(id string) (object map[string]inte
 }
 func (s *EmrService) DescribeClusterV2(id string) (object map[string]interface{}, err error) {
 	var response map[string]interface{}
-	conn, err := s.client.NewEmrClient()
-	if err != nil {
-		return nil, WrapError(err)
-	}
+	client := s.client
 	action := "DescribeClusterV2"
 	request := map[string]interface{}{
 		"RegionId": s.client.RegionId,
 		"Id":       id,
 	}
-	runtime := util.RuntimeOptions{}
-	runtime.SetAutoretry(true)
 	wait := incrementalWait(3*time.Second, 3*time.Second)
 	err = resource.Retry(5*time.Minute, func() *resource.RetryError {
-		response, err = conn.DoRequest(StringPointer(action), nil, StringPointer("POST"), StringPointer("2016-04-08"), StringPointer("AK"), nil, request, &runtime)
+		response, err = client.RpcPost("Emr", "2016-04-08", action, nil, request, true)
 		if err != nil {
 			if NeedRetry(err) {
 				wait()
@@ -705,20 +720,15 @@ func (s *EmrService) DescribeClusterV2(id string) (object map[string]interface{}
 
 func (s *EmrService) DescribeEmrMainVersionClusterTypes(id string) (object []interface{}, err error) {
 	var response map[string]interface{}
-	conn, err := s.client.NewEmrClient()
-	if err != nil {
-		return nil, WrapError(err)
-	}
+	client := s.client
 	action := "DescribeEmrMainVersion"
 	request := map[string]interface{}{
 		"RegionId":   s.client.RegionId,
 		"EmrVersion": id,
 	}
-	runtime := util.RuntimeOptions{}
-	runtime.SetAutoretry(true)
 	wait := incrementalWait(3*time.Second, 3*time.Second)
 	err = resource.Retry(5*time.Minute, func() *resource.RetryError {
-		response, err = conn.DoRequest(StringPointer(action), nil, StringPointer("POST"), StringPointer("2016-04-08"), StringPointer("AK"), nil, request, &runtime)
+		response, err = client.RpcPost("Emr", "2016-04-08", action, nil, request, true)
 		if err != nil {
 			if NeedRetry(err) {
 				wait()

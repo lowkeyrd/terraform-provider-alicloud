@@ -3,16 +3,16 @@ subcategory: "Application Load Balancer (ALB)"
 layout: "alicloud"
 page_title: "Alicloud: alicloud_alb_load_balancer_security_group_attachment"
 description: |-
-  Provides a Alicloud ALB Load Balancer Security Group Attachment resource.
+  Provides a Alicloud Application Load Balancer (ALB) Load Balancer Security Group Attachment resource.
 ---
 
 # alicloud_alb_load_balancer_security_group_attachment
 
-Provides a ALB Load Balancer Security Group Attachment resource.
+Provides a Application Load Balancer (ALB) Load Balancer Security Group Attachment resource.
 
-Bind a security group to an application-type Server Load Balancer instance.
+Attachment between Application Load Balancer and Security Group.
 
-For information about ALB Load Balancer Security Group Attachment and how to use it, see [What is Load Balancer Security Group Attachment](https://www.alibabacloud.com/help/en/).
+For information about Application Load Balancer (ALB) Load Balancer Security Group Attachment and how to use it, see [What is Load Balancer Security Group Attachment](https://next.api.alibabacloud.com/document/Alb/2020-06-16/LoadBalancerJoinSecurityGroup).
 
 -> **NOTE:** Available since v1.226.0.
 
@@ -91,8 +91,11 @@ resource "alicloud_alb_load_balancer_security_group_attachment" "default" {
 ## Argument Reference
 
 The following arguments are supported:
-* `load_balancer_id` - (Required, ForceNew) The ID of the load balancing instance.
-* `security_group_id` - (Optional, ForceNew, Computed) Security group ID collection.
+* `dry_run` - (Optional) Whether to PreCheck only this request. Value:
+  - `true`: Send a check request,
+  - `false` (default): Send a normal request.
+* `load_balancer_id` - (Required, ForceNew) The ID of the Application Load Balancer.
+* `security_group_id` - (Optional, ForceNew, Computed) The ID of the security group.
 
 ## Attributes Reference
 
@@ -107,7 +110,7 @@ The `timeouts` block allows you to specify [timeouts](https://www.terraform.io/d
 
 ## Import
 
-ALB Load Balancer Security Group Attachment can be imported using the id, e.g.
+Application Load Balancer (ALB) Load Balancer Security Group Attachment can be imported using the id, e.g.
 
 ```shell
 $ terraform import alicloud_alb_load_balancer_security_group_attachment.example <load_balancer_id>:<security_group_id>

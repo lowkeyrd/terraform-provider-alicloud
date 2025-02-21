@@ -20,7 +20,7 @@ For information about Cloud Config Aggregate Config Rule and how to use it, see 
 Basic Usage
 
 <div style="display: block;margin-bottom: 40px;"><div class="oics-button" style="float: right;position: absolute;margin-bottom: 10px;">
-  <a href="https://api.aliyun.com/terraform?resource=alicloud_config_aggregator&exampleId=b68e66a2-1930-005b-d7ad-19d3a85a2adcf6c7bb6a&activeTab=example&spm=docs.r.config_aggregator.0.b68e66a219&intl_lang=EN_US" target="_blank">
+  <a href="https://api.aliyun.com/terraform?resource=alicloud_config_aggregator&exampleId=649b656e-4929-2258-a2fd-fccccad863e8f43eefd3&activeTab=example&spm=docs.r.config_aggregator.0.649b656e49&intl_lang=EN_US" target="_blank">
     <img alt="Open in AliCloud" src="https://img.alicdn.com/imgextra/i1/O1CN01hjjqXv1uYUlY56FyX_!!6000000006049-55-tps-254-36.svg" style="max-height: 44px; max-width: 100%;">
   </a>
 </div></div>
@@ -32,10 +32,15 @@ variable "name" {
 data "alicloud_resource_manager_accounts" "default" {
   status = "CreateSuccess"
 }
+
+locals {
+  last = length(data.alicloud_resource_manager_accounts.default.accounts) - 1
+}
+
 resource "alicloud_config_aggregator" "default" {
   aggregator_accounts {
-    account_id   = data.alicloud_resource_manager_accounts.default.accounts.0.account_id
-    account_name = data.alicloud_resource_manager_accounts.default.accounts.0.display_name
+    account_id   = data.alicloud_resource_manager_accounts.default.accounts[local.last].account_id
+    account_name = data.alicloud_resource_manager_accounts.default.accounts[local.last].display_name
     account_type = "ResourceDirectory"
   }
   aggregator_name = var.name
