@@ -308,6 +308,13 @@ func resourceAlicloudCSManagedKubernetes() *schema.Resource {
 				Default:      "ipvs",
 				ValidateFunc: StringInSlice([]string{"iptables", "ipvs"}, false),
 			},
+			"ip_stack": {
+				Type:         schema.TypeString,
+				Optional:     true,
+				Computed:     true,
+				ForceNew:     true,
+				ValidateFunc: StringInSlice([]string{"ipv4", "dual"}, false),
+			},
 			"addons": {
 				Type:     schema.TypeList,
 				Optional: true,
@@ -900,6 +907,10 @@ func resourceAlicloudCSManagedKubernetesCreate(d *schema.ResourceData, meta inte
 		request.SetProxyMode(v.(string))
 	}
 
+	if v, ok := d.GetOk("ip_stack"); ok {
+		request.SetIpStack(v.(string))
+	}
+
 	if v, ok := d.GetOk("timezone"); ok {
 		request.SetTimezone(v.(string))
 	}
@@ -1015,7 +1026,8 @@ func resourceAlicloudCSManagedKubernetesRead(d *schema.ResourceData, meta interf
 
 	object, err := csClient.DescribeClusterDetail(d.Id())
 	if err != nil {
-		if NotFoundError(err) {
+		if !d.IsNewResource() && NotFoundError(err) {
+			log.Printf("[DEBUG] Resource alicloud_cs_managed_kubernetes DescribeClusterDetail Failed!!! %s", err)
 			d.SetId("")
 			return nil
 		}
@@ -1101,6 +1113,11 @@ func resourceAlicloudCSManagedKubernetesRead(d *schema.ResourceData, meta interf
 			d.Set("proxy_mode", Interface2String(v))
 		}
 	}
+
+	if object.IpStack != nil {
+		d.Set("ip_stack", object.IpStack)
+	}
+
 	if object.ContainerCidr != nil {
 		d.Set("pod_cidr", object.ContainerCidr)
 	} else {
@@ -1188,7 +1205,7 @@ func resourceAlicloudCSManagedKubernetesRead(d *schema.ResourceData, meta interf
 
 	// get cluster conn certs
 	// If the cluster is failed, there is no need to get cluster certs
-	if tea.StringValue(object.State) == "failed" || tea.StringValue(object.State) == "deleted_failed" || tea.StringValue(object.State) == "deleting" {
+	if tea.StringValue(object.State) == "failed" || tea.StringValue(object.State) == "delete_failed" || tea.StringValue(object.State) == "deleting" {
 		return nil
 	}
 

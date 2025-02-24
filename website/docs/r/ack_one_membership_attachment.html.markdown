@@ -12,11 +12,17 @@ Provides an Ack One Membership Attachment resource. Fleet Manager Membership Att
 
 For information about Ack One Membership Attachment and how to use it, see [How to attach cluster tp hub](https://www.alibabacloud.com/help/en/ack/distributed-cloud-container-platform-for-kubernetes/developer-reference/api-adcp-2022-01-01-attachclustertohub).
 
--> **NOTE:** Available since v1.242.0.
+-> **NOTE:** Available since v1.243.0.
 
 ## Example Usage
 
 Basic Usage
+
+<div style="display: block;margin-bottom: 40px;"><div class="oics-button" style="float: right;position: absolute;margin-bottom: 10px;">
+  <a href="https://api.aliyun.com/terraform?resource=alicloud_ack_one_membership_attachment&exampleId=19b8d166-e942-7d41-5ffc-efc9ee5856172c52c8fb&activeTab=example&spm=docs.r.ack_one_membership_attachment.0.19b8d166e9&intl_lang=EN_US" target="_blank">
+    <img alt="Open in AliCloud" src="https://img.alicdn.com/imgextra/i1/O1CN01hjjqXv1uYUlY56FyX_!!6000000006049-55-tps-254-36.svg" style="max-height: 44px; max-width: 100%;">
+  </a>
+</div></div>
 
 ```terraform
 provider "alicloud" {

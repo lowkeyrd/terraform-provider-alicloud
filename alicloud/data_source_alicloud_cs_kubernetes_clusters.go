@@ -48,6 +48,7 @@ func dataSourceAlicloudCSKubernetesClusters() *schema.Resource {
 			"kube_config_file_prefix": {
 				Type:     schema.TypeString,
 				Optional: true,
+				Deprecated: "Field 'kube_config_file_prefix' has been deprecated from provider version 1.243.0. From version 1.243.0, please use the attribute 'output_file' of new DataSource 'alicloud_cs_cluster_credential' to replace it.",
 			},
 			// Computed values
 			"names": {
@@ -411,7 +412,6 @@ func csKubernetesClusterDescriptionAttributes(d *schema.ResourceData, clusterTyp
 			s = append(s, mapping)
 			continue
 		}
-
 		mapping["vpc_id"] = ct.VPCID
 		mapping["security_group_id"] = ct.SecurityGroupID
 		mapping["availability_zone"] = ct.ZoneId

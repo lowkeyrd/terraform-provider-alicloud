@@ -47,6 +47,7 @@ func dataSourceAlicloudCSManagerKubernetesClusters() *schema.Resource {
 			"kube_config_file_prefix": {
 				Type:     schema.TypeString,
 				Optional: true,
+				Deprecated: "Field 'kube_config_file_prefix' has been deprecated from provider version 1.243.0. From version 1.243.0, please use the attribute 'output_file' of new DataSource 'alicloud_cs_cluster_credential' to replace it.",
 			},
 			// Computed values
 			"names": {
@@ -255,7 +256,6 @@ func dataSourceAlicloudCSManagerKubernetesClustersRead(d *schema.ResourceData, m
 	client := meta.(*connectivity.AliyunClient)
 
 	var allClusterTypes []cs.ClusterType
-
 	var requestInfo *cs.Client
 	invoker := NewInvoker()
 	var response interface{}

@@ -286,7 +286,7 @@ var productCodeToLocationCode = map[string]string{
 	"hologram":             "hologram",        // Hologram
 	"foasconsole":          "foasconsole",     // RealtimeCompute
 	"vpc":                  "vpc",             // VPC, VPNGateway,ExpressConnect, CBWP, EIP
-	"sss":                  "oss",             // OSS
+	"oss":                  "oss",             // OSS
 	"cms":                  "cms",             // CloudMonitorService
 	"waf_openapi":          "waf",             //WAFV3,WAF
 	"dfs":                  "alidfs",          //DFS
@@ -307,6 +307,7 @@ var productCodeToLocationCode = map[string]string{
 	"esa":                  "dcdnservices",    // ESA
 	"live":                 "live",            // Live
 	"eds_aic":              "wycloudphone",    // CloudPhone
+	"cloudcontrol":         "cloudcontrol",    // CloudControl
 }
 
 // irregularProductEndpoint specially records those product codes that
@@ -373,6 +374,7 @@ var irregularProductEndpointForIntlAccountIntlRegion = map[string]string{
 // Value: product endpoint
 // The priority of this configuration is lower than location service, and as a backup endpoint
 var regularProductEndpoint = map[string]string{
+	"ecs":                  "ecs.%s.aliyuncs.com",
 	"mse":                  "mse.%s.aliyuncs.com",
 	"vpc":                  "vpc.%s.aliyuncs.com",
 	"oss":                  "oss-%s.aliyuncs.com",
@@ -471,6 +473,9 @@ var regularProductEndpoint = map[string]string{
 	"quickbi_public":       "quickbi.%s.aliyuncs.com",
 	"ddosbgp":              "ddosbgp.%s.aliyuncs.com",
 	"apig":                 "apig.%s.aliyuncs.com",
+	"dds":                  "mongodb.%s.aliyuncs.com",
+	"cloudcontrol":         "cloudcontrol.aliyuncs.com",
+	"bpstudio":             "bpstudio.cn-hangzhou.aliyuncs.com",
 }
 
 // regularProductEndpointForIntlRegion specially records those product codes that have been confirmed to be
@@ -480,12 +485,14 @@ var regularProductEndpoint = map[string]string{
 // Value: product endpoint
 // The priority of this configuration is lower than location service, and as a backup endpoint
 var regularProductEndpointForIntlRegion = map[string]string{
-	"ddoscoo":     "ddoscoo.ap-southeast-1.aliyuncs.com",
-	"eds_user":    "eds-user.ap-southeast-1.aliyuncs.com",
-	"dysmsapi":    "dysmsapi.ap-southeast-1.aliyuncs.com",
-	"sddp":        "sddp.ap-southeast-1.aliyuncs.com",
-	"governance":  "governance.ap-southeast-1.aliyuncs.com",
-	"waf_openapi": "wafopenapi.ap-southeast-1.aliyuncs.com",
+	"ddoscoo":      "ddoscoo.ap-southeast-1.aliyuncs.com",
+	"eds_user":     "eds-user.ap-southeast-1.aliyuncs.com",
+	"dysmsapi":     "dysmsapi.ap-southeast-1.aliyuncs.com",
+	"sddp":         "sddp.ap-southeast-1.aliyuncs.com",
+	"governance":   "governance.ap-southeast-1.aliyuncs.com",
+	"waf_openapi":  "wafopenapi.ap-southeast-1.aliyuncs.com",
+	"cloudcontrol": "cloudcontrol.ap-southeast-1.aliyuncs.com",
+	"bpstudio":     "bpstudio.ap-southeast-1.aliyuncs.com",
 }
 
 // regularProductEndpointForIntlAccount specially records those product codes that have been confirmed to be
@@ -507,8 +514,21 @@ var regularProductEndpointForIntlAccount = map[string]string{
 // The priority of this configuration is lower than location service, and as a backup endpoint
 var regularProductEndpointForIntlAccountIntlRegion = map[string]string{}
 
+// regularProductEndpointReplace specially records some endpoints need to be replaced results from different reasons.
+// Key: source endpoint
+// Value: replaced endpoint
+// The priority of this configuration is lower than other endpoints mapping rules, and as a backup endpoint
+var regularProductEndpointReplace = map[string]string{
+	// ecs, ecs.aliyuncs.com has more higher speed
+	"ecs-cn-hangzhou.aliyuncs.com": "ecs.aliyuncs.com",
+}
+
 // NOTE: The productCode must be lowed.
 func (client *AliyunClient) loadEndpoint(productCode string) error {
+	accountId, err := client.AccountId()
+	if err != nil {
+		log.Printf("[WARN] failed to load accountId: %#v", err)
+	}
 	// Firstly, load endpoint from environment variables
 	endpoint := strings.TrimSpace(os.Getenv(fmt.Sprintf("ALIBABA_CLOUD_ENDPOINT_%s", strings.ToUpper(productCode))))
 	if endpoint == "" {
@@ -516,7 +536,7 @@ func (client *AliyunClient) loadEndpoint(productCode string) error {
 		endpoint = strings.TrimSpace(os.Getenv(fmt.Sprintf("%s_ENDPOINT", strings.ToUpper(productCode))))
 	}
 	if endpoint != "" {
-		client.config.Endpoints.Store(productCode, endpoint)
+		client.config.Endpoints.Store(productCode, FormatEndpointWithAccountID(productCode, endpoint, accountId))
 		return nil
 	}
 
@@ -534,17 +554,20 @@ func (client *AliyunClient) loadEndpoint(productCode string) error {
 		if strings.Contains(endpointFmt, "%s") {
 			endpointFmt = fmt.Sprintf(endpointFmt, client.RegionId)
 		}
-		client.config.Endpoints.Store(productCode, endpointFmt)
+		client.config.Endpoints.Store(productCode, FormatEndpointWithAccountID(productCode, endpointFmt, accountId))
 		return nil
 	}
 
 	// Thirdly, load endpoint from location
-	endpoint, err := client.describeEndpointForService(productCode)
+	endpoint, err = client.describeEndpointForService(productCode)
 	if err == nil {
 		if v, ok := regularProductEndpointForIntlAccount[productCode]; ok && client.IsInternationalAccount() {
 			endpoint = v
 		}
-		client.config.Endpoints.Store(strings.ToLower(productCode), endpoint)
+		if v, ok := regularProductEndpointReplace[endpoint]; ok {
+			endpoint = v
+		}
+		client.config.Endpoints.Store(strings.ToLower(productCode), FormatEndpointWithAccountID(productCode, endpoint, accountId))
 	} else if endpointFmt, ok := regularProductEndpoint[productCode]; ok {
 		if v, ok := regularProductEndpointForIntlRegion[productCode]; ok && client.isInternationalRegion() {
 			endpointFmt = v
@@ -555,11 +578,13 @@ func (client *AliyunClient) loadEndpoint(productCode string) error {
 		if v, ok := regularProductEndpointForIntlAccountIntlRegion[productCode]; ok && client.IsInternationalAccount() && client.isInternationalRegion() {
 			endpointFmt = v
 		}
-
 		if strings.Contains(endpointFmt, "%s") {
 			endpointFmt = fmt.Sprintf(endpointFmt, client.RegionId)
 		}
-		client.config.Endpoints.Store(productCode, endpointFmt)
+		if v, ok := regularProductEndpointReplace[endpointFmt]; ok {
+			endpointFmt = v
+		}
+		client.config.Endpoints.Store(productCode, FormatEndpointWithAccountID(productCode, endpointFmt, accountId))
 		log.Printf("[WARN] loading %s endpoint got an error: %#v. Using the endpoint %s instead.", productCode, err, endpointFmt)
 		return nil
 	}
@@ -592,6 +617,9 @@ func (config *Config) loadEndpointFromLocal() error {
 }
 
 func FormatEndpointWithAccountID(productCode string, endpoint string, accountId string) string {
+	if endpoint == "" || accountId == "" {
+		return endpoint
+	}
 	switch productCode {
 	case "fc_open", "fc":
 		return fmt.Sprintf("%s.%s", accountId, endpoint)
@@ -627,16 +655,16 @@ func (client *AliyunClient) describeEndpointForService(productCode string) (stri
 		args.Domain = "location.aliyuncs.com"
 	}
 
-	locationClient, err := location.NewClientWithOptions(client.config.RegionId, client.getSdkConfig(), client.config.getAuthCredential(true))
+	locationClient, err := location.NewClientWithOptions(client.config.RegionId, client.getSdkConfig(time.Duration(60)*time.Second), client.config.getAuthCredential(true))
 	if err != nil {
-		return "", fmt.Errorf("Unable to initialize the location client: %#v", err)
+		return "", fmt.Errorf("unable to initialize the location client: %#v", err)
 
 	}
+	locationClient.SetReadTimeout(time.Duration(client.config.ClientReadTimeout) * time.Millisecond)
+	locationClient.SetConnectTimeout(time.Duration(client.config.ClientConnectTimeout) * time.Millisecond)
+	locationClient.SourceIp = client.config.SourceIp
+	locationClient.SecureTransport = client.config.SecureTransport
 	defer locationClient.Shutdown()
-	locationClient.AppendUserAgent(Terraform, client.config.TerraformVersion)
-	locationClient.AppendUserAgent(Provider, providerVersion)
-	locationClient.AppendUserAgent(Module, client.config.ConfigurationSource)
-	locationClient.AppendUserAgent(TerraformTraceId, client.config.TerraformTraceId)
 	wait := incrementalWait(3*time.Second, 5*time.Second)
 	var endpointResult string
 	err = resource.Retry(2*time.Minute, func() *resource.RetryError {

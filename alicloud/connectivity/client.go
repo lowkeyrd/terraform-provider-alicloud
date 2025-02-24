@@ -182,7 +182,7 @@ var loadSdkfromRemoteMutex = sync.Mutex{}
 var loadSdkEndpointMutex = sync.Mutex{}
 
 // The main version number that is being run at the moment.
-var providerVersion = "1.242.0"
+var providerVersion = "1.243.0"
 
 // Temporarily maintain map for old ecs client methods and store special endpoint information
 var EndpointMap = map[string]string{
@@ -269,28 +269,16 @@ func (c *Config) Client() (*AliyunClient, error) {
 }
 
 func (client *AliyunClient) WithEcsClient(do func(*ecs.Client) (interface{}, error)) (interface{}, error) {
-	// Initialize the ECS client if necessary
 	if client.ecsconn == nil {
-		productCode := "ecs"
-		endpoint := ""
-		if v, ok := client.config.Endpoints.Load(productCode); !ok || v.(string) == "" {
-			if err := client.loadEndpoint(productCode); err != nil {
-				return nil, err
-			}
-		}
-		if v, ok := client.config.Endpoints.Load(productCode); ok && v.(string) != "" {
-			endpoint = v.(string)
-			if endpoint == "ecs-cn-hangzhou.aliyuncs.com" {
-				endpoint = "ecs.aliyuncs.com"
-			}
-		}
-		if endpoint == "" {
-			return nil, fmt.Errorf("[ERROR] missing the product %s endpoint.", productCode)
+		product := "ecs"
+		endpoint, err := client.loadApiEndpoint(product)
+		if err != nil {
+			return nil, err
 		}
 		if endpoint != "" {
-			endpoints.AddEndpointMapping(client.config.RegionId, string(ECSCode), endpoint)
+			endpoints.AddEndpointMapping(client.config.RegionId, product, endpoint)
 		}
-		ecsconn, err := ecs.NewClientWithOptions(client.config.RegionId, client.getSdkConfig().WithTimeout(time.Duration(60)*time.Second), client.config.getAuthCredential(true))
+		ecsconn, err := ecs.NewClientWithOptions(client.config.RegionId, client.getSdkConfig(time.Duration(60)*time.Second), client.config.getAuthCredential(true))
 		if err != nil {
 			return nil, fmt.Errorf("unable to initialize the ECS client: %#v", err)
 		}
@@ -298,256 +286,161 @@ func (client *AliyunClient) WithEcsClient(do func(*ecs.Client) (interface{}, err
 			client.RegionId: endpoint,
 		})
 		ecs.SetEndpointDataToClient(ecsconn)
-
-		ecsconn.SetReadTimeout(time.Duration(client.config.ClientReadTimeout) * time.Millisecond)
-		ecsconn.SetConnectTimeout(time.Duration(client.config.ClientConnectTimeout) * time.Millisecond)
-		ecsconn.SourceIp = client.config.SourceIp
-		ecsconn.SecureTransport = client.config.SecureTransport
-		ecsconn.AppendUserAgent(Terraform, client.config.TerraformVersion)
-		ecsconn.AppendUserAgent(Provider, providerVersion)
-		ecsconn.AppendUserAgent(Module, client.config.ConfigurationSource)
-		ecsconn.AppendUserAgent(TerraformTraceId, client.config.TerraformTraceId)
 		client.ecsconn = ecsconn
 	} else {
-		err := client.ecsconn.InitWithOptions(client.config.RegionId, client.getSdkConfig().WithTimeout(time.Duration(60)*time.Second), client.config.getAuthCredential(true))
+		err := client.ecsconn.InitWithOptions(client.config.RegionId, client.getSdkConfig(time.Duration(60)*time.Second), client.config.getAuthCredential(true))
 		if err != nil {
 			return nil, fmt.Errorf("unable to initialize the ECS client: %#v", err)
 		}
 	}
-
+	client.ecsconn.SetReadTimeout(time.Duration(client.config.ClientReadTimeout) * time.Millisecond)
+	client.ecsconn.SetConnectTimeout(time.Duration(client.config.ClientConnectTimeout) * time.Millisecond)
+	client.ecsconn.SourceIp = client.config.SourceIp
+	client.ecsconn.SecureTransport = client.config.SecureTransport
 	return do(client.ecsconn)
 }
 
 func (client *AliyunClient) WithOfficalCSClient(do func(*officalCS.Client) (interface{}, error)) (interface{}, error) {
-	goSdkMutex.Lock()
-	defer goSdkMutex.Unlock()
-
-	// Initialize the CS client if necessary
 	if client.officalCSConn == nil {
-		endpoint := client.config.CsEndpoint
-		if endpoint == "" {
-			endpoint = loadEndpoint(client.config.RegionId, CONTAINCode)
+		product := "cs"
+		endpoint, err := client.loadApiEndpoint(product)
+		if err != nil {
+			return nil, err
 		}
 		if endpoint != "" {
-			endpoints.AddEndpointMapping(client.config.RegionId, string(CONTAINCode), endpoint)
+			endpoints.AddEndpointMapping(client.config.RegionId, product, endpoint)
 		}
-		csconn, err := officalCS.NewClientWithOptions(client.config.RegionId, client.getSdkConfig(), client.config.getAuthCredential(true))
+		csconn, err := officalCS.NewClientWithOptions(client.config.RegionId, client.getSdkConfig(0), client.config.getAuthCredential(true))
 		if err != nil {
 			return nil, fmt.Errorf("unable to initialize the CS client: %#v", err)
 		}
-
-		csconn.SetReadTimeout(time.Duration(client.config.ClientReadTimeout) * time.Millisecond)
-		csconn.SetConnectTimeout(time.Duration(client.config.ClientConnectTimeout) * time.Millisecond)
-		csconn.SourceIp = client.config.SourceIp
-		csconn.SecureTransport = client.config.SecureTransport
-		csconn.AppendUserAgent(Terraform, client.config.TerraformVersion)
-		csconn.AppendUserAgent(Provider, providerVersion)
-		csconn.AppendUserAgent(Module, client.config.ConfigurationSource)
-		csconn.AppendUserAgent(TerraformTraceId, client.config.TerraformTraceId)
 		client.officalCSConn = csconn
+	} else {
+		err := client.officalCSConn.InitWithOptions(client.config.RegionId, client.getSdkConfig(0), client.config.getAuthCredential(true))
+		if err != nil {
+			return nil, fmt.Errorf("unable to initialize the CS client: %#v", err)
+		}
 	}
+	client.officalCSConn.SetReadTimeout(time.Duration(client.config.ClientReadTimeout) * time.Millisecond)
+	client.officalCSConn.SetConnectTimeout(time.Duration(client.config.ClientConnectTimeout) * time.Millisecond)
+	client.officalCSConn.SourceIp = client.config.SourceIp
+	client.officalCSConn.SecureTransport = client.config.SecureTransport
 
 	return do(client.officalCSConn)
 }
 
 func (client *AliyunClient) WithPolarDBClient(do func(*polardb.Client) (interface{}, error)) (interface{}, error) {
-	// Initialize the PolarDB client if necessary
 	if client.polarDBconn == nil {
-		endpoint := client.config.PolarDBEndpoint
-		if endpoint == "" {
-			endpoint = loadEndpoint(client.config.RegionId, POLARDBCode)
-			if endpoint == "" {
-				endpoint = fmt.Sprintf("%s.polardb.aliyuncs.com", client.config.RegionId)
-			}
+		product := "polardb"
+		endpoint, err := client.loadApiEndpoint(product)
+		if err != nil {
+			return nil, err
 		}
-
-		polarDBconn, err := polardb.NewClientWithOptions(client.config.RegionId, client.getSdkConfig(), client.config.getAuthCredential(true))
+		if endpoint != "" {
+			endpoints.AddEndpointMapping(client.config.RegionId, product, endpoint)
+		}
+		polarDBconn, err := polardb.NewClientWithOptions(client.config.RegionId, client.getSdkConfig(0), client.config.getAuthCredential(true))
 		if err != nil {
 			return nil, fmt.Errorf("unable to initialize the PolarDB client: %#v", err)
 
 		}
-
-		polarDBconn.SetReadTimeout(time.Duration(client.config.ClientReadTimeout) * time.Millisecond)
-		polarDBconn.SetConnectTimeout(time.Duration(client.config.ClientConnectTimeout) * time.Millisecond)
-		polarDBconn.SourceIp = client.config.SourceIp
-		polarDBconn.SecureTransport = client.config.SecureTransport
-		polarDBconn.AppendUserAgent(Terraform, client.config.TerraformVersion)
-		polarDBconn.AppendUserAgent(Provider, providerVersion)
-		polarDBconn.AppendUserAgent(Module, client.config.ConfigurationSource)
-		polarDBconn.AppendUserAgent(TerraformTraceId, client.config.TerraformTraceId)
 		client.polarDBconn = polarDBconn
 	} else {
-		err := client.polarDBconn.InitWithOptions(client.config.RegionId, client.getSdkConfig(), client.config.getAuthCredential(true))
+		err := client.polarDBconn.InitWithOptions(client.config.RegionId, client.getSdkConfig(0), client.config.getAuthCredential(true))
 		if err != nil {
 			return nil, fmt.Errorf("unable to initialize the PolarDB client: %#v", err)
 		}
 	}
 
+	client.polarDBconn.SetReadTimeout(time.Duration(client.config.ClientReadTimeout) * time.Millisecond)
+	client.polarDBconn.SetConnectTimeout(time.Duration(client.config.ClientConnectTimeout) * time.Millisecond)
+	client.polarDBconn.SourceIp = client.config.SourceIp
+	client.polarDBconn.SecureTransport = client.config.SecureTransport
 	return do(client.polarDBconn)
 }
 
 func (client *AliyunClient) WithSlbClient(do func(*slb.Client) (interface{}, error)) (interface{}, error) {
-	// Initialize the SLB client if necessary
 	if client.slbconn == nil {
-		endpoint := client.config.SlbEndpoint
-		if endpoint == "" {
-			endpoint = loadEndpoint(client.config.RegionId, SLBCode)
+		product := "slb"
+		endpoint, err := client.loadApiEndpoint(product)
+		if err != nil {
+			return nil, err
 		}
 		if endpoint != "" {
-			endpoints.AddEndpointMapping(client.config.RegionId, string(SLBCode), endpoint)
+			endpoints.AddEndpointMapping(client.config.RegionId, product, endpoint)
 		}
-		slbconn, err := slb.NewClientWithOptions(client.config.RegionId, client.getSdkConfig(), client.config.getAuthCredential(true))
+		slbconn, err := slb.NewClientWithOptions(client.config.RegionId, client.getSdkConfig(0), client.config.getAuthCredential(true))
 		if err != nil {
 			return nil, fmt.Errorf("unable to initialize the SLB client: %#v", err)
 		}
-
-		slbconn.SetReadTimeout(time.Duration(client.config.ClientReadTimeout) * time.Millisecond)
-		slbconn.SetConnectTimeout(time.Duration(client.config.ClientConnectTimeout) * time.Millisecond)
-		slbconn.SourceIp = client.config.SourceIp
-		slbconn.SecureTransport = client.config.SecureTransport
-		slbconn.AppendUserAgent(Terraform, client.config.TerraformVersion)
-		slbconn.AppendUserAgent(Provider, providerVersion)
-		slbconn.AppendUserAgent(Module, client.config.ConfigurationSource)
-		slbconn.AppendUserAgent(TerraformTraceId, client.config.TerraformTraceId)
 		client.slbconn = slbconn
 	} else {
-		err := client.slbconn.InitWithOptions(client.config.RegionId, client.getSdkConfig(), client.config.getAuthCredential(true))
+		err := client.slbconn.InitWithOptions(client.config.RegionId, client.getSdkConfig(0), client.config.getAuthCredential(true))
 		if err != nil {
 			return nil, fmt.Errorf("unable to initialize the SLB client: %#v", err)
 		}
 	}
-
+	client.slbconn.SetReadTimeout(time.Duration(client.config.ClientReadTimeout) * time.Millisecond)
+	client.slbconn.SetConnectTimeout(time.Duration(client.config.ClientConnectTimeout) * time.Millisecond)
+	client.slbconn.SourceIp = client.config.SourceIp
+	client.slbconn.SecureTransport = client.config.SecureTransport
 	return do(client.slbconn)
 }
 
 func (client *AliyunClient) WithVpcClient(do func(*vpc.Client) (interface{}, error)) (interface{}, error) {
-	// Initialize the VPC client if necessary
 	if client.vpcconn == nil {
-		endpoint := client.config.VpcEndpoint
-		if endpoint == "" {
-			endpoint = loadEndpoint(client.config.RegionId, VPCCode)
+		product := "vpc"
+		endpoint, err := client.loadApiEndpoint(product)
+		if err != nil {
+			return nil, err
 		}
 		if endpoint != "" {
-			endpoints.AddEndpointMapping(client.config.RegionId, string(VPCCode), endpoint)
+			endpoints.AddEndpointMapping(client.config.RegionId, product, endpoint)
 		}
-		vpcconn, err := vpc.NewClientWithOptions(client.config.RegionId, client.getSdkConfig().WithTimeout(time.Duration(60)*time.Second), client.config.getAuthCredential(true))
+		vpcconn, err := vpc.NewClientWithOptions(client.config.RegionId, client.getSdkConfig(time.Duration(60)*time.Second), client.config.getAuthCredential(true))
 		if err != nil {
 			return nil, fmt.Errorf("unable to initialize the VPC client: %#v", err)
 		}
-
-		vpcconn.SetReadTimeout(time.Duration(client.config.ClientReadTimeout) * time.Millisecond)
-		vpcconn.SetConnectTimeout(time.Duration(client.config.ClientConnectTimeout) * time.Millisecond)
-		vpcconn.SourceIp = client.config.SourceIp
-		vpcconn.SecureTransport = client.config.SecureTransport
-		vpcconn.AppendUserAgent(Terraform, client.config.TerraformVersion)
-		vpcconn.AppendUserAgent(Provider, providerVersion)
-		vpcconn.AppendUserAgent(Module, client.config.ConfigurationSource)
-		vpcconn.AppendUserAgent(TerraformTraceId, client.config.TerraformTraceId)
 		client.vpcconn = vpcconn
 	} else {
-		err := client.vpcconn.InitWithOptions(client.config.RegionId, client.getSdkConfig().WithTimeout(time.Duration(60)*time.Second), client.config.getAuthCredential(true))
+		err := client.vpcconn.InitWithOptions(client.config.RegionId, client.getSdkConfig(time.Duration(60)*time.Second), client.config.getAuthCredential(true))
 		if err != nil {
 			return nil, fmt.Errorf("unable to initialize the VPC client: %#v", err)
 		}
 	}
 
+	client.vpcconn.SetReadTimeout(time.Duration(client.config.ClientReadTimeout) * time.Millisecond)
+	client.vpcconn.SetConnectTimeout(time.Duration(client.config.ClientConnectTimeout) * time.Millisecond)
+	client.vpcconn.SourceIp = client.config.SourceIp
+	client.vpcconn.SecureTransport = client.config.SecureTransport
 	return do(client.vpcconn)
 }
 
-func (client *AliyunClient) NewEcsClient() (*rpc.Client, error) {
-	productCode := "ecs"
-	endpoint := ""
-	if v, ok := client.config.Endpoints.Load(productCode); !ok || v.(string) == "" {
-		if err := client.loadEndpoint(productCode); err != nil {
+func (client *AliyunClient) WithEssClient(do func(*ess.Client) (interface{}, error)) (interface{}, error) {
+	if client.essconn == nil {
+		product := "ess"
+		endpoint, err := client.loadApiEndpoint(product)
+		if err != nil {
 			return nil, err
 		}
-	}
-	if v, ok := client.config.Endpoints.Load(productCode); ok && v.(string) != "" {
-		endpoint = v.(string)
-		if endpoint == "ecs-cn-hangzhou.aliyuncs.com" {
-			endpoint = "ecs.aliyuncs.com"
-		}
-	}
-	if endpoint == "" {
-		return nil, fmt.Errorf("[ERROR] missing the product %s endpoint.", productCode)
-	}
-
-	sdkConfig := client.teaSdkConfig
-	sdkConfig.SetEndpoint(endpoint).SetReadTimeout(60000)
-
-	conn, err := rpc.NewClient(&sdkConfig)
-	if err != nil {
-		return nil, fmt.Errorf("unable to initialize the %s client: %#v", productCode, err)
-	}
-
-	return conn, nil
-}
-
-func (client *AliyunClient) WithCenClient(do func(*cbn.Client) (interface{}, error)) (interface{}, error) {
-	// Initialize the CEN client if necessary
-	if client.cenconn == nil {
-		endpoint := client.config.CenEndpoint
-		if endpoint == "" {
-			endpoint = loadEndpoint(client.config.RegionId, CbnCode)
-		}
 		if endpoint != "" {
-			endpoints.AddEndpointMapping(client.config.RegionId, string(CbnCode), endpoint)
+			endpoints.AddEndpointMapping(client.config.RegionId, product, endpoint)
 		}
-		cenconn, err := cbn.NewClientWithOptions(client.config.RegionId, client.getSdkConfig(), client.config.getAuthCredential(true))
-		if err != nil {
-			return nil, fmt.Errorf("unable to initialize the CEN client: %#v", err)
-		}
-
-		cenconn.SetReadTimeout(time.Duration(client.config.ClientReadTimeout) * time.Millisecond)
-		cenconn.SetConnectTimeout(time.Duration(client.config.ClientConnectTimeout) * time.Millisecond)
-		cenconn.SourceIp = client.config.SourceIp
-		cenconn.SecureTransport = client.config.SecureTransport
-		cenconn.AppendUserAgent(Terraform, client.config.TerraformVersion)
-		cenconn.AppendUserAgent(Provider, providerVersion)
-		cenconn.AppendUserAgent(Module, client.config.ConfigurationSource)
-		cenconn.AppendUserAgent(TerraformTraceId, client.config.TerraformTraceId)
-		client.cenconn = cenconn
-	} else {
-		err := client.cenconn.InitWithOptions(client.config.RegionId, client.getSdkConfig(), client.config.getAuthCredential(true))
-		if err != nil {
-			return nil, fmt.Errorf("unable to initialize the CEN client: %#v", err)
-		}
-	}
-
-	return do(client.cenconn)
-}
-
-func (client *AliyunClient) WithEssClient(do func(*ess.Client) (interface{}, error)) (interface{}, error) {
-	// Initialize the ESS client if necessary
-	if client.essconn == nil {
-		endpoint := client.config.EssEndpoint
-		if endpoint == "" {
-			endpoint = loadEndpoint(client.config.RegionId, ESSCode)
-		}
-		if endpoint != "" {
-			endpoints.AddEndpointMapping(client.config.RegionId, string(ESSCode), endpoint)
-		}
-		essconn, err := ess.NewClientWithOptions(client.config.RegionId, client.getSdkConfig(), client.config.getAuthCredential(true))
+		essconn, err := ess.NewClientWithOptions(client.config.RegionId, client.getSdkConfig(0), client.config.getAuthCredential(true))
 		if err != nil {
 			return nil, fmt.Errorf("unable to initialize the ESS client: %#v", err)
 		}
-
-		essconn.SetReadTimeout(time.Duration(client.config.ClientReadTimeout) * time.Millisecond)
-		essconn.SetConnectTimeout(time.Duration(client.config.ClientConnectTimeout) * time.Millisecond)
-		essconn.SourceIp = client.config.SourceIp
-		essconn.SecureTransport = client.config.SecureTransport
-		essconn.AppendUserAgent(Terraform, client.config.TerraformVersion)
-		essconn.AppendUserAgent(Provider, providerVersion)
-		essconn.AppendUserAgent(Module, client.config.ConfigurationSource)
-		essconn.AppendUserAgent(TerraformTraceId, client.config.TerraformTraceId)
 		client.essconn = essconn
 	} else {
-		err := client.essconn.InitWithOptions(client.config.RegionId, client.getSdkConfig(), client.config.getAuthCredential(true))
+		err := client.essconn.InitWithOptions(client.config.RegionId, client.getSdkConfig(0), client.config.getAuthCredential(true))
 		if err != nil {
 			return nil, fmt.Errorf("unable to initialize the ESS client: %#v", err)
 		}
 	}
-
+	client.essconn.SetReadTimeout(time.Duration(client.config.ClientReadTimeout) * time.Millisecond)
+	client.essconn.SetConnectTimeout(time.Duration(client.config.ClientConnectTimeout) * time.Millisecond)
+	client.essconn.SourceIp = client.config.SourceIp
+	client.essconn.SecureTransport = client.config.SecureTransport
 	return do(client.essconn)
 }
 
@@ -639,7 +532,7 @@ func (client *AliyunClient) WithDnsClient(do func(*alidns.Client) (interface{}, 
 			endpoints.AddEndpointMapping(client.config.RegionId, string(DNSCode), endpoint)
 		}
 
-		dnsconn, err := alidns.NewClientWithOptions(client.config.RegionId, client.getSdkConfig(), client.config.getAuthCredential(true))
+		dnsconn, err := alidns.NewClientWithOptions(client.config.RegionId, client.getSdkConfig(0), client.config.getAuthCredential(true))
 		if err != nil {
 			return nil, fmt.Errorf("unable to initialize the DNS client: %#v", err)
 		}
@@ -647,10 +540,6 @@ func (client *AliyunClient) WithDnsClient(do func(*alidns.Client) (interface{}, 
 		dnsconn.SetConnectTimeout(time.Duration(client.config.ClientConnectTimeout) * time.Millisecond)
 		dnsconn.SourceIp = client.config.SourceIp
 		dnsconn.SecureTransport = client.config.SecureTransport
-		dnsconn.AppendUserAgent(Terraform, client.config.TerraformVersion)
-		dnsconn.AppendUserAgent(Provider, providerVersion)
-		dnsconn.AppendUserAgent(Module, client.config.ConfigurationSource)
-		dnsconn.AppendUserAgent(TerraformTraceId, client.config.TerraformTraceId)
 		client.dnsconn = dnsconn
 	}
 
@@ -658,73 +547,68 @@ func (client *AliyunClient) WithDnsClient(do func(*alidns.Client) (interface{}, 
 }
 
 func (client *AliyunClient) WithRamClient(do func(*ram.Client) (interface{}, error)) (interface{}, error) {
-	// Initialize the RAM client if necessary
 	if client.ramconn == nil {
-		endpoint := client.config.RamEndpoint
-		if endpoint == "" {
-			endpoint = loadEndpoint(client.config.RegionId, RAMCode)
-		}
-		if strings.HasPrefix(endpoint, "http") {
-			endpoint = fmt.Sprintf("https://%s", strings.TrimPrefix(endpoint, "http://"))
+		product := "ram"
+		endpoint, err := client.loadApiEndpoint(product)
+		if err != nil {
+			return nil, err
 		}
 		if endpoint != "" {
-			endpoints.AddEndpointMapping(client.config.RegionId, string(RAMCode), endpoint)
+			endpoints.AddEndpointMapping(client.config.RegionId, product, endpoint)
 		}
-
-		ramconn, err := ram.NewClientWithOptions(client.config.RegionId, client.getSdkConfig(), client.config.getAuthCredential(true))
+		ramconn, err := ram.NewClientWithOptions(client.config.RegionId, client.getSdkConfig(0), client.config.getAuthCredential(true))
 		if err != nil {
 			return nil, fmt.Errorf("unable to initialize the RAM client: %#v", err)
 		}
-		ramconn.SetReadTimeout(time.Duration(client.config.ClientReadTimeout) * time.Millisecond)
-		ramconn.SetConnectTimeout(time.Duration(client.config.ClientConnectTimeout) * time.Millisecond)
-		ramconn.SourceIp = client.config.SourceIp
-		ramconn.SecureTransport = client.config.SecureTransport
-		ramconn.AppendUserAgent(Terraform, client.config.TerraformVersion)
-		ramconn.AppendUserAgent(Provider, providerVersion)
-		ramconn.AppendUserAgent(Module, client.config.ConfigurationSource)
-		ramconn.AppendUserAgent(TerraformTraceId, client.config.TerraformTraceId)
 		client.ramconn = ramconn
 	} else {
-		err := client.ramconn.InitWithOptions(client.config.RegionId, client.getSdkConfig(), client.config.getAuthCredential(true))
+		err := client.ramconn.InitWithOptions(client.config.RegionId, client.getSdkConfig(0), client.config.getAuthCredential(true))
 		if err != nil {
 			return nil, fmt.Errorf("unable to initialize the RAM client: %#v", err)
 		}
-
 	}
-
+	client.ramconn.SetReadTimeout(time.Duration(client.config.ClientReadTimeout) * time.Millisecond)
+	client.ramconn.SetConnectTimeout(time.Duration(client.config.ClientConnectTimeout) * time.Millisecond)
+	client.ramconn.SourceIp = client.config.SourceIp
+	client.ramconn.SecureTransport = client.config.SecureTransport
 	return do(client.ramconn)
 }
 
 func (client *AliyunClient) WithCsClient(do func(*cs.Client) (interface{}, error)) (interface{}, error) {
-	goSdkMutex.Lock()
-	defer goSdkMutex.Unlock()
-
-	// Initialize the CS client if necessary
-	if client.csconn == nil {
-		csconn := cs.NewClientForAussumeRole(client.config.AccessKey, client.config.SecretKey, client.config.SecurityToken)
-		csconn.SetUserAgent(client.getUserAgent())
-		endpoint := client.config.CsEndpoint
-		if endpoint == "" {
-			endpoint = loadEndpoint(client.config.RegionId, CONTAINCode)
-		}
-		if endpoint != "" {
-			if !strings.HasPrefix(endpoint, "http") {
-				endpoint = fmt.Sprintf("https://%s", strings.TrimPrefix(endpoint, "://"))
-			}
-			csconn.SetEndpoint(endpoint)
-		}
-		csconn.SetSourceIp(client.config.SourceIp)
-		csconn.SetSecureTransport(client.config.SecureTransport)
-		client.csconn = csconn
+	product := "cs"
+	endpoint, err := client.loadApiEndpoint(product)
+	if err != nil {
+		return nil, err
 	}
-
+	endpoint = fmt.Sprintf("https://%s", endpoint)
+	accessKey, secretKey, stsToken := client.config.AccessKey, client.config.SecretKey, client.config.SecurityToken
+	credential, err := client.config.Credential.GetCredential()
+	if err != nil || credential == nil {
+		log.Printf("[WARN] get credential failed. Error: %#v", err)
+	} else {
+		accessKey, secretKey, stsToken = *credential.AccessKeyId, *credential.AccessKeySecret, *credential.SecurityToken
+	}
+	csconn := cs.NewClientForAussumeRole(accessKey, secretKey, stsToken)
+	csconn.SetUserAgent(client.config.getUserAgent())
+	csconn.SetEndpoint(endpoint)
+	csconn.SetSourceIp(client.config.SourceIp)
+	csconn.SetSecureTransport(client.config.SecureTransport)
+	client.csconn = csconn
 	return do(client.csconn)
 }
 
 func (client *AliyunClient) NewRoaCsClient() (*roaCS.Client, error) {
-	endpoint := client.config.CsEndpoint
-	if endpoint == "" {
-		endpoint = OpenAckService
+	product := "cs"
+	endpoint, err := client.loadApiEndpoint(product)
+	if err != nil {
+		return nil, err
+	}
+	accessKey, secretKey, stsToken := client.config.AccessKey, client.config.SecretKey, client.config.SecurityToken
+	credential, err := client.config.Credential.GetCredential()
+	if err != nil || credential == nil {
+		log.Printf("[WARN] get credential failed. Error: %#v", err)
+	} else {
+		accessKey, secretKey, stsToken = *credential.AccessKeyId, *credential.AccessKeySecret, *credential.SecurityToken
 	}
 	header := map[string]*string{
 		"x-acs-source-ip":        tea.String(client.config.SourceIp),
@@ -733,11 +617,11 @@ func (client *AliyunClient) NewRoaCsClient() (*roaCS.Client, error) {
 	param := &openapi.GlobalParameters{Headers: header}
 	// Initialize the CS client if necessary
 	roaCSConn, err := roaCS.NewClient(&openapi.Config{
-		AccessKeyId:      tea.String(client.config.AccessKey),
-		AccessKeySecret:  tea.String(client.config.SecretKey),
-		SecurityToken:    tea.String(client.config.SecurityToken),
+		AccessKeyId:      tea.String(accessKey),
+		AccessKeySecret:  tea.String(secretKey),
+		SecurityToken:    tea.String(stsToken),
 		RegionId:         tea.String(client.config.RegionId),
-		UserAgent:        tea.String(client.getUserAgent()),
+		UserAgent:        tea.String(client.config.getUserAgent()),
 		Endpoint:         tea.String(endpoint),
 		ReadTimeout:      tea.Int(client.config.ClientReadTimeout),
 		ConnectTimeout:   tea.Int(client.config.ClientConnectTimeout),
@@ -763,7 +647,7 @@ func (client *AliyunClient) WithCrClient(do func(*cr.Client) (interface{}, error
 		if endpoint != "" {
 			endpoints.AddEndpointMapping(client.config.RegionId, string(CRCode), endpoint)
 		}
-		crconn, err := cr.NewClientWithOptions(client.config.RegionId, client.getSdkConfig(), client.config.getAuthCredential(true))
+		crconn, err := cr.NewClientWithOptions(client.config.RegionId, client.getSdkConfig(0), client.config.getAuthCredential(true))
 		if err != nil {
 			return nil, fmt.Errorf("unable to initialize the CR client: %#v", err)
 		}
@@ -771,10 +655,6 @@ func (client *AliyunClient) WithCrClient(do func(*cr.Client) (interface{}, error
 		crconn.SetConnectTimeout(time.Duration(client.config.ClientConnectTimeout) * time.Millisecond)
 		crconn.SourceIp = client.config.SourceIp
 		crconn.SecureTransport = client.config.SecureTransport
-		crconn.AppendUserAgent(Terraform, client.config.TerraformVersion)
-		crconn.AppendUserAgent(Provider, providerVersion)
-		crconn.AppendUserAgent(Module, client.config.ConfigurationSource)
-		crconn.AppendUserAgent(TerraformTraceId, client.config.TerraformTraceId)
 		client.crconn = crconn
 	}
 
@@ -794,7 +674,7 @@ func (client *AliyunClient) WithCrEEClient(do func(*cr_ee.Client) (interface{}, 
 		if endpoint != "" {
 			endpoints.AddEndpointMapping(client.config.RegionId, string(CRCode), endpoint)
 		}
-		creeconn, err := cr_ee.NewClientWithOptions(client.config.RegionId, client.getSdkConfig(), client.config.getAuthCredential(true))
+		creeconn, err := cr_ee.NewClientWithOptions(client.config.RegionId, client.getSdkConfig(0), client.config.getAuthCredential(true))
 		if err != nil {
 			return nil, fmt.Errorf("unable to initialize the CR EE client: %#v", err)
 		}
@@ -802,10 +682,6 @@ func (client *AliyunClient) WithCrEEClient(do func(*cr_ee.Client) (interface{}, 
 		creeconn.SetConnectTimeout(time.Duration(client.config.ClientConnectTimeout) * time.Millisecond)
 		creeconn.SourceIp = client.config.SourceIp
 		creeconn.SecureTransport = client.config.SecureTransport
-		creeconn.AppendUserAgent(Terraform, client.config.TerraformVersion)
-		creeconn.AppendUserAgent(Provider, providerVersion)
-		creeconn.AppendUserAgent(Module, client.config.ConfigurationSource)
-		creeconn.AppendUserAgent(TerraformTraceId, client.config.TerraformTraceId)
 		client.creeconn = creeconn
 	}
 
@@ -844,7 +720,7 @@ func (client *AliyunClient) WithCdnClient_new(do func(*cdn_new.Client) (interfac
 		if endpoint != "" {
 			endpoints.AddEndpointMapping(client.config.RegionId, string(CDNCode), endpoint)
 		}
-		cdnconn, err := cdn_new.NewClientWithOptions(client.config.RegionId, client.getSdkConfig(), client.config.getAuthCredential(true))
+		cdnconn, err := cdn_new.NewClientWithOptions(client.config.RegionId, client.getSdkConfig(0), client.config.getAuthCredential(true))
 		if err != nil {
 			return nil, fmt.Errorf("unable to initialize the CDN client: %#v", err)
 		}
@@ -852,10 +728,6 @@ func (client *AliyunClient) WithCdnClient_new(do func(*cdn_new.Client) (interfac
 		cdnconn.SetConnectTimeout(time.Duration(client.config.ClientConnectTimeout) * time.Millisecond)
 		cdnconn.SourceIp = client.config.SourceIp
 		cdnconn.SecureTransport = client.config.SecureTransport
-		cdnconn.AppendUserAgent(Terraform, client.config.TerraformVersion)
-		cdnconn.AppendUserAgent(Provider, providerVersion)
-		cdnconn.AppendUserAgent(Module, client.config.ConfigurationSource)
-		cdnconn.AppendUserAgent(TerraformTraceId, client.config.TerraformTraceId)
 		client.cdnconn_new = cdnconn
 	}
 
@@ -873,7 +745,7 @@ func (client *AliyunClient) WithOtsClient(do func(*ots.Client) (interface{}, err
 		if endpoint != "" {
 			endpoints.AddEndpointMapping(client.config.RegionId, string(OTSCode), endpoint)
 		}
-		otsconn, err := ots.NewClientWithOptions(client.config.RegionId, client.getSdkConfig(), client.config.getAuthCredential(true))
+		otsconn, err := ots.NewClientWithOptions(client.config.RegionId, client.getSdkConfig(0), client.config.getAuthCredential(true))
 		if err != nil {
 			return nil, fmt.Errorf("unable to initialize the OTS client: %#v", err)
 		}
@@ -882,10 +754,6 @@ func (client *AliyunClient) WithOtsClient(do func(*ots.Client) (interface{}, err
 		otsconn.SetConnectTimeout(time.Duration(client.config.ClientConnectTimeout) * time.Millisecond)
 		otsconn.SourceIp = client.config.SourceIp
 		otsconn.SecureTransport = client.config.SecureTransport
-		otsconn.AppendUserAgent(Terraform, client.config.TerraformVersion)
-		otsconn.AppendUserAgent(Provider, providerVersion)
-		otsconn.AppendUserAgent(Module, client.config.ConfigurationSource)
-		otsconn.AppendUserAgent(TerraformTraceId, client.config.TerraformTraceId)
 		client.otsconn = otsconn
 	}
 
@@ -922,53 +790,37 @@ func (client *AliyunClient) NewOtsRoaClient(productCode string) (*roa.Client, er
 }
 
 func (client *AliyunClient) WithCmsClient(do func(*cms.Client) (interface{}, error)) (interface{}, error) {
-	// Initialize the CMS client if necessary
 	if client.cmsconn == nil {
-		endpoint := client.config.CmsEndpoint
-		if endpoint == "" {
-			productCode := "cms"
-			if v, ok := client.config.Endpoints.Load(productCode); !ok || v.(string) == "" {
-				if err := client.loadEndpoint(productCode); err != nil {
-					endpoint = fmt.Sprintf("metrics.%s.aliyuncs.com", client.RegionId)
-					client.config.Endpoints.Store(productCode, endpoint)
-					log.Printf("[ERROR] loading %s endpoint got an error: %#v. Using the central endpoint %s instead.", productCode, err, endpoint)
-				}
-			}
-			if v, ok := client.config.Endpoints.Load(productCode); ok && v.(string) != "" {
-				endpoint = v.(string)
-			}
+		product := "cms"
+		endpoint, err := client.loadApiEndpoint(product)
+		if err != nil {
+			return nil, err
 		}
 		if endpoint != "" {
-			endpoints.AddEndpointMapping(client.config.RegionId, string(CMSCode), endpoint)
+			endpoints.AddEndpointMapping(client.config.RegionId, product, endpoint)
 		}
-		cmsconn, err := cms.NewClientWithOptions(client.config.RegionId, client.getSdkConfig(), client.config.getAuthCredential(true))
+		cmsconn, err := cms.NewClientWithOptions(client.config.RegionId, client.getSdkConfig(0), client.config.getAuthCredential(true))
 		if err != nil {
 			return nil, fmt.Errorf("unable to initialize the CMS client: %#v", err)
 		}
-
-		cmsconn.SetReadTimeout(time.Duration(client.config.ClientReadTimeout) * time.Millisecond)
-		cmsconn.SetConnectTimeout(time.Duration(client.config.ClientConnectTimeout) * time.Millisecond)
-		cmsconn.SourceIp = client.config.SourceIp
-		cmsconn.SecureTransport = client.config.SecureTransport
-		cmsconn.AppendUserAgent(Terraform, client.config.TerraformVersion)
-		cmsconn.AppendUserAgent(Provider, providerVersion)
-		cmsconn.AppendUserAgent(Module, client.config.ConfigurationSource)
-		cmsconn.AppendUserAgent(TerraformTraceId, client.config.TerraformTraceId)
 		client.cmsconn = cmsconn
 	} else {
-		err := client.cmsconn.InitWithOptions(client.config.RegionId, client.getSdkConfig(), client.config.getAuthCredential(true))
+		err := client.cmsconn.InitWithOptions(client.config.RegionId, client.getSdkConfig(0), client.config.getAuthCredential(true))
 		if err != nil {
 			return nil, fmt.Errorf("unable to initialize the CMS client: %#v", err)
 		}
 	}
-
+	client.cmsconn.SetReadTimeout(time.Duration(client.config.ClientReadTimeout) * time.Millisecond)
+	client.cmsconn.SetConnectTimeout(time.Duration(client.config.ClientConnectTimeout) * time.Millisecond)
+	client.cmsconn.SourceIp = client.config.SourceIp
+	client.cmsconn.SecureTransport = client.config.SecureTransport
 	return do(client.cmsconn)
 }
 
 func (client *AliyunClient) WithLogPopClient(do func(*slsPop.Client) (interface{}, error)) (interface{}, error) {
 	// Initialize the HBase client if necessary
 	if client.logpopconn == nil {
-		logpopconn, err := slsPop.NewClientWithOptions(client.config.RegionId, client.getSdkConfig(), client.config.getAuthCredential(true))
+		logpopconn, err := slsPop.NewClientWithOptions(client.config.RegionId, client.getSdkConfig(0), client.config.getAuthCredential(true))
 		if err != nil {
 			return nil, fmt.Errorf("unable to initialize the sls client: %#v", err)
 		}
@@ -976,10 +828,6 @@ func (client *AliyunClient) WithLogPopClient(do func(*slsPop.Client) (interface{
 		logpopconn.SetConnectTimeout(time.Duration(client.config.ClientConnectTimeout) * time.Millisecond)
 		logpopconn.SourceIp = client.config.SourceIp
 		logpopconn.SecureTransport = client.config.SecureTransport
-		logpopconn.AppendUserAgent(Terraform, client.config.TerraformVersion)
-		logpopconn.AppendUserAgent(Provider, providerVersion)
-		logpopconn.AppendUserAgent(Module, client.config.ConfigurationSource)
-		logpopconn.AppendUserAgent(TerraformTraceId, client.config.TerraformTraceId)
 		endpoint := client.config.LogEndpoint
 		if endpoint == "" {
 			endpoint = loadEndpoint(client.config.RegionId, LOGCode)
@@ -1025,137 +873,92 @@ func (client *AliyunClient) WithLogClient(do func(*sls.Client) (interface{}, err
 }
 
 func (client *AliyunClient) WithDrdsClient(do func(*drds.Client) (interface{}, error)) (interface{}, error) {
-	// Initialize the DRDS client if necessary
 	if client.drdsconn == nil {
-		endpoint := client.config.DrdsEndpoint
-		if endpoint == "" {
-			endpoint = loadEndpoint(client.config.RegionId, DRDSCode)
-			if endpoint == "" {
-				endpoint = fmt.Sprintf("%s.drds.aliyuncs.com", client.config.RegionId)
-			}
+		product := "drds"
+		endpoint, err := client.loadApiEndpoint(product)
+		if err != nil {
+			return nil, err
 		}
-
-		drdsconn, err := drds.NewClientWithOptions(client.config.RegionId, client.getSdkConfig(), client.config.getAuthCredential(true))
+		if endpoint != "" {
+			endpoints.AddEndpointMapping(client.config.RegionId, product, endpoint)
+		}
+		drdsconn, err := drds.NewClientWithOptions(client.config.RegionId, client.getSdkConfig(0), client.config.getAuthCredential(true))
 		if err != nil {
 			return nil, fmt.Errorf("unable to initialize the DRDS client: %#v", err)
 
 		}
-		drdsconn.SetReadTimeout(time.Duration(client.config.ClientReadTimeout) * time.Millisecond)
-		drdsconn.SetConnectTimeout(time.Duration(client.config.ClientConnectTimeout) * time.Millisecond)
-		drdsconn.SourceIp = client.config.SourceIp
-		drdsconn.SecureTransport = client.config.SecureTransport
-		drdsconn.AppendUserAgent(Terraform, client.config.TerraformVersion)
-		drdsconn.AppendUserAgent(Provider, providerVersion)
-		drdsconn.AppendUserAgent(Module, client.config.ConfigurationSource)
-		drdsconn.AppendUserAgent(TerraformTraceId, client.config.TerraformTraceId)
 		client.drdsconn = drdsconn
 	} else {
-		err := client.drdsconn.InitWithOptions(client.config.RegionId, client.getSdkConfig(), client.config.getAuthCredential(true))
+		err := client.drdsconn.InitWithOptions(client.config.RegionId, client.getSdkConfig(0), client.config.getAuthCredential(true))
 		if err != nil {
-			return nil, fmt.Errorf("unable to initialize the CMS client: %#v", err)
+			return nil, fmt.Errorf("unable to initialize the DRDS client: %#v", err)
 		}
 	}
+	client.drdsconn.SetReadTimeout(time.Duration(client.config.ClientReadTimeout) * time.Millisecond)
+	client.drdsconn.SetConnectTimeout(time.Duration(client.config.ClientConnectTimeout) * time.Millisecond)
+	client.drdsconn.SourceIp = client.config.SourceIp
+	client.drdsconn.SecureTransport = client.config.SecureTransport
 
 	return do(client.drdsconn)
 }
 
 func (client *AliyunClient) WithDdsClient(do func(*dds.Client) (interface{}, error)) (interface{}, error) {
-	// Initialize the DDS client if necessary
-	productCode := "dds"
-	endpoint := ""
-
 	if client.ddsconn == nil {
-		if endpoint == "" {
-			if v, ok := client.config.Endpoints.Load(productCode); !ok || v.(string) == "" {
-				if err := client.loadEndpoint(productCode); err != nil {
-					endpoint = fmt.Sprintf("mongodb.%s.aliyuncs.com", client.config.RegionId)
-					client.config.Endpoints.Store(productCode, endpoint)
-					log.Printf("[ERROR] loading %s endpoint got an error: %#v. Using the endpoint %s instead.", productCode, err, endpoint)
-				}
-			}
-
-			if v, ok := client.config.Endpoints.Load(productCode); ok && v.(string) != "" {
-				endpoint = v.(string)
-			}
-		}
-
-		if endpoint != "" {
-			endpoints.AddEndpointMapping(client.config.RegionId, string(DDSCode), endpoint)
-		} else {
-			return nil, fmt.Errorf("[ERROR] missing the product %s endpoint.", productCode)
-		}
-
-		ddsconn, err := dds.NewClientWithOptions(client.config.RegionId, client.getSdkConfig(), client.config.getAuthCredential(true))
+		product := "dds"
+		endpoint, err := client.loadApiEndpoint(product)
 		if err != nil {
-			return nil, fmt.Errorf("unable to initialize the DDS client: %#v", err)
+			return nil, err
+		}
+		if endpoint != "" {
+			endpoints.AddEndpointMapping(client.config.RegionId, product, endpoint)
 		}
 
-		ddsconn.SetReadTimeout(time.Duration(client.config.ClientReadTimeout) * time.Millisecond)
-		ddsconn.SetConnectTimeout(time.Duration(client.config.ClientConnectTimeout) * time.Millisecond)
-		ddsconn.SourceIp = client.config.SourceIp
-		ddsconn.SecureTransport = client.config.SecureTransport
-		ddsconn.AppendUserAgent(Terraform, client.config.TerraformVersion)
-		ddsconn.AppendUserAgent(Provider, providerVersion)
-		ddsconn.AppendUserAgent(Module, client.config.ConfigurationSource)
-		ddsconn.AppendUserAgent(TerraformTraceId, client.config.TerraformTraceId)
+		ddsconn, err := dds.NewClientWithOptions(client.config.RegionId, client.getSdkConfig(0), client.config.getAuthCredential(true))
+		if err != nil {
+			return nil, fmt.Errorf("unable to initialize the mongoDB client: %#v", err)
+		}
 		client.ddsconn = ddsconn
+	} else {
+		err := client.ddsconn.InitWithOptions(client.config.RegionId, client.getSdkConfig(0), client.config.getAuthCredential(true))
+		if err != nil {
+			return nil, fmt.Errorf("unable to initialize the mongoDB client: %#v", err)
+		}
 	}
-
+	client.ddsconn.SetReadTimeout(time.Duration(client.config.ClientReadTimeout) * time.Millisecond)
+	client.ddsconn.SetConnectTimeout(time.Duration(client.config.ClientConnectTimeout) * time.Millisecond)
+	client.ddsconn.SourceIp = client.config.SourceIp
+	client.ddsconn.SecureTransport = client.config.SecureTransport
 	return do(client.ddsconn)
 }
 
 func (client *AliyunClient) WithGpdbClient(do func(*gpdb.Client) (interface{}, error)) (interface{}, error) {
 	// Initialize the GPDB client if necessary
 	if client.gpdbconn == nil {
-		endpoint := client.config.GpdbEnpoint
-		if endpoint == "" {
-			endpoint = loadEndpoint(client.config.RegionId, GPDBCode)
+		product := "gpdb"
+		endpoint, err := client.loadApiEndpoint(product)
+		if err != nil {
+			return nil, err
 		}
 		if endpoint != "" {
-			endpoints.AddEndpointMapping(client.config.RegionId, string(GPDBCode), endpoint)
+			endpoints.AddEndpointMapping(client.config.RegionId, product, endpoint)
 		}
-		gpdbconn, err := gpdb.NewClientWithOptions(client.config.RegionId, client.getSdkConfig(), client.config.getAuthCredential(true))
+
+		gpdbconn, err := gpdb.NewClientWithOptions(client.config.RegionId, client.getSdkConfig(0), client.config.getAuthCredential(true))
 		if err != nil {
 			return nil, fmt.Errorf("unable to initialize the GPDB client: %#v", err)
 		}
-		gpdbconn.SetReadTimeout(time.Duration(client.config.ClientReadTimeout) * time.Millisecond)
-		gpdbconn.SetConnectTimeout(time.Duration(client.config.ClientConnectTimeout) * time.Millisecond)
-		gpdbconn.SourceIp = client.config.SourceIp
-		gpdbconn.SecureTransport = client.config.SecureTransport
-		gpdbconn.AppendUserAgent(Terraform, client.config.TerraformVersion)
-		gpdbconn.AppendUserAgent(Provider, providerVersion)
-		gpdbconn.AppendUserAgent(Module, client.config.ConfigurationSource)
-		gpdbconn.AppendUserAgent(TerraformTraceId, client.config.TerraformTraceId)
 		client.gpdbconn = gpdbconn
-	}
-
-	return do(client.gpdbconn)
-}
-
-func (client *AliyunClient) NewGpdbClient() (*rpc.Client, error) {
-	productCode := "gpdb"
-	endpoint := ""
-	if v, ok := client.config.Endpoints.Load(productCode); !ok || v.(string) == "" {
-		if err := client.loadEndpoint(productCode); err != nil {
-			return nil, err
+	} else {
+		err := client.gpdbconn.InitWithOptions(client.config.RegionId, client.getSdkConfig(0), client.config.getAuthCredential(true))
+		if err != nil {
+			return nil, fmt.Errorf("unable to initialize the GPDB client: %#v", err)
 		}
 	}
-	if v, ok := client.config.Endpoints.Load(productCode); ok && v.(string) != "" {
-		endpoint = v.(string)
-	}
-	if endpoint == "" {
-		return nil, fmt.Errorf("[ERROR] missing the product %s endpoint.", productCode)
-	}
-
-	sdkConfig := client.teaSdkConfig
-	sdkConfig.SetEndpoint(endpoint)
-
-	conn, err := rpc.NewClient(&sdkConfig)
-	if err != nil {
-		return nil, fmt.Errorf("unable to initialize the %s client: %#v", productCode, err)
-	}
-
-	return conn, nil
+	client.gpdbconn.SetReadTimeout(time.Duration(client.config.ClientReadTimeout) * time.Millisecond)
+	client.gpdbconn.SetConnectTimeout(time.Duration(client.config.ClientConnectTimeout) * time.Millisecond)
+	client.gpdbconn.SourceIp = client.config.SourceIp
+	client.gpdbconn.SecureTransport = client.config.SecureTransport
+	return do(client.gpdbconn)
 }
 
 func (client *AliyunClient) WithFcClient(do func(*fc.Client) (interface{}, error)) (interface{}, error) {
@@ -1176,7 +979,7 @@ func (client *AliyunClient) WithFcClient(do func(*fc.Client) (interface{}, error
 		return nil, err
 	}
 
-	config := client.getSdkConfig()
+	config := client.getSdkConfig(0)
 	transport := config.HttpTransport
 	// Receiving proxy config from environment
 	transport.Proxy = http.ProxyFromEnvironment
@@ -1190,7 +993,7 @@ func (client *AliyunClient) WithFcClient(do func(*fc.Client) (interface{}, error
 			return nil, fmt.Errorf("unable to initialize the FC client: %#v", err)
 		}
 
-		fcconn.Config.UserAgent = client.getUserAgent()
+		fcconn.Config.UserAgent = client.config.getUserAgent()
 		fcconn.Config.SecurityToken = client.config.SecurityToken
 		client.fcconn = fcconn
 	} else {
@@ -1198,7 +1001,7 @@ func (client *AliyunClient) WithFcClient(do func(*fc.Client) (interface{}, error
 		if err != nil {
 			return nil, fmt.Errorf("unable to initialize the FC client: %#v", err)
 		}
-		fcconn.Config.UserAgent = client.getUserAgent()
+		fcconn.Config.UserAgent = client.config.getUserAgent()
 		fcconn.Config.SecurityToken = client.config.SecurityToken
 		client.fcconn = fcconn
 	}
@@ -1216,13 +1019,13 @@ func (client *AliyunClient) WithCloudApiClient(do func(*cloudapi.Client) (interf
 		if endpoint != "" {
 			endpoints.AddEndpointMapping(client.RegionId, "CLOUDAPI", endpoint)
 		}
-		cloudapiconn, err := cloudapi.NewClientWithOptions(client.RegionId, client.getSdkConfig(), client.config.getAuthCredential(true))
+		cloudapiconn, err := cloudapi.NewClientWithOptions(client.RegionId, client.getSdkConfig(0), client.config.getAuthCredential(true))
 		if err != nil {
 			return nil, fmt.Errorf("unable to initialize the CloudAPI client: %#v", err)
 		}
 		client.cloudapiconn = cloudapiconn
 	} else {
-		err := client.cloudapiconn.InitWithOptions(client.config.RegionId, client.getSdkConfig(), client.config.getAuthCredential(true))
+		err := client.cloudapiconn.InitWithOptions(client.config.RegionId, client.getSdkConfig(0), client.config.getAuthCredential(true))
 		if err != nil {
 			return nil, fmt.Errorf("unable to initialize the CloudAPI client: %#v", err)
 		}
@@ -1231,11 +1034,6 @@ func (client *AliyunClient) WithCloudApiClient(do func(*cloudapi.Client) (interf
 	client.cloudapiconn.SetConnectTimeout(time.Duration(client.config.ClientConnectTimeout) * time.Millisecond)
 	client.cloudapiconn.SourceIp = client.config.SourceIp
 	client.cloudapiconn.SecureTransport = client.config.SecureTransport
-	client.cloudapiconn.AppendUserAgent(Terraform, client.config.TerraformVersion)
-	client.cloudapiconn.AppendUserAgent(Provider, providerVersion)
-	client.cloudapiconn.AppendUserAgent(Module, client.config.ConfigurationSource)
-	client.cloudapiconn.AppendUserAgent(TerraformTraceId, client.config.TerraformTraceId)
-
 	return do(client.cloudapiconn)
 }
 
@@ -1337,54 +1135,30 @@ func (client *AliyunClient) WithMnsClient(do func(*ali_mns.MNSClient) (interface
 func (client *AliyunClient) WithElasticsearchClient(do func(*elasticsearch.Client) (interface{}, error)) (interface{}, error) {
 	// Initialize the Elasticsearch client if necessary
 	if client.elasticsearchconn == nil {
-		endpoint := client.config.ElasticsearchEndpoint
-		if endpoint == "" {
-			endpoint = loadEndpoint(client.config.RegionId, ELASTICSEARCHCode)
+		product := "elasticsearch"
+		endpoint, err := client.loadApiEndpoint(product)
+		if err != nil {
+			return nil, err
 		}
 		if endpoint != "" {
-			endpoints.AddEndpointMapping(client.config.RegionId, string(ELASTICSEARCHCode), endpoint)
+			endpoints.AddEndpointMapping(client.config.RegionId, product, endpoint)
 		}
-		elasticsearchconn, err := elasticsearch.NewClientWithOptions(client.config.RegionId, client.getSdkConfig(), client.config.getAuthCredential(true))
+		elasticsearchconn, err := elasticsearch.NewClientWithOptions(client.config.RegionId, client.getSdkConfig(0), client.config.getAuthCredential(true))
 		if err != nil {
 			return nil, fmt.Errorf("unable to initialize the Elasticsearch client: %#v", err)
 		}
-		elasticsearchconn.SetReadTimeout(time.Duration(client.config.ClientReadTimeout) * time.Millisecond)
-		elasticsearchconn.SetConnectTimeout(time.Duration(client.config.ClientConnectTimeout) * time.Millisecond)
-		elasticsearchconn.SourceIp = client.config.SourceIp
-		elasticsearchconn.SecureTransport = client.config.SecureTransport
-		elasticsearchconn.AppendUserAgent(Terraform, client.config.TerraformVersion)
-		elasticsearchconn.AppendUserAgent(Provider, providerVersion)
-		elasticsearchconn.AppendUserAgent(Module, client.config.ConfigurationSource)
-		elasticsearchconn.AppendUserAgent(TerraformTraceId, client.config.TerraformTraceId)
 		client.elasticsearchconn = elasticsearchconn
-	}
-
-	return do(client.elasticsearchconn)
-}
-
-func (client *AliyunClient) NewElasticsearchClient() (*roa.Client, error) {
-	productCode := "elasticsearch"
-	endpoint := ""
-	if v, ok := client.config.Endpoints.Load(productCode); !ok || v.(string) == "" {
-		if err := client.loadEndpoint(productCode); err != nil {
-			return nil, err
+	} else {
+		err := client.elasticsearchconn.InitWithOptions(client.config.RegionId, client.getSdkConfig(0), client.config.getAuthCredential(true))
+		if err != nil {
+			return nil, fmt.Errorf("unable to initialize the Elasticsearch client: %#v", err)
 		}
 	}
-
-	if v, ok := client.config.Endpoints.Load(productCode); ok && v.(string) != "" {
-		endpoint = v.(string)
-	}
-	if endpoint == "" {
-		return nil, fmt.Errorf("[ERROR] misssing the product %s endpoint.", productCode)
-	}
-	roaSdkConfig := client.teaRoaSdkConfig
-	roaSdkConfig.SetEndpoint(endpoint)
-
-	conn, err := roa.NewClient(&roaSdkConfig)
-	if err != nil {
-		return nil, fmt.Errorf("unable to initialize the %s client: %#v", productCode, err)
-	}
-	return conn, err
+	client.elasticsearchconn.SetReadTimeout(time.Duration(client.config.ClientReadTimeout) * time.Millisecond)
+	client.elasticsearchconn.SetConnectTimeout(time.Duration(client.config.ClientConnectTimeout) * time.Millisecond)
+	client.elasticsearchconn.SourceIp = client.config.SourceIp
+	client.elasticsearchconn.SecureTransport = client.config.SecureTransport
+	return do(client.elasticsearchconn)
 }
 
 func (client *AliyunClient) WithMnsQueueManager(do func(ali_mns.AliQueueManager) (interface{}, error)) (interface{}, error) {
@@ -1485,7 +1259,7 @@ func (client *AliyunClient) WithCsProjectClient(clusterId, endpoint string, clus
 			return nil, fmt.Errorf("Getting Application Client failed by cluster id %s: %#v.", clusterCerts, err)
 		}
 		csProjectClient.SetDebug(false)
-		csProjectClient.SetUserAgent(client.getUserAgent())
+		csProjectClient.SetUserAgent(client.config.getUserAgent())
 		client.csprojectconnByKey[key] = csProjectClient
 	}
 
@@ -1604,16 +1378,21 @@ func (client *AliyunClient) isInternationalRegion() bool {
 	return !strings.HasPrefix(client.config.RegionId, "cn-")
 }
 
-func (client *AliyunClient) getSdkConfig() *sdk.Config {
+func (client *AliyunClient) getSdkConfig(timeout time.Duration) *sdk.Config {
+	if timeout == 0 {
+		timeout = time.Duration(30) * time.Second
+	}
+	// WithUserAgent will add a prefix Extra/ for user agent value
 	return sdk.NewConfig().
 		WithMaxRetryTime(DefaultClientRetryCountSmall).
-		WithTimeout(time.Duration(30) * time.Second).
+		WithTimeout(timeout).
 		WithEnableAsync(false).
 		WithGoRoutinePoolSize(100).
 		WithMaxTaskQueueSize(10000).
 		WithDebug(false).
 		WithHttpTransport(client.getTransport()).
-		WithScheme(client.config.Protocol)
+		WithScheme(client.config.Protocol).
+		WithUserAgent(fmt.Sprintf("Terraform %s", client.config.getUserAgent()))
 }
 
 func (client *AliyunClient) getUserAgent() string {
@@ -1680,7 +1459,7 @@ func (client *AliyunClient) GetCallerIdentity() (*sts.GetCallerIdentityResponse,
 	if endpoint != "" {
 		endpoints.AddEndpointMapping(client.config.RegionId, string(STSCode), endpoint)
 	}
-	stsClient, err := sts.NewClientWithOptions(client.config.RegionId, client.getSdkConfig(), client.config.getAuthCredential(true))
+	stsClient, err := sts.NewClientWithOptions(client.config.RegionId, client.getSdkConfig(0), client.config.getAuthCredential(true))
 	if err != nil {
 		return nil, fmt.Errorf("unable to initialize the STS client: %#v", err)
 	}
@@ -1689,10 +1468,6 @@ func (client *AliyunClient) GetCallerIdentity() (*sts.GetCallerIdentityResponse,
 	stsClient.SetConnectTimeout(time.Duration(client.config.ClientConnectTimeout) * time.Millisecond)
 	stsClient.SourceIp = client.config.SourceIp
 	stsClient.SecureTransport = client.config.SecureTransport
-	stsClient.AppendUserAgent(Terraform, client.config.TerraformVersion)
-	stsClient.AppendUserAgent(Provider, providerVersion)
-	stsClient.AppendUserAgent(Module, client.config.ConfigurationSource)
-	stsClient.AppendUserAgent(TerraformTraceId, client.config.TerraformTraceId)
 
 	identity, err := stsClient.GetCallerIdentity(args)
 	if err != nil {
@@ -1703,101 +1478,33 @@ func (client *AliyunClient) GetCallerIdentity() (*sts.GetCallerIdentityResponse,
 	}
 	return identity, err
 }
-
-func (client *AliyunClient) WithDdoscooClient(do func(*ddoscoo.Client) (interface{}, error)) (interface{}, error) {
-	// Initialize the ddoscoo client if necessary
-	if client.ddoscooconn == nil {
-		endpoint := client.config.DdoscooEndpoint
-		if endpoint == "" {
-			endpoint = loadEndpoint(client.config.RegionId, DDOSCOOCode)
+func (client *AliyunClient) WithDdosbgpClient(do func(*ddosbgp.Client) (interface{}, error)) (interface{}, error) {
+	if client.ddosbgpconn == nil {
+		product := "ddosbgp"
+		endpoint, err := client.loadApiEndpoint(product)
+		if err != nil {
+			return nil, err
 		}
 		if endpoint != "" {
-			endpoints.AddEndpointMapping(client.config.RegionId, string(DDOSCOOCode), endpoint)
+			endpoints.AddEndpointMapping(client.config.RegionId, product, endpoint)
 		}
-
-		ddoscooconn, err := ddoscoo.NewClientWithOptions(client.config.RegionId, client.getSdkConfig(), client.config.getAuthCredential(true))
+		ddosbgpconn, err := ddosbgp.NewClientWithOptions(client.config.RegionId, client.getSdkConfig(0), client.config.getAuthCredential(true))
 		if err != nil {
-			return nil, fmt.Errorf("unable to initialize the DDOSCOO client: %#v", err)
+			return nil, fmt.Errorf("unable to initialize the DDOSBGP client: %#v", err)
 		}
-		ddoscooconn.SetReadTimeout(time.Duration(client.config.ClientReadTimeout) * time.Millisecond)
-		ddoscooconn.SetConnectTimeout(time.Duration(client.config.ClientConnectTimeout) * time.Millisecond)
-		ddoscooconn.SourceIp = client.config.SourceIp
-		ddoscooconn.SecureTransport = client.config.SecureTransport
-		ddoscooconn.AppendUserAgent(Terraform, client.config.TerraformVersion)
-		ddoscooconn.AppendUserAgent(Provider, providerVersion)
-		ddoscooconn.AppendUserAgent(Module, client.config.ConfigurationSource)
-		ddoscooconn.AppendUserAgent(TerraformTraceId, client.config.TerraformTraceId)
-		client.ddoscooconn = ddoscooconn
+		client.ddosbgpconn = ddosbgpconn
 	} else {
-		err := client.ddoscooconn.InitWithOptions(client.config.RegionId, client.getSdkConfig(), client.config.getAuthCredential(true))
+		err := client.ddosbgpconn.InitWithOptions(client.config.RegionId, client.getSdkConfig(0), client.config.getAuthCredential(true))
 		if err != nil {
 			return nil, fmt.Errorf("unable to initialize the DdosCoo client: %#v", err)
 		}
 	}
-
-	return do(client.ddoscooconn)
-}
-
-func (client *AliyunClient) WithDdosbgpClient(do func(*ddosbgp.Client) (interface{}, error)) (interface{}, error) {
-	// Initialize the ddosbgp client if necessary
-	if client.ddosbgpconn == nil {
-		endpoint := client.config.DdosbgpEndpoint
-		if endpoint == "" {
-			endpoint = loadEndpoint(client.config.RegionId, DDOSBGPCode)
-		}
-		if endpoint != "" {
-			endpoints.AddEndpointMapping(client.config.RegionId, string(DDOSBGPCode), endpoint)
-		}
-
-		ddosbgpconn, err := ddosbgp.NewClientWithOptions(client.config.RegionId, client.getSdkConfig(), client.config.getAuthCredential(true))
-		if err != nil {
-			return nil, fmt.Errorf("unable to initialize the DDOSBGP client: %#v", err)
-		}
-		ddosbgpconn.SetReadTimeout(time.Duration(client.config.ClientReadTimeout) * time.Millisecond)
-		ddosbgpconn.SetConnectTimeout(time.Duration(client.config.ClientConnectTimeout) * time.Millisecond)
-		ddosbgpconn.SourceIp = client.config.SourceIp
-		ddosbgpconn.SecureTransport = client.config.SecureTransport
-		ddosbgpconn.AppendUserAgent(Terraform, client.config.TerraformVersion)
-		ddosbgpconn.AppendUserAgent(Provider, providerVersion)
-		ddosbgpconn.AppendUserAgent(Module, client.config.ConfigurationSource)
-		ddosbgpconn.AppendUserAgent(TerraformTraceId, client.config.TerraformTraceId)
-		client.ddosbgpconn = ddosbgpconn
-	}
-
+	client.ddosbgpconn.SetReadTimeout(time.Duration(client.config.ClientReadTimeout) * time.Millisecond)
+	client.ddosbgpconn.SetConnectTimeout(time.Duration(client.config.ClientConnectTimeout) * time.Millisecond)
+	client.ddosbgpconn.SourceIp = client.config.SourceIp
+	client.ddosbgpconn.SecureTransport = client.config.SecureTransport
 	return do(client.ddosbgpconn)
 }
-
-func (client *AliyunClient) WithBssopenapiClient(do func(*bssopenapi.Client) (interface{}, error)) (interface{}, error) {
-	// Initialize the bssopenapi client if necessary
-	if client.bssopenapiconn == nil {
-		endpoint := client.config.BssOpenApiEndpoint
-		if endpoint == "" {
-			endpoint = loadEndpoint(client.config.RegionId, BSSOPENAPICode)
-		}
-		if endpoint != "" {
-			endpoints.AddEndpointMapping(client.config.RegionId, string(BSSOPENAPICode), endpoint)
-		}
-
-		// bss endpoint depends on the account type.
-		// Domestic account is business.aliyuncs.com (region is cn-hangzhou) and International account is business.ap-southeast-1.aliyuncs.com (region is ap-southeast-1)
-		bssopenapiconn, err := bssopenapi.NewClientWithOptions(string(Hangzhou), client.getSdkConfig(), client.config.getAuthCredential(true))
-		if err != nil {
-			return nil, fmt.Errorf("unable to initialize the BSSOPENAPI client: %#v", err)
-		}
-		bssopenapiconn.SetReadTimeout(time.Duration(client.config.ClientReadTimeout) * time.Millisecond)
-		bssopenapiconn.SetConnectTimeout(time.Duration(client.config.ClientConnectTimeout) * time.Millisecond)
-		bssopenapiconn.SourceIp = client.config.SourceIp
-		bssopenapiconn.SecureTransport = client.config.SecureTransport
-		bssopenapiconn.AppendUserAgent(Terraform, client.config.TerraformVersion)
-		bssopenapiconn.AppendUserAgent(Provider, providerVersion)
-		bssopenapiconn.AppendUserAgent(Module, client.config.ConfigurationSource)
-		bssopenapiconn.AppendUserAgent(TerraformTraceId, client.config.TerraformTraceId)
-		client.bssopenapiconn = bssopenapiconn
-	}
-
-	return do(client.bssopenapiconn)
-}
-
 func (client *AliyunClient) WithAlikafkaClient(do func(*alikafka.Client) (interface{}, error)) (interface{}, error) {
 	productCode := "alikafka"
 	endpoint := client.config.AlikafkaEndpoint
@@ -1816,7 +1523,7 @@ func (client *AliyunClient) WithAlikafkaClient(do func(*alikafka.Client) (interf
 		if endpoint != "" {
 			endpoints.AddEndpointMapping(client.config.RegionId, string(ALIKAFKACode), endpoint)
 		}
-		alikafkaconn, err := alikafka.NewClientWithOptions(client.config.RegionId, client.getSdkConfig(), client.config.getAuthCredential(true))
+		alikafkaconn, err := alikafka.NewClientWithOptions(client.config.RegionId, client.getSdkConfig(0), client.config.getAuthCredential(true))
 		if err != nil {
 			return nil, fmt.Errorf("unable to initialize the ALIKAFKA client: %#v", err)
 		}
@@ -1824,10 +1531,6 @@ func (client *AliyunClient) WithAlikafkaClient(do func(*alikafka.Client) (interf
 		alikafkaconn.SetConnectTimeout(time.Duration(client.config.ClientConnectTimeout) * time.Millisecond)
 		alikafkaconn.SourceIp = client.config.SourceIp
 		alikafkaconn.SecureTransport = client.config.SecureTransport
-		alikafkaconn.AppendUserAgent(Terraform, client.config.TerraformVersion)
-		alikafkaconn.AppendUserAgent(Provider, providerVersion)
-		alikafkaconn.AppendUserAgent(Module, client.config.ConfigurationSource)
-		alikafkaconn.AppendUserAgent(TerraformTraceId, client.config.TerraformTraceId)
 		client.alikafkaconn = alikafkaconn
 	}
 
@@ -1836,27 +1539,29 @@ func (client *AliyunClient) WithAlikafkaClient(do func(*alikafka.Client) (interf
 
 func (client *AliyunClient) WithEmrClient(do func(*emr.Client) (interface{}, error)) (interface{}, error) {
 	if client.emrconn == nil {
-		endpoint := client.config.EmrEndpoint
-		if endpoint == "" {
-			endpoint = loadEndpoint(client.config.RegionId, EMRCode)
+		product := "emr"
+		endpoint, err := client.loadApiEndpoint(product)
+		if err != nil {
+			return nil, err
 		}
 		if endpoint != "" {
-			endpoints.AddEndpointMapping(client.config.RegionId, string(EMRCode), endpoint)
+			endpoints.AddEndpointMapping(client.config.RegionId, product, endpoint)
 		}
-		emrConn, err := emr.NewClientWithOptions(client.RegionId, client.getSdkConfig(), client.config.getAuthCredential(true))
+		emrConn, err := emr.NewClientWithOptions(client.RegionId, client.getSdkConfig(0), client.config.getAuthCredential(true))
 		if err != nil {
 			return nil, fmt.Errorf("unable to initialize the E-MapReduce client: %#v", err)
 		}
-		emrConn.SetReadTimeout(time.Duration(client.config.ClientReadTimeout) * time.Millisecond)
-		emrConn.SetConnectTimeout(time.Duration(client.config.ClientConnectTimeout) * time.Millisecond)
-		emrConn.SourceIp = client.config.SourceIp
-		emrConn.SecureTransport = client.config.SecureTransport
-		emrConn.AppendUserAgent(Terraform, client.config.TerraformVersion)
-		emrConn.AppendUserAgent(Provider, providerVersion)
-		emrConn.AppendUserAgent(Module, client.config.ConfigurationSource)
-		emrConn.AppendUserAgent(TerraformTraceId, client.config.TerraformTraceId)
 		client.emrconn = emrConn
+	} else {
+		err := client.emrconn.InitWithOptions(client.RegionId, client.getSdkConfig(0), client.config.getAuthCredential(true))
+		if err != nil {
+			return nil, fmt.Errorf("unable to initialize the E-MapReduce client: %#v", err)
+		}
 	}
+	client.emrconn.SetReadTimeout(time.Duration(client.config.ClientReadTimeout) * time.Millisecond)
+	client.emrconn.SetConnectTimeout(time.Duration(client.config.ClientConnectTimeout) * time.Millisecond)
+	client.emrconn.SourceIp = client.config.SourceIp
+	client.emrconn.SecureTransport = client.config.SecureTransport
 
 	return do(client.emrconn)
 }
@@ -1871,7 +1576,7 @@ func (client *AliyunClient) WithSagClient(do func(*smartag.Client) (interface{},
 		if endpoint != "" {
 			endpoints.AddEndpointMapping(client.config.RegionId, string(SAGCode), endpoint)
 		}
-		sagconn, err := smartag.NewClientWithOptions(client.config.RegionId, client.getSdkConfig(), client.config.getAuthCredential(true))
+		sagconn, err := smartag.NewClientWithOptions(client.config.RegionId, client.getSdkConfig(0), client.config.getAuthCredential(true))
 		if err != nil {
 			return nil, fmt.Errorf("unable to initialize the SAG client: %#v", err)
 		}
@@ -1879,10 +1584,6 @@ func (client *AliyunClient) WithSagClient(do func(*smartag.Client) (interface{},
 		sagconn.SetConnectTimeout(time.Duration(client.config.ClientConnectTimeout) * time.Millisecond)
 		sagconn.SourceIp = client.config.SourceIp
 		sagconn.SecureTransport = client.config.SecureTransport
-		sagconn.AppendUserAgent(Terraform, client.config.TerraformVersion)
-		sagconn.AppendUserAgent(Provider, providerVersion)
-		sagconn.AppendUserAgent(Module, client.config.ConfigurationSource)
-		sagconn.AppendUserAgent(TerraformTraceId, client.config.TerraformTraceId)
 		client.sagconn = sagconn
 	}
 
@@ -1892,85 +1593,85 @@ func (client *AliyunClient) WithSagClient(do func(*smartag.Client) (interface{},
 func (client *AliyunClient) WithDbauditClient(do func(*yundun_dbaudit.Client) (interface{}, error)) (interface{}, error) {
 	// Initialize the ddoscoo client if necessary
 	if client.dbauditconn == nil {
-		dbauditconn, err := yundun_dbaudit.NewClientWithOptions(client.config.RegionId, client.getSdkConfig(), client.config.getAuthCredential(true))
+		product := "yundun_dbaudit"
+		endpoint, err := client.loadApiEndpoint(product)
+		if err != nil {
+			return nil, err
+		}
+		if endpoint != "" {
+			endpoints.AddEndpointMapping(client.config.RegionId, product, endpoint)
+		}
+		dbauditconn, err := yundun_dbaudit.NewClientWithOptions(client.config.RegionId, client.getSdkConfig(0), client.config.getAuthCredential(true))
 		if err != nil {
 			return nil, fmt.Errorf("unable to initialize the DBAUDIT client: %#v", err)
 		}
-		dbauditconn.SetReadTimeout(time.Duration(client.config.ClientReadTimeout) * time.Millisecond)
-		dbauditconn.SetConnectTimeout(time.Duration(client.config.ClientConnectTimeout) * time.Millisecond)
-		dbauditconn.SourceIp = client.config.SourceIp
-		dbauditconn.SecureTransport = client.config.SecureTransport
-		dbauditconn.AppendUserAgent(Terraform, client.config.TerraformVersion)
-		dbauditconn.AppendUserAgent(Provider, providerVersion)
-		dbauditconn.AppendUserAgent(Module, client.config.ConfigurationSource)
-		dbauditconn.AppendUserAgent(TerraformTraceId, client.config.TerraformTraceId)
 		client.dbauditconn = dbauditconn
+	} else {
+		err := client.dbauditconn.InitWithOptions(client.config.RegionId, client.getSdkConfig(0), client.config.getAuthCredential(true))
+		if err != nil {
+			return nil, fmt.Errorf("unable to initialize the DBAUDIT client: %#v", err)
+		}
 	}
-
+	client.dbauditconn.SetReadTimeout(time.Duration(client.config.ClientReadTimeout) * time.Millisecond)
+	client.dbauditconn.SetConnectTimeout(time.Duration(client.config.ClientConnectTimeout) * time.Millisecond)
+	client.dbauditconn.SourceIp = client.config.SourceIp
+	client.dbauditconn.SecureTransport = client.config.SecureTransport
 	return do(client.dbauditconn)
 }
 func (client *AliyunClient) WithMarketClient(do func(*market.Client) (interface{}, error)) (interface{}, error) {
-	// Initialize the Market API client if necessary
 	if client.marketconn == nil {
-		endpoint := client.config.MarketEndpoint
-		if endpoint == "" {
-			endpoint = loadEndpoint(client.RegionId, MARKETCode)
+		product := "market"
+		endpoint, err := client.loadApiEndpoint(product)
+		if err != nil {
+			return nil, err
 		}
 		if endpoint != "" {
-			endpoints.AddEndpointMapping(client.RegionId, "MARKET", endpoint)
+			endpoints.AddEndpointMapping(client.config.RegionId, product, endpoint)
 		}
-		marketconn, err := market.NewClientWithOptions(client.RegionId, client.getSdkConfig(), client.config.getAuthCredential(true))
+		marketconn, err := market.NewClientWithOptions(client.RegionId, client.getSdkConfig(0), client.config.getAuthCredential(true))
 		if err != nil {
 			return nil, fmt.Errorf("unable to initialize the Market client: %#v", err)
 		}
-		marketconn.SetReadTimeout(time.Duration(client.config.ClientReadTimeout) * time.Millisecond)
-		marketconn.SetConnectTimeout(time.Duration(client.config.ClientConnectTimeout) * time.Millisecond)
-		marketconn.SourceIp = client.config.SourceIp
-		marketconn.SecureTransport = client.config.SecureTransport
-		marketconn.AppendUserAgent(Terraform, client.config.TerraformVersion)
-		marketconn.AppendUserAgent(Provider, providerVersion)
-		marketconn.AppendUserAgent(Module, client.config.ConfigurationSource)
-		marketconn.AppendUserAgent(TerraformTraceId, client.config.TerraformTraceId)
 		client.marketconn = marketconn
 	} else {
-		err := client.marketconn.InitWithOptions(client.config.RegionId, client.getSdkConfig(), client.config.getAuthCredential(true))
+		err := client.marketconn.InitWithOptions(client.config.RegionId, client.getSdkConfig(0), client.config.getAuthCredential(true))
 		if err != nil {
 			return nil, fmt.Errorf("unable to initialize the Market client: %#v", err)
 		}
 	}
+	client.marketconn.SetReadTimeout(time.Duration(client.config.ClientReadTimeout) * time.Millisecond)
+	client.marketconn.SetConnectTimeout(time.Duration(client.config.ClientConnectTimeout) * time.Millisecond)
+	client.marketconn.SourceIp = client.config.SourceIp
+	client.marketconn.SecureTransport = client.config.SecureTransport
 
 	return do(client.marketconn)
 }
 
 func (client *AliyunClient) WithHbaseClient(do func(*hbase.Client) (interface{}, error)) (interface{}, error) {
-	// Initialize the HBase client if necessary
 	if client.hbaseconn == nil {
-		endpoint := client.config.HBaseEndpoint
-		if endpoint == "" {
-			endpoint = loadEndpoint(client.config.RegionId, HBASECode)
+		product := "hbase"
+		endpoint, err := client.loadApiEndpoint(product)
+		if err != nil {
+			return nil, err
 		}
 		if endpoint != "" {
-			endpoints.AddEndpointMapping(client.config.RegionId, string(HBASECode), endpoint)
+			endpoints.AddEndpointMapping(client.config.RegionId, product, endpoint)
 		}
-		hbaseconn, err := hbase.NewClientWithOptions(client.config.RegionId, client.getSdkConfig(), client.config.getAuthCredential(true))
+		hbaseconn, err := hbase.NewClientWithOptions(client.config.RegionId, client.getSdkConfig(0), client.config.getAuthCredential(true))
 		if err != nil {
 			return nil, fmt.Errorf("unable to initialize the hbase client: %#v", err)
 		}
-		hbaseconn.SetReadTimeout(time.Duration(client.config.ClientReadTimeout) * time.Millisecond)
-		hbaseconn.SetConnectTimeout(time.Duration(client.config.ClientConnectTimeout) * time.Millisecond)
-		hbaseconn.SourceIp = client.config.SourceIp
-		hbaseconn.SecureTransport = client.config.SecureTransport
-		hbaseconn.AppendUserAgent(Terraform, client.config.TerraformVersion)
-		hbaseconn.AppendUserAgent(Provider, providerVersion)
-		hbaseconn.AppendUserAgent(Module, client.config.ConfigurationSource)
-		hbaseconn.AppendUserAgent(TerraformTraceId, client.config.TerraformTraceId)
 		client.hbaseconn = hbaseconn
 	} else {
-		err := client.hbaseconn.InitWithOptions(client.config.RegionId, client.getSdkConfig(), client.config.getAuthCredential(true))
+		err := client.hbaseconn.InitWithOptions(client.config.RegionId, client.getSdkConfig(0), client.config.getAuthCredential(true))
 		if err != nil {
 			return nil, fmt.Errorf("unable to initialize the HBase client: %#v", err)
 		}
 	}
+	client.hbaseconn.SetReadTimeout(time.Duration(client.config.ClientReadTimeout) * time.Millisecond)
+	client.hbaseconn.SetConnectTimeout(time.Duration(client.config.ClientConnectTimeout) * time.Millisecond)
+	client.hbaseconn.SourceIp = client.config.SourceIp
+	client.hbaseconn.SecureTransport = client.config.SecureTransport
 
 	return do(client.hbaseconn)
 }
@@ -1986,7 +1687,7 @@ func (client *AliyunClient) WithAdbClient(do func(*adb.Client) (interface{}, err
 			}
 		}
 
-		adbconn, err := adb.NewClientWithOptions(client.config.RegionId, client.getSdkConfig(), client.config.getAuthCredential(true))
+		adbconn, err := adb.NewClientWithOptions(client.config.RegionId, client.getSdkConfig(0), client.config.getAuthCredential(true))
 		if err != nil {
 			return nil, fmt.Errorf("unable to initialize the adb client: %#v", err)
 
@@ -1995,77 +1696,64 @@ func (client *AliyunClient) WithAdbClient(do func(*adb.Client) (interface{}, err
 		adbconn.SetConnectTimeout(time.Duration(client.config.ClientConnectTimeout) * time.Millisecond)
 		adbconn.SourceIp = client.config.SourceIp
 		adbconn.SecureTransport = client.config.SecureTransport
-		adbconn.AppendUserAgent(Terraform, client.config.TerraformVersion)
-		adbconn.AppendUserAgent(Provider, providerVersion)
-		adbconn.AppendUserAgent(Module, client.config.ConfigurationSource)
-		adbconn.AppendUserAgent(TerraformTraceId, client.config.TerraformTraceId)
 		client.adbconn = adbconn
 	}
 
 	return do(client.adbconn)
 }
 func (client *AliyunClient) WithCbnClient(do func(*cbn.Client) (interface{}, error)) (interface{}, error) {
-	product := "cbn"
-	endpoint, err := client.loadApiEndpoint(product)
-	if err != nil {
-		return nil, err
-	}
-	if endpoint != "" {
-		endpoints.AddEndpointMapping(client.config.RegionId, product, endpoint)
-	}
-
 	if client.cbnConn == nil {
-		cbnConn, err := cbn.NewClientWithOptions(client.config.RegionId, client.getSdkConfig(), client.config.getAuthCredential(true))
+		product := "cbn"
+		endpoint, err := client.loadApiEndpoint(product)
+		if err != nil {
+			return nil, err
+		}
+		if endpoint != "" {
+			endpoints.AddEndpointMapping(client.config.RegionId, product, endpoint)
+		}
+		cbnConn, err := cbn.NewClientWithOptions(client.config.RegionId, client.getSdkConfig(0), client.config.getAuthCredential(true))
 		if err != nil {
 			return nil, fmt.Errorf("unable to initialize the Cbnclient: %#v", err)
 		}
 		client.cbnConn = cbnConn
 	} else {
-		err := client.cbnConn.InitWithOptions(client.config.RegionId, client.getSdkConfig(), client.config.getAuthCredential(true))
+		err := client.cbnConn.InitWithOptions(client.config.RegionId, client.getSdkConfig(0), client.config.getAuthCredential(true))
 		if err != nil {
-			return nil, fmt.Errorf("unable to initialize the %s client: %#v", product, err)
+			return nil, fmt.Errorf("unable to initialize the CBN client: %#v", err)
 		}
 	}
 	client.cbnConn.SetReadTimeout(time.Duration(client.config.ClientReadTimeout) * time.Millisecond)
 	client.cbnConn.SetConnectTimeout(time.Duration(client.config.ClientConnectTimeout) * time.Millisecond)
 	client.cbnConn.SourceIp = client.config.SourceIp
 	client.cbnConn.SecureTransport = client.config.SecureTransport
-	client.cbnConn.AppendUserAgent(Terraform, client.config.TerraformVersion)
-	client.cbnConn.AppendUserAgent(Provider, providerVersion)
-	client.cbnConn.AppendUserAgent(Module, client.config.ConfigurationSource)
-	client.cbnConn.AppendUserAgent(TerraformTraceId, client.config.TerraformTraceId)
 	return do(client.cbnConn)
 }
 
 func (client *AliyunClient) WithEdasClient(do func(*edas.Client) (interface{}, error)) (interface{}, error) {
-	// Initialize the edas client if necessary
 	if client.edasconn == nil {
-		endpoint := client.config.edasEndpoint
-		if endpoint == "" {
-			endpoint = loadEndpoint(client.config.RegionId, EDASCode)
+		product := "edas"
+		endpoint, err := client.loadApiEndpoint(product)
+		if err != nil {
+			return nil, err
 		}
 		if endpoint != "" {
-			endpoints.AddEndpointMapping(client.config.RegionId, string(EDASCode), endpoint)
+			endpoints.AddEndpointMapping(client.config.RegionId, product, endpoint)
 		}
-		edasconn, err := edas.NewClientWithOptions(client.config.RegionId, client.getSdkConfig().WithTimeout(time.Duration(60)*time.Second), client.config.getAuthCredential(true))
+		edasconn, err := edas.NewClientWithOptions(client.config.RegionId, client.getSdkConfig(time.Duration(60)*time.Second), client.config.getAuthCredential(true))
 		if err != nil {
-			return nil, fmt.Errorf("unable to initialize the ALIKAFKA client: %#v", err)
+			return nil, fmt.Errorf("unable to initialize the EDAS client: %#v", err)
 		}
-		edasconn.SetReadTimeout(time.Duration(client.config.ClientReadTimeout) * time.Millisecond)
-		edasconn.SetConnectTimeout(time.Duration(client.config.ClientConnectTimeout) * time.Millisecond)
-		edasconn.SourceIp = client.config.SourceIp
-		edasconn.SecureTransport = client.config.SecureTransport
-		edasconn.AppendUserAgent(Terraform, client.config.TerraformVersion)
-		edasconn.AppendUserAgent(Provider, providerVersion)
-		edasconn.AppendUserAgent(Module, client.config.ConfigurationSource)
-		edasconn.AppendUserAgent(TerraformTraceId, client.config.TerraformTraceId)
 		client.edasconn = edasconn
 	} else {
-		err := client.edasconn.InitWithOptions(client.config.RegionId, client.getSdkConfig().WithTimeout(time.Duration(60)*time.Second), client.config.getAuthCredential(true))
+		err := client.edasconn.InitWithOptions(client.config.RegionId, client.getSdkConfig(time.Duration(60)*time.Second), client.config.getAuthCredential(true))
 		if err != nil {
 			return nil, fmt.Errorf("unable to initialize the EDAS client: %#v", err)
 		}
 	}
+	client.edasconn.SetReadTimeout(time.Duration(client.config.ClientReadTimeout) * time.Millisecond)
+	client.edasconn.SetConnectTimeout(time.Duration(client.config.ClientConnectTimeout) * time.Millisecond)
+	client.edasconn.SourceIp = client.config.SourceIp
+	client.edasconn.SecureTransport = client.config.SecureTransport
 
 	return do(client.edasconn)
 }
@@ -2083,7 +1771,7 @@ func (client *AliyunClient) WithAlidnsClient(do func(*alidns.Client) (interface{
 			endpoints.AddEndpointMapping(client.config.RegionId, string(AlidnsCode), endpoint)
 		}
 
-		alidnsConn, err := alidns.NewClientWithOptions(client.config.RegionId, client.getSdkConfig(), client.config.getAuthCredential(true))
+		alidnsConn, err := alidns.NewClientWithOptions(client.config.RegionId, client.getSdkConfig(0), client.config.getAuthCredential(true))
 		if err != nil {
 			return nil, fmt.Errorf("unable to initialize the Alidnsclient: %#v", err)
 		}
@@ -2091,10 +1779,6 @@ func (client *AliyunClient) WithAlidnsClient(do func(*alidns.Client) (interface{
 		alidnsConn.SetConnectTimeout(time.Duration(client.config.ClientConnectTimeout) * time.Millisecond)
 		alidnsConn.SourceIp = client.config.SourceIp
 		alidnsConn.SecureTransport = client.config.SecureTransport
-		alidnsConn.AppendUserAgent(Terraform, client.config.TerraformVersion)
-		alidnsConn.AppendUserAgent(Provider, providerVersion)
-		alidnsConn.AppendUserAgent(Module, client.config.ConfigurationSource)
-		alidnsConn.AppendUserAgent(TerraformTraceId, client.config.TerraformTraceId)
 		client.alidnsConn = alidnsConn
 	}
 	return do(client.alidnsConn)
@@ -2107,7 +1791,7 @@ func (client *AliyunClient) WithCassandraClient(do func(*cassandra.Client) (inte
 			endpoint = loadEndpoint(client.config.RegionId, CassandraCode)
 			endpoints.AddEndpointMapping(client.config.RegionId, string(CassandraCode), endpoint)
 		}
-		cassandraConn, err := cassandra.NewClientWithOptions(client.config.RegionId, client.getSdkConfig(), client.config.getAuthCredential(true))
+		cassandraConn, err := cassandra.NewClientWithOptions(client.config.RegionId, client.getSdkConfig(0), client.config.getAuthCredential(true))
 		if err != nil {
 			return nil, fmt.Errorf("unable to initialize the Cassandraclient: %#v", err)
 		}
@@ -2115,10 +1799,6 @@ func (client *AliyunClient) WithCassandraClient(do func(*cassandra.Client) (inte
 		cassandraConn.SetConnectTimeout(time.Duration(client.config.ClientConnectTimeout) * time.Millisecond)
 		cassandraConn.SourceIp = client.config.SourceIp
 		cassandraConn.SecureTransport = client.config.SecureTransport
-		cassandraConn.AppendUserAgent(Terraform, client.config.TerraformVersion)
-		cassandraConn.AppendUserAgent(Provider, providerVersion)
-		cassandraConn.AppendUserAgent(Module, client.config.ConfigurationSource)
-		cassandraConn.AppendUserAgent(TerraformTraceId, client.config.TerraformTraceId)
 		client.cassandraConn = cassandraConn
 	}
 	return do(client.cassandraConn)
@@ -2137,7 +1817,7 @@ func (client *AliyunClient) WithEciClient(do func(*eci.Client) (interface{}, err
 			endpoints.AddEndpointMapping(client.config.RegionId, string(EciCode), endpoint)
 		}
 
-		eciConn, err := eci.NewClientWithOptions(client.config.RegionId, client.getSdkConfig(), client.config.getAuthCredential(true))
+		eciConn, err := eci.NewClientWithOptions(client.config.RegionId, client.getSdkConfig(0), client.config.getAuthCredential(true))
 		if err != nil {
 			return nil, fmt.Errorf("unable to initialize the Eciclient: %#v", err)
 		}
@@ -2145,10 +1825,6 @@ func (client *AliyunClient) WithEciClient(do func(*eci.Client) (interface{}, err
 		eciConn.SetConnectTimeout(time.Duration(client.config.ClientConnectTimeout) * time.Millisecond)
 		eciConn.SourceIp = client.config.SourceIp
 		eciConn.SecureTransport = client.config.SecureTransport
-		eciConn.AppendUserAgent(Terraform, client.config.TerraformVersion)
-		eciConn.AppendUserAgent(Provider, providerVersion)
-		eciConn.AppendUserAgent(Module, client.config.ConfigurationSource)
-		eciConn.AppendUserAgent(TerraformTraceId, client.config.TerraformTraceId)
 		client.eciConn = eciConn
 	}
 	return do(client.eciConn)
@@ -2167,7 +1843,7 @@ func (client *AliyunClient) WithDcdnClient(do func(*dcdn.Client) (interface{}, e
 			endpoints.AddEndpointMapping(client.config.RegionId, string(DcdnCode), endpoint)
 		}
 
-		dcdnConn, err := dcdn.NewClientWithOptions(client.config.RegionId, client.getSdkConfig(), client.config.getAuthCredential(true))
+		dcdnConn, err := dcdn.NewClientWithOptions(client.config.RegionId, client.getSdkConfig(0), client.config.getAuthCredential(true))
 		if err != nil {
 			return nil, fmt.Errorf("unable to initialize the Dcdnclient: %#v", err)
 		}
@@ -2175,10 +1851,6 @@ func (client *AliyunClient) WithDcdnClient(do func(*dcdn.Client) (interface{}, e
 		dcdnConn.SetConnectTimeout(time.Duration(client.config.ClientConnectTimeout) * time.Millisecond)
 		dcdnConn.SourceIp = client.config.SourceIp
 		dcdnConn.SecureTransport = client.config.SecureTransport
-		dcdnConn.AppendUserAgent(Terraform, client.config.TerraformVersion)
-		dcdnConn.AppendUserAgent(Provider, providerVersion)
-		dcdnConn.AppendUserAgent(Module, client.config.ConfigurationSource)
-		dcdnConn.AppendUserAgent(TerraformTraceId, client.config.TerraformTraceId)
 		client.dcdnConn = dcdnConn
 	}
 	return do(client.dcdnConn)
@@ -2186,36 +1858,29 @@ func (client *AliyunClient) WithDcdnClient(do func(*dcdn.Client) (interface{}, e
 
 func (client *AliyunClient) WithRKvstoreClient(do func(*r_kvstore.Client) (interface{}, error)) (interface{}, error) {
 	if client.r_kvstoreConn == nil {
-		productCode := "r_kvstore"
-		endpoint := ""
-		if v, ok := client.config.Endpoints.Load(productCode); !ok || v.(string) == "" {
-			if err := client.loadEndpoint(productCode); err != nil {
-				return nil, err
-			}
+		product := "r_kvstore"
+		endpoint, err := client.loadApiEndpoint(product)
+		if err != nil {
+			return nil, err
 		}
 		if endpoint != "" {
 			endpoints.AddEndpointMapping(client.config.RegionId, "r-kvstore", endpoint)
 		}
-
-		r_kvstoreConn, err := r_kvstore.NewClientWithOptions(client.config.RegionId, client.getSdkConfig(), client.config.getAuthCredential(true))
+		r_kvstoreConn, err := r_kvstore.NewClientWithOptions(client.config.RegionId, client.getSdkConfig(0), client.config.getAuthCredential(true))
 		if err != nil {
 			return nil, fmt.Errorf("unable to initialize the RKvstoreclient: %#v", err)
 		}
-		r_kvstoreConn.SetReadTimeout(time.Duration(client.config.ClientReadTimeout) * time.Millisecond)
-		r_kvstoreConn.SetConnectTimeout(time.Duration(client.config.ClientConnectTimeout) * time.Millisecond)
-		r_kvstoreConn.SourceIp = client.config.SourceIp
-		r_kvstoreConn.SecureTransport = client.config.SecureTransport
-		r_kvstoreConn.AppendUserAgent(Terraform, client.config.TerraformVersion)
-		r_kvstoreConn.AppendUserAgent(Provider, providerVersion)
-		r_kvstoreConn.AppendUserAgent(Module, client.config.ConfigurationSource)
-		r_kvstoreConn.AppendUserAgent(TerraformTraceId, client.config.TerraformTraceId)
 		client.r_kvstoreConn = r_kvstoreConn
 	} else {
-		err := client.r_kvstoreConn.InitWithOptions(client.config.RegionId, client.getSdkConfig(), client.config.getAuthCredential(true))
+		err := client.r_kvstoreConn.InitWithOptions(client.config.RegionId, client.getSdkConfig(0), client.config.getAuthCredential(true))
 		if err != nil {
 			return nil, fmt.Errorf("unable to initialize the Redis client: %#v", err)
 		}
 	}
+	client.r_kvstoreConn.SetReadTimeout(time.Duration(client.config.ClientReadTimeout) * time.Millisecond)
+	client.r_kvstoreConn.SetConnectTimeout(time.Duration(client.config.ClientConnectTimeout) * time.Millisecond)
+	client.r_kvstoreConn.SourceIp = client.config.SourceIp
+	client.r_kvstoreConn.SecureTransport = client.config.SecureTransport
 	return do(client.r_kvstoreConn)
 }
 
@@ -2243,110 +1908,6 @@ func (client *AliyunClient) NewQuotasClientV2() (*openapi.Client, error) {
 		return nil, fmt.Errorf("unable to initialize the %s client: %#v", productCode, err)
 	}
 	return result, nil
-}
-
-func (client *AliyunClient) NewEmrClient() (*rpc.Client, error) {
-	productCode := "emr"
-	endpoint := ""
-	if v, ok := client.config.Endpoints.Load(productCode); !ok || v.(string) == "" {
-		if err := client.loadEndpoint(productCode); err != nil {
-			endpoint = fmt.Sprintf("emr.%s.aliyuncs.com", client.config.RegionId)
-			client.config.Endpoints.Store(productCode, endpoint)
-			log.Printf("[ERROR] loading %s endpoint got an error: %#v. Using the endpoint %s instead.", productCode, err, endpoint)
-		}
-	}
-	if v, ok := client.config.Endpoints.Load(productCode); ok && v.(string) != "" {
-		endpoint = v.(string)
-	}
-	if endpoint == "" {
-		return nil, fmt.Errorf("[ERROR] missing the product %s endpoint.", productCode)
-	}
-	sdkConfig := client.teaSdkConfig
-	sdkConfig.SetEndpoint(endpoint)
-	conn, err := rpc.NewClient(&sdkConfig)
-	if err != nil {
-		return nil, fmt.Errorf("unable to initialize the %s client: %#v", productCode, err)
-	}
-	return conn, nil
-}
-
-func (client *AliyunClient) NewDdsClient() (*rpc.Client, error) {
-	productCode := "dds"
-	endpoint := ""
-
-	if v, ok := client.config.Endpoints.Load(productCode); !ok || v.(string) == "" {
-		if err := client.loadEndpoint(productCode); err != nil {
-			endpoint = fmt.Sprintf("mongodb.%s.aliyuncs.com", client.config.RegionId)
-			client.config.Endpoints.Store(productCode, endpoint)
-			log.Printf("[ERROR] loading %s endpoint got an error: %#v. Using the endpoint %s instead.", productCode, err, endpoint)
-		}
-	}
-
-	if v, ok := client.config.Endpoints.Load(productCode); ok && v.(string) != "" {
-		endpoint = v.(string)
-	}
-
-	if endpoint == "" {
-		return nil, fmt.Errorf("[ERROR] missing the product %s endpoint.", productCode)
-	}
-
-	sdkConfig := client.teaSdkConfig
-	sdkConfig.SetEndpoint(endpoint)
-	conn, err := rpc.NewClient(&sdkConfig)
-	if err != nil {
-		return nil, fmt.Errorf("unable to initialize the %s client: %#v", productCode, err)
-	}
-
-	return conn, nil
-}
-
-func (client *AliyunClient) NewBpstudioClient() (*rpc.Client, error) {
-	productCode := "bpstudio"
-	endpoint := ""
-	if v, ok := client.config.Endpoints.Load(productCode); !ok || v.(string) == "" {
-		if err := client.loadEndpoint(productCode); err != nil {
-			endpoint = fmt.Sprintf("bpstudio.%s.aliyuncs.com", client.config.RegionId)
-			client.config.Endpoints.Store(productCode, endpoint)
-			log.Printf("[ERROR] loading %s endpoint got an error: %#v. Using the endpoint %s instead.", productCode, err, endpoint)
-		}
-	}
-	if v, ok := client.config.Endpoints.Load(productCode); ok && v.(string) != "" {
-		endpoint = v.(string)
-	}
-	if endpoint == "" {
-		return nil, fmt.Errorf("[ERROR] missing the product %s endpoint.", productCode)
-	}
-	sdkConfig := client.teaSdkConfig
-	sdkConfig.SetEndpoint(endpoint)
-	conn, err := rpc.NewClient(&sdkConfig)
-	if err != nil {
-		return nil, fmt.Errorf("unable to initialize the %s client: %#v", productCode, err)
-	}
-	return conn, nil
-}
-func (client *AliyunClient) NewAckoneClient() (*rpc.Client, error) {
-	productCode := "adcp"
-	endpoint := ""
-	if v, ok := client.config.Endpoints.Load(productCode); !ok || v.(string) == "" {
-		if err := client.loadEndpoint(productCode); err != nil {
-			endpoint = fmt.Sprintf("adcp.%s.aliyuncs.com", client.config.RegionId)
-			client.config.Endpoints.Store(productCode, endpoint)
-			log.Printf("[ERROR] loading %s endpoint got an error: %#v. Using the endpoint %s instead.", productCode, err, endpoint)
-		}
-	}
-	if v, ok := client.config.Endpoints.Load(productCode); ok && v.(string) != "" {
-		endpoint = v.(string)
-	}
-	if endpoint == "" {
-		return nil, fmt.Errorf("[ERROR] missing the product %s endpoint.", productCode)
-	}
-	sdkConfig := client.teaSdkConfig
-	sdkConfig.SetEndpoint(endpoint)
-	conn, err := rpc.NewClient(&sdkConfig)
-	if err != nil {
-		return nil, fmt.Errorf("unable to initialize the %s client: %#v", productCode, err)
-	}
-	return conn, nil
 }
 func (client *AliyunClient) NewSlsClient() (*openapi.Client, error) {
 	config := &openapi.Config{
@@ -2378,105 +1939,6 @@ func (client *AliyunClient) NewSlsClient() (*openapi.Client, error) {
 	openapiClient.Protocol = tea.String(client.config.Protocol)
 
 	return openapiClient, nil
-}
-func (client *AliyunClient) NewRocketmqClient() (*roa.Client, error) {
-	productCode := "rocketmq"
-	endpoint := ""
-	if v, ok := client.config.Endpoints.Load(productCode); !ok || v.(string) == "" {
-		if err := client.loadEndpoint(productCode); err != nil {
-			endpoint = fmt.Sprintf("rocketmq.%s.aliyuncs.com", client.config.RegionId)
-			client.config.Endpoints.Store(productCode, endpoint)
-			log.Printf("[ERROR] loading %s endpoint got an error: %#v. Using the endpoint %s instead.", productCode, err, endpoint)
-		}
-	}
-	if v, ok := client.config.Endpoints.Load(productCode); ok && v.(string) != "" {
-		endpoint = v.(string)
-	}
-	if endpoint == "" {
-		return nil, fmt.Errorf("[ERROR] missing the product %s endpoint.", productCode)
-	}
-
-	sdkConfig := client.teaRoaSdkConfig
-	sdkConfig.SetEndpoint(endpoint)
-	conn, err := roa.NewClient(&sdkConfig)
-	if err != nil {
-		return nil, fmt.Errorf("unable to initialize the %s client: %#v", productCode, err)
-	}
-	return conn, nil
-}
-
-func (client *AliyunClient) NewHologramClient() (*roa.Client, error) {
-	productCode := "hologram"
-	endpoint := ""
-	if v, ok := client.config.Endpoints.Load(productCode); !ok || v.(string) == "" {
-		if err := client.loadEndpoint(productCode); err != nil {
-			endpoint = fmt.Sprintf("hologram.%s.aliyuncs.com", client.config.RegionId)
-			client.config.Endpoints.Store(productCode, endpoint)
-			log.Printf("[ERROR] loading %s endpoint got an error: %#v. Using the endpoint %s instead.", productCode, err, endpoint)
-		}
-	}
-	if v, ok := client.config.Endpoints.Load(productCode); ok && v.(string) != "" {
-		endpoint = v.(string)
-	}
-	if endpoint == "" {
-		return nil, fmt.Errorf("[ERROR] missing the product %s endpoint.", productCode)
-	}
-	sdkConfig := client.teaRoaSdkConfig
-	sdkConfig.SetEndpoint(endpoint)
-	conn, err := roa.NewClient(&sdkConfig)
-	if err != nil {
-		return nil, fmt.Errorf("unable to initialize the %s client: %#v", productCode, err)
-	}
-	return conn, nil
-}
-func (client *AliyunClient) NewRealtimecomputeClient() (*rpc.Client, error) {
-	productCode := "foasconsole"
-	endpoint := ""
-	if v, ok := client.config.Endpoints.Load(productCode); !ok || v.(string) == "" {
-		if err := client.loadEndpoint(productCode); err != nil {
-			endpoint = "foasconsole.aliyuncs.com"
-			client.config.Endpoints.Store(productCode, endpoint)
-			log.Printf("[ERROR] loading %s endpoint got an error: %#v. Using the endpoint %s instead.", productCode, err, endpoint)
-		}
-	}
-	if v, ok := client.config.Endpoints.Load(productCode); ok && v.(string) != "" {
-		endpoint = v.(string)
-	}
-	if endpoint == "" {
-		return nil, fmt.Errorf("[ERROR] missing the product %s endpoint.", productCode)
-	}
-	sdkConfig := client.teaSdkConfig
-	sdkConfig.SetEndpoint(endpoint)
-	conn, err := rpc.NewClient(&sdkConfig)
-	if err != nil {
-		return nil, fmt.Errorf("unable to initialize the %s client: %#v", productCode, err)
-	}
-	return conn, nil
-}
-func (client *AliyunClient) NewAckClient() (*roa.Client, error) {
-	productCode := "cs"
-	endpoint := ""
-	if v, ok := client.config.Endpoints.Load(productCode); !ok || v.(string) == "" {
-		if err := client.loadEndpoint(productCode); err != nil {
-			endpoint = fmt.Sprintf("cs.%s.aliyuncs.com", client.config.RegionId)
-			client.config.Endpoints.Store(productCode, endpoint)
-			log.Printf("[ERROR] loading %s endpoint got an error: %#v. Using the endpoint %s instead.", productCode, err, endpoint)
-		}
-	}
-	if v, ok := client.config.Endpoints.Load(productCode); ok && v.(string) != "" {
-		endpoint = v.(string)
-	}
-	if endpoint == "" {
-		return nil, fmt.Errorf("[ERROR] missing the product %s endpoint.", productCode)
-	}
-
-	sdkConfig := client.teaRoaSdkConfig
-	sdkConfig.SetEndpoint(endpoint)
-	conn, err := roa.NewClient(&sdkConfig)
-	if err != nil {
-		return nil, fmt.Errorf("unable to initialize the %s client: %#v", productCode, err)
-	}
-	return conn, nil
 }
 
 func (client *AliyunClient) NewOssClient() (*openapi.Client, error) {
@@ -2528,19 +1990,15 @@ func (client *AliyunClient) NewOssClient() (*openapi.Client, error) {
 }
 
 func (client *AliyunClient) loadApiEndpoint(productCode string) (string, error) {
-	accountId, err := client.AccountId()
-	if err != nil {
-		log.Printf("[WARN] failed to load accountId: %#v", err)
-	}
 	if v, ok := client.config.Endpoints.Load(productCode); !ok || v.(string) == "" {
 		if err := client.loadEndpoint(productCode); err != nil {
 			return "", fmt.Errorf("[ERROR] loading %s endpoint got an error: %#v.", productCode, err)
 		}
 	} else {
-		return FormatEndpointWithAccountID(productCode, v.(string), accountId), nil
+		return v.(string), nil
 	}
 	if v, ok := client.config.Endpoints.Load(productCode); ok && v.(string) != "" {
-		return FormatEndpointWithAccountID(productCode, v.(string), accountId), nil
+		return v.(string), nil
 	}
 	return "", fmt.Errorf("[ERROR] missing the product %s endpoint.", productCode)
 }
@@ -2617,13 +2075,13 @@ func (client *AliyunClient) rpcRequest(method string, apiProductCode string, api
 //
 //	apiProductCode: API Product code, its value equals to the gateway code of the API
 //	apiVersion - API version
-//	apiName - API Name
+//	pathName - Request path name
 //	query - API parameters in query
 //	headers - API parameters in headers
 //	body - API parameters in body
 //	autoRetry - whether to auto retry while the runtime has a 5xx error
-func (client *AliyunClient) RoaPost(apiProductCode string, apiVersion string, apiName string, query map[string]*string, headers map[string]*string, body interface{}, autoRetry bool) (map[string]interface{}, error) {
-	return client.roaRequest("POST", apiProductCode, apiVersion, apiName, query, headers, body, autoRetry)
+func (client *AliyunClient) RoaPost(apiProductCode string, apiVersion string, pathName string, query map[string]*string, headers map[string]*string, body interface{}, autoRetry bool) (map[string]interface{}, error) {
+	return client.roaRequest("POST", apiProductCode, apiVersion, "", pathName, query, headers, body, autoRetry)
 }
 
 // RoaPut invoking ROA API request with PUT method
@@ -2631,13 +2089,13 @@ func (client *AliyunClient) RoaPost(apiProductCode string, apiVersion string, ap
 //
 //	apiProductCode: API Product code, its value equals to the gateway code of the API
 //	apiVersion - API version
-//	apiName - API Name
+//	pathName - Request path name
 //	query - API parameters in query
 //	headers - API parameters in headers
 //	body - API parameters in body
 //	autoRetry - whether to auto retry while the runtime has a 5xx error
-func (client *AliyunClient) RoaPut(apiProductCode string, apiVersion string, apiName string, query map[string]*string, headers map[string]*string, body interface{}, autoRetry bool) (map[string]interface{}, error) {
-	return client.roaRequest("PUT", apiProductCode, apiVersion, apiName, query, headers, body, autoRetry)
+func (client *AliyunClient) RoaPut(apiProductCode string, apiVersion string, pathName string, query map[string]*string, headers map[string]*string, body interface{}, autoRetry bool) (map[string]interface{}, error) {
+	return client.roaRequest("PUT", apiProductCode, apiVersion, "", pathName, query, headers, body, autoRetry)
 }
 
 // RoaGet invoking ROA API request with GET method
@@ -2645,12 +2103,12 @@ func (client *AliyunClient) RoaPut(apiProductCode string, apiVersion string, api
 //
 //	apiProductCode: API Product code, its value equals to the gateway code of the API
 //	apiVersion - API version
-//	apiName - API Name
+//	pathName - Request path name
 //	query - API parameters in query
 //	headers - API parameters in headers
 //	body - API parameters in body
-func (client *AliyunClient) RoaGet(apiProductCode string, apiVersion string, apiName string, query map[string]*string, headers map[string]*string, body interface{}) (map[string]interface{}, error) {
-	return client.roaRequest("GET", apiProductCode, apiVersion, apiName, query, headers, body, true)
+func (client *AliyunClient) RoaGet(apiProductCode string, apiVersion string, pathName string, query map[string]*string, headers map[string]*string, body interface{}) (map[string]interface{}, error) {
+	return client.roaRequest("GET", apiProductCode, apiVersion, "", pathName, query, headers, body, true)
 }
 
 // RoaDelete invoking ROA API request with DELETE method
@@ -2658,13 +2116,13 @@ func (client *AliyunClient) RoaGet(apiProductCode string, apiVersion string, api
 //
 //	apiProductCode: API Product code, its value equals to the gateway code of the API
 //	apiVersion - API version
-//	apiName - API Name
+//	pathName - Request path name
 //	query - API parameters in query
 //	headers - API parameters in headers
 //	body - API parameters in body
 //	autoRetry - whether to auto retry while the runtime has a 5xx error
-func (client *AliyunClient) RoaDelete(apiProductCode string, apiVersion string, apiName string, query map[string]*string, headers map[string]*string, body interface{}, autoRetry bool) (map[string]interface{}, error) {
-	return client.roaRequest("DELETE", apiProductCode, apiVersion, apiName, query, headers, body, autoRetry)
+func (client *AliyunClient) RoaDelete(apiProductCode string, apiVersion string, pathName string, query map[string]*string, headers map[string]*string, body interface{}, autoRetry bool) (map[string]interface{}, error) {
+	return client.roaRequest("DELETE", apiProductCode, apiVersion, "", pathName, query, headers, body, autoRetry)
 }
 
 // RoaPatch invoking ROA API request with PATCH method
@@ -2672,16 +2130,90 @@ func (client *AliyunClient) RoaDelete(apiProductCode string, apiVersion string, 
 //
 //	apiProductCode: API Product code, its value equals to the gateway code of the API
 //	apiVersion - API version
-//	apiName - API Name
+//	pathName - Request path name
 //	query - API parameters in query
 //	headers - API parameters in headers
 //	body - API parameters in body
 //	autoRetry - whether to auto retry while the runtime has a 5xx error
-func (client *AliyunClient) RoaPatch(apiProductCode string, apiVersion string, apiName string, query map[string]*string, headers map[string]*string, body interface{}, autoRetry bool) (map[string]interface{}, error) {
-	return client.roaRequest("PATCH", apiProductCode, apiVersion, apiName, query, headers, body, autoRetry)
+func (client *AliyunClient) RoaPatch(apiProductCode string, apiVersion string, pathName string, query map[string]*string, headers map[string]*string, body interface{}, autoRetry bool) (map[string]interface{}, error) {
+	return client.roaRequest("PATCH", apiProductCode, apiVersion, "", pathName, query, headers, body, autoRetry)
 }
 
-func (client *AliyunClient) roaRequest(method string, apiProductCode string, apiVersion string, apiName string, query map[string]*string, headers map[string]*string, body interface{}, autoRetry bool) (map[string]interface{}, error) {
+// RoaPostWithApiName invoking ROA API request with POST method
+// parameters:
+//
+//	apiProductCode: API Product code, its value equals to the gateway code of the API
+//	apiVersion - API version
+//	apiName - Request path name
+//	pathName - Request path name
+//	query - API parameters in query
+//	headers - API parameters in headers
+//	body - API parameters in body
+//	autoRetry - whether to auto retry while the runtime has a 5xx error
+func (client *AliyunClient) RoaPostWithApiName(apiProductCode string, apiVersion string, apiName string, pathName string, query map[string]*string, headers map[string]*string, body interface{}, autoRetry bool) (map[string]interface{}, error) {
+	return client.roaRequest("POST", apiProductCode, apiVersion, apiName, pathName, query, headers, body, autoRetry)
+}
+
+// RoaPutWithApiName invoking ROA API request with PUT method
+// parameters:
+//
+//	apiProductCode: API Product code, its value equals to the gateway code of the API
+//	apiVersion - API version
+//	apiName - Request path name
+//	pathName - Request path name
+//	query - API parameters in query
+//	headers - API parameters in headers
+//	body - API parameters in body
+//	autoRetry - whether to auto retry while the runtime has a 5xx error
+func (client *AliyunClient) RoaPutWithApiName(apiProductCode string, apiVersion string, apiName string, pathName string, query map[string]*string, headers map[string]*string, body interface{}, autoRetry bool) (map[string]interface{}, error) {
+	return client.roaRequest("PUT", apiProductCode, apiVersion, apiName, pathName, query, headers, body, autoRetry)
+}
+
+// RoaGetWithApiName invoking ROA API request with GET method
+// parameters:
+//
+//	apiProductCode: API Product code, its value equals to the gateway code of the API
+//	apiVersion - API version
+//	apiName - Request path name
+//	pathName - Request path name
+//	query - API parameters in query
+//	headers - API parameters in headers
+//	body - API parameters in body
+func (client *AliyunClient) RoaGetWithApiName(apiProductCode string, apiVersion string, apiName string, pathName string, query map[string]*string, headers map[string]*string, body interface{}) (map[string]interface{}, error) {
+	return client.roaRequest("GET", apiProductCode, apiVersion, apiName, pathName, query, headers, body, true)
+}
+
+// RoaDeleteWithApiName invoking ROA API request with DELETE method
+// parameters:
+//
+//	apiProductCode: API Product code, its value equals to the gateway code of the API
+//	apiVersion - API version
+//	apiName - Request path name
+//	pathName - Request path name
+//	query - API parameters in query
+//	headers - API parameters in headers
+//	body - API parameters in body
+//	autoRetry - whether to auto retry while the runtime has a 5xx error
+func (client *AliyunClient) RoaDeleteWithApiName(apiProductCode string, apiVersion string, apiName string, pathName string, query map[string]*string, headers map[string]*string, body interface{}, autoRetry bool) (map[string]interface{}, error) {
+	return client.roaRequest("DELETE", apiProductCode, apiVersion, apiName, pathName, query, headers, body, autoRetry)
+}
+
+// RoaPatchWithApiName invoking ROA API request with PATCH method
+// parameters:
+//
+//	apiProductCode: API Product code, its value equals to the gateway code of the API
+//	apiVersion - API version
+//	apiName - Request path name
+//	pathName - Request path name
+//	query - API parameters in query
+//	headers - API parameters in headers
+//	body - API parameters in body
+//	autoRetry - whether to auto retry while the runtime has a 5xx error
+func (client *AliyunClient) RoaPatchWithApiName(apiProductCode string, apiVersion string, apiName string, pathName string, query map[string]*string, headers map[string]*string, body interface{}, autoRetry bool) (map[string]interface{}, error) {
+	return client.roaRequest("PATCH", apiProductCode, apiVersion, apiName, pathName, query, headers, body, autoRetry)
+}
+
+func (client *AliyunClient) roaRequest(method string, apiProductCode string, apiVersion string, apiName string, pathName string, query map[string]*string, headers map[string]*string, body interface{}, autoRetry bool) (map[string]interface{}, error) {
 	apiProductCode = strings.ToLower(ConvertKebabToSnake(apiProductCode))
 	endpoint, err := client.loadApiEndpoint(apiProductCode)
 	if err != nil {
@@ -2700,9 +2232,14 @@ func (client *AliyunClient) roaRequest(method string, apiProductCode string, api
 	if err != nil {
 		return nil, fmt.Errorf("unable to initialize the %s api client: %#v", apiProductCode, err)
 	}
+	var response map[string]interface{}
 	runtime := &util.RuntimeOptions{}
 	runtime.SetAutoretry(autoRetry)
-	response, err := conn.DoRequest(tea.String(apiVersion), nil, tea.String(method), tea.String("AK"), tea.String(apiName), query, headers, body, runtime)
+	if apiName != "" {
+		response, err = conn.DoRequestWithAction(tea.String(apiName), tea.String(apiVersion), nil, tea.String(method), tea.String("AK"), tea.String(pathName), query, headers, body, runtime)
+	} else {
+		response, err = conn.DoRequest(tea.String(apiVersion), nil, tea.String(method), tea.String("AK"), tea.String(pathName), query, headers, body, runtime)
+	}
 	if respBody, isExist := response["body"]; isExist && respBody != nil {
 		response = respBody.(map[string]interface{})
 	}
@@ -2816,30 +2353,4 @@ func (client *AliyunClient) GenRoaParam(action, method, version, path string) *o
 		ReqBodyType: tea.String("formData"),
 		BodyType:    tea.String("json"),
 	}
-}
-func (client *AliyunClient) NewCloudcontrolClient() (*roa.Client, error) {
-	productCode := "CloudControl"
-	endpoint := ""
-	if v, ok := client.config.Endpoints.Load(productCode); !ok || v.(string) == "" {
-		if err := client.loadEndpoint(productCode); err != nil {
-			endpoint = fmt.Sprintf("cloudcontrol.aliyuncs.com")
-			client.config.Endpoints.Store(productCode, endpoint)
-			log.Printf("[ERROR] loading %s endpoint got an error: %#v. Using the endpoint %s instead.", productCode, err, endpoint)
-		}
-	}
-	if v, ok := client.config.Endpoints.Load(productCode); ok && v.(string) != "" {
-		endpoint = v.(string)
-	}
-	if endpoint == "" {
-		return nil, fmt.Errorf("[ERROR] missing the product %s endpoint.", productCode)
-	}
-
-	sdkConfig := client.teaRoaSdkConfig
-	sdkConfig.SetEndpoint(fmt.Sprintf("%s", endpoint))
-
-	conn, err := roa.NewClient(&sdkConfig)
-	if err != nil {
-		return nil, fmt.Errorf("unable to initialize the %s client: %#v", productCode, err)
-	}
-	return conn, nil
 }
